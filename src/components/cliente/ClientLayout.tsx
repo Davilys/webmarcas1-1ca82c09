@@ -18,6 +18,7 @@ import {
   ChevronRight,
   PlusCircle,
   Shield,
+  BarChart3,
 } from 'lucide-react';
 import logo from '@/assets/webmarcas-logo.png';
 import { cn } from '@/lib/utils';
@@ -76,6 +77,14 @@ const menuItems: MenuItem[] = [
     href: '/cliente/financeiro',
     iconColor: 'text-emerald-500',
     iconBg: 'bg-emerald-100 dark:bg-emerald-900/30'
+  },
+  { 
+    icon: BarChart3, 
+    label: 'Análise Inteligente', 
+    subtitle: 'Score dos seus processos',
+    href: '/cliente/analise-inteligente',
+    iconColor: 'text-violet-500',
+    iconBg: 'bg-violet-100 dark:bg-violet-900/30'
   },
   { 
     icon: MessageSquare, 
