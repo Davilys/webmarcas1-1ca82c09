@@ -223,7 +223,7 @@ const handler = async (req: Request): Promise<Response> => {
           <tr>
             <td style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
               <p style="font-size: 12px; color: #6B7280; margin: 0;">
-                WebMarcas Patentes - CNPJ: 39.528.012/0001-29<br>
+                WebMarcas Intelligence PI - CNPJ: 39.528.012/0001-29<br>
                 Av. Prestes Maia, 241 - Centro, São Paulo - SP<br>
                 <a href="${siteUrl}" style="color: #3B82F6;">Acessar Portal</a>
               </p>

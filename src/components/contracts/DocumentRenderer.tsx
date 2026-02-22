@@ -299,7 +299,7 @@ export function DocumentRenderer({
             <div className="text-center">
               <p className="text-sm font-semibold mb-2">Assinatura autorizada:</p>
               <p className="text-sm text-gray-700 mb-4">
-                WebMarcas Patentes - CNPJ/MF sob o nº 39.528.012/0001-29
+                WebMarcas Intelligence PI - CNPJ/MF sob o nº 39.528.012/0001-29
               </p>
               <div className="border-b-2 border-black mx-auto w-64 pb-2 min-h-[4rem]">
                 {documentType === 'procuracao' ? (
@@ -393,7 +393,7 @@ export function DocumentRenderer({
 
       {/* Footer */}
       <div className="bg-gray-100 px-8 py-4 border-t text-center text-xs text-gray-500">
-        <p>WebMarcas Patentes - CNPJ: 39.528.012/0001-29</p>
+        <p>WebMarcas Intelligence PI - CNPJ: 39.528.012/0001-29</p>
         <p>Av. Brigadeiro Luís Antônio, 2696 - São Paulo - SP, CEP: 01402-000</p>
         <p>Tel: (11) 91112-0225 | juridico@webmarcas.net</p>
       </div>
@@ -616,7 +616,7 @@ export function generateDocumentPrintHTML(
   </div>
   ${blockchainSignature?.hash ? buildBlockchainCertificationHtml(blockchainSignature, verificationBase) : `
   <div class="footer">
-    <p>WebMarcas Patentes - CNPJ: 39.528.012/0001-29</p>
+    <p>WebMarcas Intelligence PI - CNPJ: 39.528.012/0001-29</p>
     <p>Av. Brigadeiro Luís Antônio, 2696 - São Paulo - SP | Tel: (11) 91112-0225 | juridico@webmarcas.net</p>
   </div>
   `}
