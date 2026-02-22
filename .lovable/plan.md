@@ -1,52 +1,53 @@
 
+# Correcao Completa do Rebrand para "WebMarcas Intelligence PI"
 
-# Correcao: Razao Social para "WebMarcas Intelligence PI"
+## Problema
 
-## Resumo
+Ainda existem ocorrencias do nome antigo em 2 lugares:
 
-Corrigir o nome da nova razao social de "WebMarcas Intelligence OS™" para **"WebMarcas Intelligence PI"** em todos os modelos de contrato e pontos de branding do sistema.
+1. **No banco de dados** -- Os templates de contrato salvos na tabela `contract_templates` ainda contem "WEB MARCAS PATENTES EIRELI" e "Web Marcas e Patentes Eireli". E por isso que a pre-visualizacao na pagina de modelos mostra o nome antigo (a imagem enviada confirma isso).
 
-## Arquivos e Alteracoes
+2. **No codigo** -- Alguns arquivos ainda usam "WebMarcas Patentes" em vez de "WebMarcas Intelligence PI".
 
-### 1. Templates de Documentos Juridicos (`src/lib/documentTemplates.ts`)
-- Distrato com multa: `WEB MARCAS PATENTES EIRELI` --> `WebMarcas Intelligence PI`
-- Distrato sem multa: `WEB MARCAS PATENTES EIRELI` --> `WebMarcas Intelligence PI`
+---
 
-### 2. Template de Contrato (`src/hooks/useContractTemplate.ts`)
-- Cabecalho do contrato: razao social da contratada
-- Bloco de assinatura: nome da contratada
+## Alteracoes
 
-### 3. Renderizadores (condicoes `.includes()` para formatacao)
-- `src/components/contracts/ContractRenderer.tsx`: atualizar deteccao do nome
-- `src/hooks/useContractPdfGenerator.ts`: atualizar deteccao do nome
-- `src/hooks/useUnifiedContractDownload.ts`: atualizar deteccao do nome
-- `supabase/functions/create-asaas-payment/index.ts`: atualizar referencia
+### 1. Banco de Dados (Migration SQL)
 
-### 4. Editor de Templates (`src/components/admin/contracts/ContractTemplateEditor.tsx`)
-- Preview do cabecalho
+Atualizar os 4 templates ativos na tabela `contract_templates`:
+- Substituir `WEB MARCAS PATENTES EIRELI` por `WebMarcas Intelligence PI`
+- Substituir `Web Marcas e Patentes Eireli` por `WebMarcas Intelligence PI`
+- Substituir `Web Marcas Patentes EIRELI` por `WebMarcas Intelligence PI`
 
-### 5. Branding do Sistema (site + paineis)
-- `index.html`: title e meta tags
-- `src/components/layout/Header.tsx`: texto do logo
-- `src/components/layout/Footer.tsx`: copyright
-- `src/components/admin/AdminLayout.tsx`: sidebar e header
-- `src/components/cliente/ClientLayout.tsx`: alt text
-- `src/contexts/LanguageContext.tsx`: strings i18n
-- `src/pages/AssinarDocumento.tsx`: footer
-- `src/components/admin/email/AIEmailAssistant.tsx`: footer de email
-- `src/components/cliente/checkout/ContractStep.tsx`: texto de aceite
-- `src/pages/admin/Configuracoes.tsx`: texto
-- `src/pages/cliente/RegistrarMarca.tsx`: footer
+Isso resolve o problema mostrado na imagem -- o preview carrega o conteudo do banco.
 
-### Nos renderizadores, manter suporte ao nome antigo para contratos ja salvos no banco (condicao com OR para `WEB MARCAS PATENTES EIRELI` e `WebMarcas Intelligence PI`).
+**Nota**: Isso NAO altera contratos ja assinados (tabela `contracts`), apenas os modelos/templates.
 
-## O que NAO muda
+### 2. Codigo -- Arquivos com nome antigo restante
 
-- CNPJ, endereco, dados juridicos do representante
-- Contratos ja assinados no banco de dados
+**`src/pages/AssinarDocumento.tsx`** (linha 525)
+- `"WebMarcas Patentes"` --> `"WebMarcas Intelligence PI"`
+
+**`src/components/contracts/DocumentRenderer.tsx`** (linhas 302, 396, 619)
+- 3 ocorrencias de `"WebMarcas Patentes"` --> `"WebMarcas Intelligence PI"`
+
+**`supabase/functions/check-signature-expiration/index.ts`** (linha 226)
+- `"WebMarcas Patentes"` --> `"WebMarcas Intelligence PI"`
+
+### 3. O que NAO muda
+
+- CNPJ permanece identico em todos os lugares
+- Endereco permanece identico
+- Contratos ja assinados na tabela `contracts` -- nao serao tocados
 - Rotas, permissoes, integracoes, APIs
-- Nenhuma tabela do banco de dados
-- Edge functions (logica)
-- Arquivos de assets (imagens/logos)
-- Nomes de variaveis internas
+- Logica dos renderizadores (as condicoes `.includes()` ja suportam ambos os nomes)
 
+---
+
+## Detalhes Tecnicos
+
+- 1 migration SQL para atualizar conteudo dos templates no banco
+- 3 arquivos de codigo editados (apenas texto)
+- 1 edge function editada e re-deployada
+- Impacto zero em logica ou funcionalidades
