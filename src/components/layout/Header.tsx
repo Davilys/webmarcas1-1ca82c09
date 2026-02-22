@@ -62,7 +62,7 @@ const Header = () => {
               className="h-9 md:h-11 w-auto shrink-0"
             />
             <span className="font-display text-lg md:text-xl font-bold">
-              Web<span className="gradient-text">Marcas</span>
+              WebMarcas <span className="gradient-text">Intelligence PI</span>
             </span>
           </a>
 

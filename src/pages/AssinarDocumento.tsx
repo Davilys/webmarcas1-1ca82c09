@@ -732,7 +732,7 @@ export default function AssinarDocumento() {
       {/* Footer */}
       <footer className="bg-white border-t mt-12 py-6">
         <div className="max-w-5xl mx-auto px-4 text-center text-sm text-gray-500">
-          <p>WebMarcas Patentes - CNPJ: 39.528.012/0001-29</p>
+          <p>WebMarcas Intelligence PI - CNPJ: 39.528.012/0001-29</p>
           <p>Av. Prestes Maia, 241 - Centro, São Paulo - SP</p>
           <p className="mt-2">
             Dúvidas? Entre em contato: (11) 91112-0225 | juridico@webmarcas.net

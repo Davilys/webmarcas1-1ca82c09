@@ -246,7 +246,7 @@ export default function RegistrarMarca() {
           <div className="px-6 pb-5 flex items-center justify-center gap-2">
             <Shield className="w-3.5 h-3.5 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">
-              Dados protegidos com criptografia SSL • WebMarcas © {new Date().getFullYear()}
+              Dados protegidos com criptografia SSL • WebMarcas Intelligence PI © {new Date().getFullYear()}
             </p>
           </div>
         </motion.div>

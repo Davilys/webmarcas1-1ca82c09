@@ -89,7 +89,7 @@ export async function generateContractPDF(
   pdf.setTextColor(55, 65, 81); // Gray text #374151
   pdf.setFontSize(9);
   pdf.setFont('helvetica', 'normal');
-  const highlightText1 = 'Os termos deste instrumento aplicam-se apenas a contratações com negociações personalizadas, tratadas diretamente com a equipe comercial da Web Marcas e Patentes Eireli.';
+  const highlightText1 = 'Os termos deste instrumento aplicam-se apenas a contratações com negociações personalizadas, tratadas diretamente com a equipe comercial da WebMarcas Intelligence PI.';
   const highlightText2 = 'Os termos aqui celebrados são adicionais ao "Contrato de Prestação de Serviços e Gestão de Pagamentos e Outras Avenças" com aceite integral no momento do envio da Proposta.';
   
   const splitText1 = pdf.splitTextToSize(highlightText1, contentWidth - 8);
@@ -164,7 +164,7 @@ export async function generateContractPDF(
     }
 
     // Company/client details - wrap long text to prevent overflow
-    if (trimmed.includes('WEB MARCAS PATENTES EIRELI') || 
+    if (trimmed.includes('WEB MARCAS PATENTES EIRELI') || trimmed.includes('WebMarcas Intelligence PI') || 
         trimmed.startsWith('CNPJ:') || 
         trimmed.startsWith('CPF:') ||
         trimmed.startsWith('CPF/CNPJ:')) {

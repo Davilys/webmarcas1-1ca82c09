@@ -40,9 +40,9 @@ const translations: Record<Language, Record<string, string>> = {
     "hero.urgency": "Oferta válida até",
     
     // Benefits Section
-    "benefits.badge": "Por que a WebMarcas?",
+    "benefits.badge": "Por que a WebMarcas Intelligence PI?",
     "benefits.title": "Por que registrar com a",
-    "benefits.titleHighlight": "WebMarcas",
+    "benefits.titleHighlight": "WebMarcas Intelligence PI",
     "benefits.subtitle": "Combinamos experiência jurídica com tecnologia para oferecer o melhor serviço de registro de marcas do Brasil.",
     "benefits.protection.title": "Proteção Nacional",
     "benefits.protection.desc": "Sua marca protegida em todo território brasileiro, impedindo que outros usem seu nome.",
@@ -158,7 +158,7 @@ const translations: Record<Language, Record<string, string>> = {
     "viability.newSearch": "Fazer nova consulta",
     
     // Footer
-    "footer.description": "Especialistas em registro de marcas no INPI. Proteja seu negócio com segurança jurídica e processo 100% online.",
+    "footer.description": "WebMarcas Intelligence PI — Especialistas em registro de marcas no INPI. Proteja seu negócio com segurança jurídica e processo 100% online.",
     "footer.quickLinks": "Links Rápidos",
     "footer.services": "Serviços",
     "footer.contact": "Contato",
@@ -177,7 +177,7 @@ const translations: Record<Language, Record<string, string>> = {
     "social.secured": "garantiu o registro da marca:",
     "social.started": "iniciou o registro da marca:",
     "social.protected": "protegeu sua marca há 1 minuto",
-    "social.stat1": "+10.000 marcas já foram registradas na WebMarcas",
+    "social.stat1": "+10.000 marcas já foram registradas na WebMarcas Intelligence PI",
     "social.stat2": "98% de taxa de sucesso em registros",
     "social.stat3": "Mais de 500 marcas registradas este mês",
     "social.now": "Agora mesmo",
@@ -216,9 +216,9 @@ const translations: Record<Language, Record<string, string>> = {
     "hero.urgency": "Offer valid until",
     
     // Benefits Section
-    "benefits.badge": "Why WebMarcas?",
+    "benefits.badge": "Why WebMarcas Intelligence PI?",
     "benefits.title": "Why register with",
-    "benefits.titleHighlight": "WebMarcas",
+    "benefits.titleHighlight": "WebMarcas Intelligence PI",
     "benefits.subtitle": "We combine legal expertise with technology to offer the best trademark registration service in Brazil.",
     "benefits.protection.title": "National Protection",
     "benefits.protection.desc": "Your brand protected throughout Brazilian territory, preventing others from using your name.",
@@ -334,7 +334,7 @@ const translations: Record<Language, Record<string, string>> = {
     "viability.newSearch": "New search",
     
     // Footer
-    "footer.description": "Specialists in INPI trademark registration. Protect your business with legal security and 100% online process.",
+    "footer.description": "WebMarcas Intelligence PI — Specialists in INPI trademark registration. Protect your business with legal security and 100% online process.",
     "footer.quickLinks": "Quick Links",
     "footer.services": "Services",
     "footer.contact": "Contact",
@@ -353,7 +353,7 @@ const translations: Record<Language, Record<string, string>> = {
     "social.secured": "secured the registration of:",
     "social.started": "started registering the brand:",
     "social.protected": "protected their brand 1 minute ago",
-    "social.stat1": "+10,000 brands already registered at WebMarcas",
+    "social.stat1": "+10,000 brands already registered at WebMarcas Intelligence PI",
     "social.stat2": "98% success rate in registrations",
     "social.stat3": "Over 500 brands registered this month",
     "social.now": "Just now",
@@ -392,9 +392,9 @@ const translations: Record<Language, Record<string, string>> = {
     "hero.urgency": "Oferta válida hasta",
     
     // Benefits Section
-    "benefits.badge": "¿Por qué WebMarcas?",
+    "benefits.badge": "¿Por qué WebMarcas Intelligence PI?",
     "benefits.title": "¿Por qué registrar con",
-    "benefits.titleHighlight": "WebMarcas",
+    "benefits.titleHighlight": "WebMarcas Intelligence PI",
     "benefits.subtitle": "Combinamos experiencia jurídica con tecnología para ofrecer el mejor servicio de registro de marcas de Brasil.",
     "benefits.protection.title": "Protección Nacional",
     "benefits.protection.desc": "Tu marca protegida en todo el territorio brasileño, impidiendo que otros usen tu nombre.",
@@ -510,7 +510,7 @@ const translations: Record<Language, Record<string, string>> = {
     "viability.newSearch": "Nueva búsqueda",
     
     // Footer
-    "footer.description": "Especialistas en registro de marcas en INPI. Protege tu negocio con seguridad jurídica y proceso 100% online.",
+    "footer.description": "WebMarcas Intelligence PI — Especialistas en registro de marcas en INPI. Protege tu negocio con seguridad jurídica y proceso 100% online.",
     "footer.quickLinks": "Enlaces Rápidos",
     "footer.services": "Servicios",
     "footer.contact": "Contacto",
@@ -529,7 +529,7 @@ const translations: Record<Language, Record<string, string>> = {
     "social.secured": "aseguró el registro de la marca:",
     "social.started": "inició el registro de la marca:",
     "social.protected": "protegió su marca hace 1 minuto",
-    "social.stat1": "+10.000 marcas ya registradas en WebMarcas",
+    "social.stat1": "+10.000 marcas ya registradas en WebMarcas Intelligence PI",
     "social.stat2": "98% de tasa de éxito en registros",
     "social.stat3": "Más de 500 marcas registradas este mes",
     "social.now": "Ahora mismo",

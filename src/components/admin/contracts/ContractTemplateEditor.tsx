@@ -625,7 +625,7 @@ export function ContractTemplateEditor({
                   >
                     {/* Document header */}
                     <div className="bg-gradient-to-r from-primary/5 to-blue-500/5 border-b border-border/30 px-12 py-6 text-center">
-                      <div className="text-xs font-semibold text-primary/70 tracking-widest uppercase mb-1">Web Marcas Patentes EIRELI</div>
+                      <div className="text-xs font-semibold text-primary/70 tracking-widest uppercase mb-1">WebMarcas Intelligence PI</div>
                       <div className="text-[10px] text-muted-foreground">CNPJ: 39.528.012/0001-29</div>
                     </div>
                     <div

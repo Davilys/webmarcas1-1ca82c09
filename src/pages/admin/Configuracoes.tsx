@@ -322,7 +322,7 @@ export default function AdminConfiguracoes() {
                 </div>
                 <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
                   <Cpu className="h-3.5 w-3.5" />
-                  Central de controle e configuração do CRM WebMarcas
+                  Central de controle e configuração do CRM WebMarcas Intelligence PI
                 </p>
               </div>
             </div>

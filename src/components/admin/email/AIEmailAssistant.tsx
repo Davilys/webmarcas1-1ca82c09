@@ -59,7 +59,7 @@ const WEBMARCAS_FOOTER = `
 
 ---
 🌐 www.webmarcas.net  |  📱 WhatsApp: (11) 91112-0225
-Equipe WebMarcas | Propriedade Intelectual`;
+Equipe WebMarcas Intelligence PI`;
 
 const appendFooter = (text: string): string => {
   // Avoid duplicating footer if already present

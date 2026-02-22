@@ -39,7 +39,7 @@ São Paulo, ${dataHoje}.`;
 export function generateDistratoComMultaContent(vars: DocumentVariables): string {
   const dataHoje = formatDateExtended(new Date());
   
-  return `I) WEB MARCAS PATENTES EIRELI, com sede na cidade de SÃO PAULO, Estado de SP, na AVENIDA PRESTES MAIA, Nº: 241, CEP:01031-001, inscrita no CNPJ/MF sob o Nº:39.528.012/0001-29, na cidade de SÃO PAULO, Estado de SP (" WebMarcas ");
+  return `I) WebMarcas Intelligence PI, com sede na cidade de SÃO PAULO, Estado de SP, na AVENIDA PRESTES MAIA, Nº: 241, CEP:01031-001, inscrita no CNPJ/MF sob o Nº:39.528.012/0001-29, na cidade de SÃO PAULO, Estado de SP (" WebMarcas ");
 
 Pelo presente instrumento as partes abaixo qualificadas:
 
@@ -65,7 +65,7 @@ São Paulo, ${dataHoje}.`;
 export function generateDistratoSemMultaContent(vars: DocumentVariables): string {
   const dataHoje = formatDateExtended(new Date());
   
-  return `I) WEB MARCAS PATENTES EIRELI, com sede na cidade de SÃO PAULO, Estado de SP, na AVENIDA PRESTES MAIA, Nº: 241, CEP:01031-001, inscrita no CNPJ/MF sob o Nº:39.528.012/0001-29, na cidade de SÃO PAULO, Estado de SP (" WebMarcas ");
+  return `I) WebMarcas Intelligence PI, com sede na cidade de SÃO PAULO, Estado de SP, na AVENIDA PRESTES MAIA, Nº: 241, CEP:01031-001, inscrita no CNPJ/MF sob o Nº:39.528.012/0001-29, na cidade de SÃO PAULO, Estado de SP (" WebMarcas ");
 
 Pelo presente instrumento as partes abaixo qualificadas:
 

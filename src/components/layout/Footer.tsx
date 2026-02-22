@@ -37,7 +37,7 @@ const Footer = () => {
                 className="h-10 w-auto mix-blend-multiply dark:mix-blend-screen dark:invert"
               />
               <span className="font-display text-xl font-bold">
-                Web<span className="gradient-text">Marcas</span>
+                WebMarcas <span className="gradient-text">Intelligence PI</span>
               </span>
             </a>
             <p className="text-muted-foreground text-sm leading-relaxed mb-4">
@@ -128,7 +128,7 @@ const Footer = () => {
         <div className="mt-12 pt-8 border-t border-border">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground text-center md:text-left">
-              © {new Date().getFullYear()} WebMarcas. {t("footer.rights")}
+              © {new Date().getFullYear()} WebMarcas Intelligence PI. {t("footer.rights")}
             </p>
             <div className="flex items-center gap-6">
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">

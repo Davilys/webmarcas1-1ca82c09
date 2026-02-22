@@ -195,7 +195,7 @@ export function ContractStep({
         <Label htmlFor="accept" className="text-sm leading-relaxed cursor-pointer">
           <span className="font-semibold">Li e aceito os termos do contrato</span> de prestação de serviços.
           Declaro que todas as informações fornecidas são verdadeiras e autorizo a
-          WebMarcas a prosseguir com o registro da marca junto ao INPI.
+          WebMarcas Intelligence PI a prosseguir com o registro da marca junto ao INPI.
         </Label>
       </motion.div>
 

@@ -291,7 +291,7 @@ function AdminSidebar() {
             <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/10">
               <Shield className="h-3.5 w-3.5 text-primary" />
             </div>
-            <span className="font-medium text-muted-foreground">Painel do CEO</span>
+            <span className="font-medium text-muted-foreground">WebMarcas Intelligence PI</span>
           </div>
         )}
       </SidebarHeader>
@@ -455,10 +455,10 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
                     backgroundClip: 'text',
                   }}
                 >
-                  Painel CEO
+                  Intelligence PI
                 </span>
                 <span className="text-[8px] md:text-[9px] font-semibold tracking-[0.2em] uppercase text-muted-foreground/60">
-                  ADM Master · v2026
+                  WebMarcas · v2026
                 </span>
               </div>
 

@@ -116,7 +116,7 @@ export function ContractRenderer({
       }
 
       // Company name and identification details (after party headers)
-      if (trimmedLine.includes('WEB MARCAS PATENTES EIRELI') || 
+      if (trimmedLine.includes('WEB MARCAS PATENTES EIRELI') || trimmedLine.includes('WebMarcas Intelligence PI') || 
           trimmedLine.startsWith('CNPJ:') || 
           trimmedLine.startsWith('CPF:') ||
           trimmedLine.startsWith('CPF/CNPJ:')) {
@@ -228,8 +228,8 @@ export function ContractRenderer({
                   color: '#374151'
                 }}
               >
-                <p className="mb-3">
-                  Os termos deste instrumento aplicam-se apenas a contratações com negociações personalizadas, tratadas diretamente com a equipe comercial da Web Marcas e Patentes Eireli.
+                 <p className="mb-3">
+                   Os termos deste instrumento aplicam-se apenas a contratações com negociações personalizadas, tratadas diretamente com a equipe comercial da WebMarcas Intelligence PI.
                 </p>
                 <p>
                   Os termos aqui celebrados são adicionais ao "Contrato de Prestação de Serviços e Gestão de Pagamentos e Outras Avenças" com aceite integral no momento do envio da Proposta.
@@ -421,7 +421,7 @@ export function generateContractPrintHTML(
           return `<p style="font-size: 11px; font-weight: bold; text-align: center; margin-top: 24px; margin-bottom: 4px;">${trimmed}</p>`;
         }
         
-        if (trimmed.includes('WEB MARCAS PATENTES EIRELI') || 
+        if (trimmed.includes('WEB MARCAS PATENTES EIRELI') || trimmed.includes('WebMarcas Intelligence PI') || 
             trimmed.startsWith('CNPJ:') || 
             trimmed.startsWith('CPF:') ||
             trimmed.startsWith('CPF/CNPJ:')) {
