@@ -1,51 +1,52 @@
 
-# Plano: Corrigir Nomenclatura dos Paineis
 
-## Entendimento
+# Correcao: Razao Social para "WebMarcas Intelligence PI"
 
-Existem 3 paineis no sistema:
-1. **Painel do Cliente** -- portal do cliente (nao muda)
-2. **Painel do ADM** -- painel do usuario administrador (atual "CRM WebMarcas" no header para admins comuns)
-3. **Painel do CEO** -- painel do ADM Master (o branding/header do layout deve mostrar "Painel do CEO")
+## Resumo
 
-O erro anterior foi renomear o item de menu "Dashboard" para "Painel CEO". O correto e mudar o **branding do layout** (header e sidebar), nao o nome da pagina Dashboard.
+Corrigir o nome da nova razao social de "WebMarcas Intelligence OS™" para **"WebMarcas Intelligence PI"** em todos os modelos de contrato e pontos de branding do sistema.
 
----
+## Arquivos e Alteracoes
 
-## Alteracoes
+### 1. Templates de Documentos Juridicos (`src/lib/documentTemplates.ts`)
+- Distrato com multa: `WEB MARCAS PATENTES EIRELI` --> `WebMarcas Intelligence PI`
+- Distrato sem multa: `WEB MARCAS PATENTES EIRELI` --> `WebMarcas Intelligence PI`
 
-### 1. Sidebar (`AdminLayout.tsx`)
+### 2. Template de Contrato (`src/hooks/useContractTemplate.ts`)
+- Cabecalho do contrato: razao social da contratada
+- Bloco de assinatura: nome da contratada
 
-- **Menu item Dashboard**: reverter de `'🧠 Painel CEO'` para `'Dashboard'` (linha 70)
-- **Sidebar header label**: mudar `'CRM WebMarcas'` (linha 294) para `'Painel do CEO'`
-- **Header branding "WebMarcas"** (linha 458): mudar para `'Painel CEO'`
-- **Header subtitulo "CRM · v2026"** (linha 460-461): mudar para `'ADM Master · v2026'`
+### 3. Renderizadores (condicoes `.includes()` para formatacao)
+- `src/components/contracts/ContractRenderer.tsx`: atualizar deteccao do nome
+- `src/hooks/useContractPdfGenerator.ts`: atualizar deteccao do nome
+- `src/hooks/useUnifiedContractDownload.ts`: atualizar deteccao do nome
+- `supabase/functions/create-asaas-payment/index.ts`: atualizar referencia
 
-### 2. Mobile Bottom Nav (`MobileBottomNav.tsx`)
+### 4. Editor de Templates (`src/components/admin/contracts/ContractTemplateEditor.tsx`)
+- Preview do cabecalho
 
-- **Label "CEO"** (linha 48): reverter para `'Dashboard'`
+### 5. Branding do Sistema (site + paineis)
+- `index.html`: title e meta tags
+- `src/components/layout/Header.tsx`: texto do logo
+- `src/components/layout/Footer.tsx`: copyright
+- `src/components/admin/AdminLayout.tsx`: sidebar e header
+- `src/components/cliente/ClientLayout.tsx`: alt text
+- `src/contexts/LanguageContext.tsx`: strings i18n
+- `src/pages/AssinarDocumento.tsx`: footer
+- `src/components/admin/email/AIEmailAssistant.tsx`: footer de email
+- `src/components/cliente/checkout/ContractStep.tsx`: texto de aceite
+- `src/pages/admin/Configuracoes.tsx`: texto
+- `src/pages/cliente/RegistrarMarca.tsx`: footer
 
-### 3. Dashboard page (`Dashboard.tsx`)
-
-- Se houver titulo `"Painel CEO"` na pagina, reverter para `"Dashboard"` (manter a secao de Inteligencia Executiva como esta)
-
----
+### Nos renderizadores, manter suporte ao nome antigo para contratos ja salvos no banco (condicao com OR para `WEB MARCAS PATENTES EIRELI` e `WebMarcas Intelligence PI`).
 
 ## O que NAO muda
 
-- Nenhuma rota alterada
-- Nenhuma tabela alterada
-- Nenhuma permissao alterada
-- Secao "Inteligencia Executiva" do dashboard permanece intacta
-- Painel do cliente permanece identico
+- CNPJ, endereco, dados juridicos do representante
+- Contratos ja assinados no banco de dados
+- Rotas, permissoes, integracoes, APIs
+- Nenhuma tabela do banco de dados
+- Edge functions (logica)
+- Arquivos de assets (imagens/logos)
+- Nomes de variaveis internas
 
----
-
-## Detalhes Tecnicos
-
-Arquivos editados (somente texto/labels):
-- `src/components/admin/AdminLayout.tsx` -- 4 alteracoes de texto
-- `src/components/admin/MobileBottomNav.tsx` -- 1 alteracao de texto
-- `src/pages/admin/Dashboard.tsx` -- verificar e reverter titulo se necessario
-
-Impacto zero em logica, banco de dados ou funcionalidades existentes.
