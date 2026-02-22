@@ -17,64 +17,94 @@ const FEATURE_CARDS = [
 ];
 
 // ─── Commercial Intelligence Module ─────────────────────
-function CommercialIntelligenceModule({ classes, businessArea }: { classes?: number[]; businessArea: string }) {
-  const [score, setScore] = useState<number | null>(null);
-  const [avgTime, setAvgTime] = useState(0);
-  const [successRate, setSuccessRate] = useState(0);
-  const [loading, setLoading] = useState(true);
+interface CommercialIntelligenceProps {
+  classes?: number[];
+  businessArea: string;
+  inpiTotal?: number;
+  cnpjMatches?: { nome: string; cnpj: string; situacao: string }[];
+  socialMatches?: { plataforma: string; encontrado: boolean; url?: string }[];
+}
 
-  useEffect(() => {
-    async function fetchScore() {
-      setLoading(true);
-      try {
-        const classe = classes && classes.length > 0 ? `NCL ${classes[0]}` : businessArea || null;
-        const { data } = await supabase.rpc('calculate_predictive_score', { p_classe: classe });
-        const d = data as any;
-        if (d) {
-          setScore(Math.round(d.score ?? 50));
-          setAvgTime(Math.round(d.tempo_medio_dias ?? 0));
-          setSuccessRate(Math.round(d.taxa_deferimento ?? 0));
-        } else {
-          setScore(50);
-        }
-      } catch {
-        setScore(50);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchScore();
-  }, [classes, businessArea]);
+function CommercialIntelligenceModule({ classes, businessArea, inpiTotal = 0, cnpjMatches = [], socialMatches = [] }: CommercialIntelligenceProps) {
+  // ── Score 1: Potencial de Deferimento ──
+  // Alto por padrão. Só cai se houver marcas registradas no INPI.
+  const hasInpiConflict = inpiTotal > 0;
+  const deferimentScore = hasInpiConflict
+    ? Math.max(15, 90 - (inpiTotal * 18)) // cada marca encontrada reduz ~18 pontos
+    : 92; // sem conflito INPI = alto potencial
 
-  if (loading) {
-    return (
-      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 mb-6 animate-pulse">
-        <div className="h-6 w-48 bg-muted/40 rounded mb-4" />
-        <div className="h-4 w-full bg-muted/30 rounded mb-2" />
-        <div className="h-4 w-3/4 bg-muted/30 rounded" />
-      </div>
-    );
-  }
+  // ── Score 2: Risco de Concorrente Registrar ──
+  // Baseado em empresas (CNPJ) + presença na internet
+  const activeCnpjs = cnpjMatches.filter(m => m.situacao?.toLowerCase() === 'ativa').length;
+  const socialPresence = socialMatches.filter(s => s.encontrado).length;
+  const competitorSignals = activeCnpjs + socialPresence;
+  const competitorRiskScore = competitorSignals === 0
+    ? 15 // baixo risco
+    : Math.min(95, 30 + (activeCnpjs * 25) + (socialPresence * 12));
 
-  const s = score ?? 50;
-  const riskLabel = s >= 80 ? 'Baixo' : s >= 60 ? 'Médio' : 'Alto';
-  const riskColor = s >= 80 ? 'text-emerald-500' : s >= 60 ? 'text-amber-500' : 'text-red-500';
-  const barColor = s >= 80 ? 'from-emerald-500 to-green-400' : s >= 60 ? 'from-amber-500 to-orange-400' : 'from-red-500 to-rose-400';
-  const borderColor = s >= 80 ? 'border-emerald-500/30' : s >= 60 ? 'border-amber-500/30' : 'border-red-500/30';
-  const bgGlow = s >= 80 ? 'bg-emerald-500/5' : s >= 60 ? 'bg-amber-500/5' : 'bg-red-500/5';
+  // Labels Score 1
+  const d = deferimentScore;
+  const dLabel = d >= 80 ? 'Alto' : d >= 60 ? 'Médio' : 'Baixo';
+  const dColor = d >= 80 ? 'text-emerald-500' : d >= 60 ? 'text-amber-500' : 'text-red-500';
+  const dBarColor = d >= 80 ? 'from-emerald-500 to-green-400' : d >= 60 ? 'from-amber-500 to-orange-400' : 'from-red-500 to-rose-400';
 
-  const message = s >= 80
+  // Labels Score 2
+  const c = competitorRiskScore;
+  const cLabel = c >= 70 ? 'Alto' : c >= 40 ? 'Médio' : 'Baixo';
+  const cColor = c >= 70 ? 'text-red-500' : c >= 40 ? 'text-amber-500' : 'text-emerald-500';
+  const cBarColor = c >= 70 ? 'from-red-500 to-rose-400' : c >= 40 ? 'from-amber-500 to-orange-400' : 'from-emerald-500 to-green-400';
+
+  // Overall border/bg based on worst scenario
+  const worstScore = Math.min(d, 100 - c); // lower = worse
+  const borderColor = worstScore >= 60 ? 'border-emerald-500/30' : worstScore >= 30 ? 'border-amber-500/30' : 'border-red-500/30';
+  const bgGlow = worstScore >= 60 ? 'bg-emerald-500/5' : worstScore >= 30 ? 'bg-amber-500/5' : 'bg-red-500/5';
+
+  // Dynamic messages
+  const deferimentMessage = d >= 80
     ? 'Alto potencial de deferimento. Recomendamos protocolar imediatamente.'
-    : s >= 60
+    : d >= 60
     ? 'Marca viável, porém o registro imediato reduz riscos futuros.'
-    : 'Recomendamos avaliação estratégica do nome antes do protocolo.';
+    : 'Foram encontradas marcas similares no INPI. Recomendamos avaliação estratégica do nome antes do protocolo.';
+
+  const competitorMessage = c >= 70
+    ? `⚠️ Alto risco de outra empresa registrar! ${activeCnpjs > 0 ? `${activeCnpjs} empresa(s) ativa(s) com nome similar encontrada(s).` : ''} ${socialPresence > 0 ? `Presença detectada em ${socialPresence} rede(s) social(is).` : ''} Registre primeiro!`
+    : c >= 40
+    ? `Existem sinais de uso por terceiros. O registro antecipado é recomendado para garantir exclusividade.`
+    : 'Baixo risco concorrencial detectado. Momento ideal para garantir a marca.';
+
+  // Gauge component
+  const ScoreGauge = ({ value, color, label, sublabel }: { value: number; color: string; label: string; sublabel: string }) => (
+    <div className="flex items-center gap-3">
+      <div className="relative w-16 h-16">
+        <svg width="64" height="64" className="-rotate-90">
+          <circle cx="32" cy="32" r="26" fill="none" stroke="hsl(var(--muted))" strokeWidth="5" />
+          <motion.circle
+            cx="32" cy="32" r="26" fill="none"
+            stroke={color}
+            strokeWidth="5" strokeLinecap="round"
+            strokeDasharray={2 * Math.PI * 26}
+            initial={{ strokeDashoffset: 2 * Math.PI * 26 }}
+            animate={{ strokeDashoffset: 2 * Math.PI * 26 * (1 - value / 100) }}
+            transition={{ duration: 1.2, ease: 'easeOut' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-lg font-black" style={{ color }}>{value}</span>
+        </div>
+      </div>
+      <div>
+        <p className="text-sm font-bold">{label}</p>
+        <p className="text-xs font-semibold" style={{ color }}>{sublabel}</p>
+      </div>
+    </div>
+  );
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
-      className={`rounded-2xl border ${borderColor} ${bgGlow} p-5 md:p-6 mb-6 space-y-4`}
+      className={`rounded-2xl border ${borderColor} ${bgGlow} p-5 md:p-6 mb-6 space-y-5`}
     >
       {/* Header */}
       <div className="flex items-center gap-2.5">
@@ -87,78 +117,80 @@ function CommercialIntelligenceModule({ classes, businessArea }: { classes?: num
         </div>
       </div>
 
-      {/* Score + Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Score */}
-        <div className="flex items-center gap-3">
-          <div className="relative w-16 h-16">
-            <svg width="64" height="64" className="-rotate-90">
-              <circle cx="32" cy="32" r="26" fill="none" stroke="hsl(var(--muted))" strokeWidth="5" />
-              <motion.circle
-                cx="32" cy="32" r="26" fill="none"
-                stroke={s >= 80 ? '#10b981' : s >= 60 ? '#f59e0b' : '#ef4444'}
-                strokeWidth="5" strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 26}
-                initial={{ strokeDashoffset: 2 * Math.PI * 26 }}
-                animate={{ strokeDashoffset: 2 * Math.PI * 26 * (1 - s / 100) }}
-                transition={{ duration: 1.2, ease: 'easeOut' }}
+      {/* ── Score 1: Potencial de Deferimento ── */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <TrendingUp className="h-4 w-4 text-blue-500" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Potencial de Deferimento</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+          <ScoreGauge
+            value={d}
+            color={d >= 80 ? '#10b981' : d >= 60 ? '#f59e0b' : '#ef4444'}
+            label="Score de Deferimento"
+            sublabel={`Potencial ${dLabel}`}
+          />
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] text-muted-foreground">Potencial</span>
+              <span className={`text-xs font-bold ${dColor}`}>{d}/100</span>
+            </div>
+            <div className="h-2.5 w-full rounded-full bg-muted/40 overflow-hidden">
+              <motion.div
+                className={`h-full rounded-full bg-gradient-to-r ${dBarColor}`}
+                initial={{ width: 0 }}
+                animate={{ width: `${d}%` }}
+                transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
               />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className={`text-lg font-black ${riskColor}`}>{s}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              {hasInpiConflict ? `${inpiTotal} marca(s) similar(es) encontrada(s) no INPI` : 'Nenhuma marca idêntica encontrada no INPI'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-card/60 border border-border/30">
+          <Target className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+          <p className="text-sm text-foreground leading-relaxed">{deferimentMessage}</p>
+        </div>
+      </div>
+
+      {/* ── Score 2: Risco de Concorrente Registrar ── */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Risco de Concorrente Registrar</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+          <ScoreGauge
+            value={c}
+            color={c >= 70 ? '#ef4444' : c >= 40 ? '#f59e0b' : '#10b981'}
+            label="Risco Concorrencial"
+            sublabel={`Risco ${cLabel}`}
+          />
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] text-muted-foreground">Nível de risco</span>
+              <span className={`text-xs font-bold ${cColor}`}>{c}/100</span>
+            </div>
+            <div className="h-2.5 w-full rounded-full bg-muted/40 overflow-hidden">
+              <motion.div
+                className={`h-full rounded-full bg-gradient-to-r ${cBarColor}`}
+                initial={{ width: 0 }}
+                animate={{ width: `${c}%` }}
+                transition={{ duration: 1, ease: 'easeOut', delay: 0.5 }}
+              />
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1.5 space-y-0.5">
+              {activeCnpjs > 0 && <p>🏢 {activeCnpjs} empresa(s) ativa(s) com nome similar</p>}
+              {socialPresence > 0 && <p>🌐 Presença em {socialPresence} rede(s) social(is)</p>}
+              {competitorSignals === 0 && <p>✅ Nenhum sinal concorrencial detectado</p>}
             </div>
           </div>
-          <div>
-            <p className="text-sm font-bold">Score Comercial</p>
-            <p className={`text-xs font-semibold ${riskColor}`}>Risco {riskLabel}</p>
-          </div>
         </div>
-
-        {/* Success Rate */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-500/10">
-            <TrendingUp className="h-5 w-5 text-blue-500" />
-          </div>
-          <div>
-            <p className="text-sm font-bold">{successRate > 0 ? `${successRate}%` : '—'}</p>
-            <p className="text-[11px] text-muted-foreground">Taxa de deferimento</p>
-          </div>
+        <div className={`flex items-start gap-2.5 p-3 rounded-xl border ${c >= 70 ? 'bg-red-500/5 border-red-500/20' : c >= 40 ? 'bg-amber-500/5 border-amber-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
+          <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${cColor}`} />
+          <p className="text-sm text-foreground leading-relaxed">{competitorMessage}</p>
         </div>
-
-        {/* Avg Time */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/10">
-            <Clock className="h-5 w-5 text-amber-500" />
-          </div>
-          <div>
-            <p className="text-sm font-bold">{avgTime > 0 ? `~${avgTime} dias` : '—'}</p>
-            <p className="text-[11px] text-muted-foreground">Tempo médio estimado</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Progress Bar */}
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] text-muted-foreground">Potencial de deferimento</span>
-          <span className={`text-xs font-bold ${riskColor}`}>{s}/100</span>
-        </div>
-        <div className="h-2.5 w-full rounded-full bg-muted/40 overflow-hidden">
-          <motion.div
-            className={`h-full rounded-full bg-gradient-to-r ${barColor}`}
-            initial={{ width: 0 }}
-            animate={{ width: `${s}%` }}
-            transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
-          />
-        </div>
-      </div>
-
-      {/* Strategic Observation */}
-      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-card/60 border border-border/30">
-        <Target className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-        <p className="text-sm text-foreground leading-relaxed">
-          <strong>Observação estratégica:</strong> {message}
-        </p>
       </div>
 
       {/* Legal Disclaimer */}
@@ -648,6 +680,9 @@ const ViabilitySearchSection = () => {
                 <CommercialIntelligenceModule
                   classes={result.classes}
                   businessArea={businessArea}
+                  inpiTotal={result.inpiData?.totalResultados ?? 0}
+                  cnpjMatches={result.cnpjData?.matches ?? []}
+                  socialMatches={result.internetData?.socialMatches ?? []}
                 />
               )}
 
