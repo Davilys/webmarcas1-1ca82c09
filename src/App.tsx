@@ -30,6 +30,7 @@ import ClienteStatusPedido from "./pages/cliente/StatusPedido";
 import ClientePedidoConfirmado from "./pages/cliente/PedidoConfirmado";
 import ClienteRecuperarSenha from "./pages/cliente/RecuperarSenha";
 import ClienteRedefinirSenha from "./pages/cliente/RedefinirSenha";
+import ClienteAnaliseInteligente from "./pages/cliente/AnaliseInteligente";
 
 // Admin pages
 import AdminLogin from "./pages/admin/Login";
@@ -86,6 +87,7 @@ const App = () => (
               <Route path="/cliente/pedido-confirmado" element={<ClientePedidoConfirmado />} />
               <Route path="/cliente/recuperar-senha" element={<ClienteRecuperarSenha />} />
               <Route path="/cliente/redefinir-senha" element={<ClienteRedefinirSenha />} />
+              <Route path="/cliente/analise-inteligente" element={<ClienteAnaliseInteligente />} />
               {/* Painel Administrativo */}
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
