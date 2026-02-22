@@ -67,8 +67,8 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { 
     icon: LayoutDashboard, 
-    label: 'Dashboard', 
-    subtitle: 'Métricas e relatórios',
+    label: '🧠 Painel CEO', 
+    subtitle: 'Inteligência executiva',
     href: '/admin/dashboard',
     iconColor: 'text-blue-500',
     iconBg: 'bg-blue-100 dark:bg-blue-900/30',

@@ -7,6 +7,7 @@ import { BusinessSectorChart } from '@/components/admin/dashboard/BusinessSector
 import { ConversionFunnel } from '@/components/admin/dashboard/ConversionFunnel';
 import { LeadSourceChart } from '@/components/admin/dashboard/LeadSourceChart';
 import { RecentActivity } from '@/components/admin/dashboard/RecentActivity';
+import { CEOIntelligenceSection } from '@/components/admin/dashboard/CEOIntelligenceSection';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Users, FileText, TrendingUp, Target, CreditCard,
@@ -594,7 +595,7 @@ export default function AdminDashboard() {
                         transition={{ duration: 1.4, repeat: Infinity }}
                         className="w-1.5 h-1.5 rounded-full bg-primary"
                       />
-                      CRM WebMarcas · Sistema Operacional
+                      🧠 Painel CEO · Inteligência Executiva
                     </div>
                   </motion.div>
 
@@ -620,7 +621,7 @@ export default function AdminDashboard() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.4 }}
                   >
-                    Monitoramento em tempo real · Todos os sistemas operacionais
+                    Visão estratégica em tempo real · Inteligência para decisões
                   </motion.p>
                 </div>
 
@@ -740,6 +741,9 @@ export default function AdminDashboard() {
               </motion.div>
             ))}
           </div>
+
+          {/* ── INTELIGÊNCIA EXECUTIVA CEO ──────── */}
+          <CEOIntelligenceSection />
 
           {/* ── FOOTER STATUS BAR ──────────────── */}
           <motion.div
