@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Search, AlertCircle, CheckCircle, AlertTriangle, ArrowRight, MessageCircle, ShieldX, Printer, Shield, Zap, TrendingUp, Globe, Building2, Brain, Clock, Target, BarChart3 } from "lucide-react";
-import { motion } from "framer-motion";
+import { Search, AlertCircle, CheckCircle, AlertTriangle, ArrowRight, MessageCircle, ShieldX, Printer, Shield, Zap, TrendingUp, Globe, Building2, Brain, Clock, Target, BarChart3, Database, Cpu, ScanLine, FileSearch, Lock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +16,106 @@ const FEATURE_CARDS = [
   { icon: Zap, label: "Tempo Real", sub: "Base oficial INPI" },
   { icon: TrendingUp, label: "Laudo Técnico", sub: "IA especializada" },
 ];
+
+// ─── Futuristic Search Animation ─────────────────────
+function INPISearchAnimation({ brandName }: { brandName: string }) {
+  const [currentPhase, setCurrentPhase] = useState(0);
+  const [progress, setProgress] = useState(0);
+
+  const phases = [
+    { label: "Conectando ao INPI", icon: Globe, detail: "Estabelecendo conexão segura..." },
+    { label: "Varrendo base de marcas", icon: Database, detail: "Consultando registros oficiais..." },
+    { label: "Buscando CNPJs similares", icon: Building2, detail: "Verificando colidência empresarial..." },
+    { label: "Analisando presença web", icon: ScanLine, detail: "Redes sociais e internet..." },
+    { label: "Processando com IA jurídica", icon: Cpu, detail: "Gerando laudo especializado..." },
+    { label: "Finalizando laudo técnico", icon: FileSearch, detail: "Compilando resultado final..." },
+  ];
+
+  useEffect(() => {
+    const totalDuration = 5000;
+    const phaseInterval = totalDuration / phases.length;
+    let elapsed = 0;
+    const timer = setInterval(() => {
+      elapsed += 60;
+      setProgress(Math.min((elapsed / totalDuration) * 100, 98));
+      setCurrentPhase(Math.min(Math.floor(elapsed / phaseInterval), phases.length - 1));
+      if (elapsed >= totalDuration) clearInterval(timer);
+    }, 60);
+    return () => clearInterval(timer);
+  }, []);
+
+  const CurrentIcon = phases[currentPhase].icon;
+
+  return (
+    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}
+      className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm shadow-md p-8 space-y-8">
+      <div className="flex flex-col items-center gap-6">
+        <div className="relative flex items-center justify-center w-36 h-36">
+          <motion.div className="absolute inset-0 rounded-full border-2 border-dashed border-primary/30" animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: "linear" }} />
+          <motion.div className="absolute inset-3 rounded-full border border-primary/50" animate={{ rotate: -360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} />
+          <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 144 144">
+            <circle cx="72" cy="72" r="64" fill="none" stroke="hsl(var(--primary)/0.1)" strokeWidth="4" />
+            <motion.circle cx="72" cy="72" r="64" fill="none" stroke="hsl(var(--primary))" strokeWidth="4" strokeLinecap="round"
+              strokeDasharray={`${2 * Math.PI * 64}`}
+              style={{ strokeDashoffset: `${2 * Math.PI * 64 * (1 - progress / 100)}`, filter: "drop-shadow(0 0 6px hsl(var(--primary)/0.8))" }} />
+          </svg>
+          <motion.div className="absolute inset-6 rounded-full bg-primary/5" animate={{ scale: [1, 1.15, 1], opacity: [0.3, 0.7, 0.3] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} />
+          <div className="relative z-10 flex flex-col items-center gap-1">
+            <AnimatePresence mode="wait">
+              <motion.div key={currentPhase} initial={{ scale: 0.5, opacity: 0, y: 5 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.5, opacity: 0, y: -5 }} transition={{ duration: 0.3 }}>
+                <CurrentIcon className="w-8 h-8 text-primary" />
+              </motion.div>
+            </AnimatePresence>
+            <span className="text-xs font-bold text-primary tabular-nums">{Math.round(progress)}%</span>
+          </div>
+        </div>
+        <div className="text-center space-y-1">
+          <p className="text-xs text-muted-foreground uppercase tracking-widest">Consultando</p>
+          <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+            <motion.span className="w-1.5 h-1.5 rounded-full bg-primary" animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 1, repeat: Infinity }} />
+            <span className="text-sm font-bold text-primary tracking-wider">{brandName.toUpperCase()}</span>
+            <Lock className="w-3 h-3 text-primary/60" />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {phases.map((phase, i) => {
+          const PhaseIcon = phase.icon;
+          const isDone = i < currentPhase;
+          const isActive = i === currentPhase;
+          return (
+            <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: i <= currentPhase ? 1 : 0.3, x: 0 }} transition={{ delay: i * 0.1, duration: 0.3 }}
+              className={cn("flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all duration-500",
+                isActive ? "bg-primary/10 border-primary/30" : isDone ? "bg-muted/30 border-border/30" : "bg-muted/10 border-border/10"
+              )}>
+              <div className={cn("flex items-center justify-center w-7 h-7 rounded-lg shrink-0",
+                isActive ? "bg-primary/20" : isDone ? "bg-muted/50" : "bg-muted/20"
+              )}>
+                {isDone ? <CheckCircle className="w-4 h-4 text-primary" /> : <PhaseIcon className={cn("w-4 h-4", isActive ? "text-primary" : "text-muted-foreground/40")} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={cn("text-xs font-semibold", isActive ? "text-foreground" : isDone ? "text-muted-foreground" : "text-muted-foreground/40")}>{phase.label}</p>
+                {isActive && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[10px] text-muted-foreground mt-0.5">{phase.detail}</motion.p>}
+              </div>
+              {isActive && (
+                <motion.div className="flex gap-0.5 shrink-0" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.8, repeat: Infinity }}>
+                  {[0, 1, 2].map(j => <motion.div key={j} className="w-1 h-1 rounded-full bg-primary" animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 0.6, repeat: Infinity, delay: j * 0.15 }} />)}
+                </motion.div>
+              )}
+              {isDone && <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-4 h-4 shrink-0"><div className="w-full h-full rounded-full bg-primary/20 flex items-center justify-center"><div className="w-1.5 h-1.5 rounded-full bg-primary" /></div></motion.div>}
+            </motion.div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-center gap-2 pt-2">
+        <Lock className="w-3 h-3 text-muted-foreground/50" />
+        <p className="text-[10px] text-muted-foreground/50 uppercase tracking-widest">Conexão criptografada • Base oficial INPI</p>
+      </div>
+    </motion.div>
+  );
+}
 
 // ─── Commercial Intelligence Module ─────────────────────
 interface CommercialIntelligenceProps {
@@ -480,72 +581,70 @@ const ViabilitySearchSection = () => {
             ))}
           </motion.div>
 
-          {/* Search Form / Result */}
+          {/* Search Form / Animation / Result */}
+          <AnimatePresence mode="wait">
           {!result ? (
-            <motion.form
-              onSubmit={handleSearch}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.45, delay: 0.2 }}
-              className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm shadow-md p-8"
-            >
-              <div className="space-y-6">
-                <div>
-                  <label htmlFor="brandName" className="block text-sm font-bold text-foreground mb-2.5">
-                    Nome da Marca <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    id="brandName"
-                    type="text"
-                    value={brandName}
-                    onChange={(e) => setBrandName(e.target.value)}
-                    placeholder="Ex: WebMarcas, TechFlow, BioVida..."
-                    className="w-full h-14 rounded-xl border border-border/60 bg-muted/30 px-4 text-base text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all disabled:opacity-50"
+            isSearching ? (
+              <INPISearchAnimation key="searching" brandName={brandName} />
+            ) : (
+              <motion.form
+                key="form"
+                onSubmit={handleSearch}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm shadow-md p-8"
+              >
+                <div className="space-y-6">
+                  <div>
+                    <label htmlFor="brandName" className="block text-sm font-bold text-foreground mb-2.5">
+                      Nome da Marca <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      id="brandName"
+                      type="text"
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
+                      placeholder="Ex: WebMarcas, TechFlow, BioVida..."
+                      className="w-full h-14 rounded-xl border border-border/60 bg-muted/30 px-4 text-base text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all disabled:opacity-50"
+                      disabled={isSearching}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="businessArea" className="block text-sm font-bold text-foreground mb-2.5">
+                      Ramo de Atividade <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      id="businessArea"
+                      type="text"
+                      value={businessArea}
+                      onChange={(e) => setBusinessArea(e.target.value)}
+                      placeholder="Ex: Serviços Jurídicos, Alimentação, Tecnologia..."
+                      className="w-full h-14 rounded-xl border border-border/60 bg-muted/30 px-4 text-base text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all disabled:opacity-50"
+                      disabled={isSearching}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
                     disabled={isSearching}
-                  />
+                    className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-semibold text-base flex items-center justify-center gap-2.5 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <Search className="w-5 h-5" />
+                    Consultar Viabilidade
+                  </button>
                 </div>
 
-                <div>
-                  <label htmlFor="businessArea" className="block text-sm font-bold text-foreground mb-2.5">
-                    Ramo de Atividade <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    id="businessArea"
-                    type="text"
-                    value={businessArea}
-                    onChange={(e) => setBusinessArea(e.target.value)}
-                    placeholder="Ex: Serviços Jurídicos, Alimentação, Tecnologia..."
-                    className="w-full h-14 rounded-xl border border-border/60 bg-muted/30 px-4 text-base text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all disabled:opacity-50"
-                    disabled={isSearching}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSearching}
-                  className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-semibold text-base flex items-center justify-center gap-2.5 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isSearching ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                      Consultando INPI...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="w-5 h-5" />
-                      Consultar Viabilidade
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <p className="mt-5 text-center text-xs text-muted-foreground">
-                🔒 Consulta gratuita • Resultado em segundos • Sem cadastro necessário
-              </p>
-            </motion.form>
+                <p className="mt-5 text-center text-xs text-muted-foreground">
+                  🔒 Consulta gratuita • Resultado em segundos • Sem cadastro necessário
+                </p>
+              </motion.form>
+            )
           ) : (
             <motion.div
+              key="result"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm shadow-md p-8"
@@ -723,6 +822,7 @@ const ViabilitySearchSection = () => {
               </div>
             </motion.div>
           )}
+          </AnimatePresence>
         </div>
       </div>
     </section>
