@@ -82,7 +82,7 @@ REGRAS DE QUALIDADE OBRIGATÓRIAS:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-5.1-mini",
+        model: "gpt-4.1-mini",
         messages: allMessages,
         stream: false,
         max_tokens: 800,

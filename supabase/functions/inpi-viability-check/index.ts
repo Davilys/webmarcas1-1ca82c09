@@ -91,7 +91,7 @@ async function suggestClassesWithAI(businessArea: string): Promise<{ classes: nu
       method: 'POST',
       headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-5.1-mini',
+        model: 'gpt-4.1-mini',
         messages: [
           { role: 'system', content: 'Você é um especialista em propriedade intelectual e classificação NCL do INPI Brasil. Responda sempre em JSON válido, sem markdown.' },
           { role: 'user', content: `Sugira EXATAMENTE 3 classes NCL (1-45) para o ramo "${businessArea}". JSON: {"classes":[n1,n2,n3],"descriptions":["Classe XX – desc1","Classe XX – desc2","Classe XX – desc3"]}` }
@@ -235,7 +235,7 @@ async function searchINPI(brandName: string, mainClass: number): Promise<{
       method: 'POST',
       headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-5.1-mini',
+        model: 'gpt-4.1-mini',
         messages: [
           {
             role: 'system',
@@ -305,7 +305,7 @@ async function searchCNPJ(brandName: string): Promise<{
       method: 'POST',
       headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-5.1-mini',
+        model: 'gpt-4.1-mini',
         messages: [
           {
             role: 'system',
@@ -449,7 +449,7 @@ ${classDescriptions.join('\n')}
       method: 'POST',
       headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-5.1-mini',
+        model: 'gpt-4.1-mini',
         messages: [
           {
             role: 'system',
