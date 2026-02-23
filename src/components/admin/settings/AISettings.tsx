@@ -72,6 +72,10 @@ const PROVIDER_CONFIG: Record<string, {
     color: '#10b981',
     glow: '#10b98118',
     models: [
+      { value: 'gpt-5', label: 'GPT-5' },
+      { value: 'gpt-5-mini', label: 'GPT-5 Mini' },
+      { value: 'gpt-4.1', label: 'GPT-4.1' },
+      { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini' },
       { value: 'gpt-4o', label: 'GPT-4o' },
       { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
       { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
