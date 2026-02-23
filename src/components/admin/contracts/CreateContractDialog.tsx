@@ -951,8 +951,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
 
       setSuggestedClassDescriptions(classes);
       setSuggestedClassesInput(classes.map((c: any) => c.number).join(', '));
-      // Auto-select all suggested classes
-      setSelectedSuggestedClasses(classes.map((c: any) => c.number));
+      // Do NOT auto-select — admin must choose manually
+      setSelectedSuggestedClasses([]);
       toast.success(`${classes.length} classe(s) NCL sugerida(s) pela IA`);
     } catch (err: any) {
       console.error('Error generating NCL suggestions:', err);
