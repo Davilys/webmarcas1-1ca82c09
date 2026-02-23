@@ -12,6 +12,9 @@ import { toast } from 'sonner';
 import { Loader2, Download, Printer, CheckCircle, AlertCircle, FileText, CreditCard, QrCode, Copy } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import webmarcasLogo from '@/assets/webmarcas-logo-new.png';
+import { NCLUpsellCard } from '@/components/cliente/checkout/NCLUpsellCard';
+import type { NCLClass } from '@/lib/nclClasses';
+import { formatClassesForContract, getPaymentDetailsWithClasses } from '@/lib/nclClasses';
 
 interface ContractData {
   id: string;
@@ -31,6 +34,8 @@ interface ContractData {
   blockchain_network: string | null;
   signature_ip: string | null;
   payment_method: string | null;
+  contract_value: number | null;
+  suggested_classes: any | null;
 }
 
 interface PaymentData {
@@ -74,6 +79,11 @@ export default function AssinarDocumento() {
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [paymentComplete, setPaymentComplete] = useState(false);
 
+  // NCL Upsell state
+  const [suggestedClasses, setSuggestedClasses] = useState<NCLClass[]>([]);
+  const [selectedExtraClasses, setSelectedExtraClasses] = useState<NCLClass[]>([]);
+  const [currentContractHtml, setCurrentContractHtml] = useState<string | null>(null);
+
   useEffect(() => {
     if (token) {
       fetchContract();
@@ -106,6 +116,19 @@ export default function AssinarDocumento() {
       }
 
       setContract(result.contract);
+      setCurrentContractHtml(result.contract.contract_html);
+      
+      // Parse suggested_classes for upsell
+      if (result.contract.suggested_classes) {
+        try {
+          const sc = typeof result.contract.suggested_classes === 'string'
+            ? JSON.parse(result.contract.suggested_classes)
+            : result.contract.suggested_classes;
+          if (Array.isArray(sc)) {
+            setSuggestedClasses(sc as NCLClass[]);
+          }
+        } catch { /* ignore parse errors */ }
+      }
       
       if (result.contract.signature_status === 'signed') {
         setSigned(true);
@@ -189,7 +212,7 @@ export default function AssinarDocumento() {
           },
           body: JSON.stringify({
             contractId: contract.id,
-            contractHtml: contract.contract_html,
+            contractHtml: currentContractHtml || contract.contract_html,
             signatureImage: signature,
             signatureToken: token,
             deviceInfo,
@@ -270,6 +293,65 @@ export default function AssinarDocumento() {
     if (paymentData?.data.pixPayload) {
       navigator.clipboard.writeText(paymentData.data.pixPayload);
       toast.success('Código PIX copiado!');
+    }
+  };
+
+  // Handle upsell class selection on signature page
+  const handleUpsellClassChange = (classes: NCLClass[]) => {
+    setSelectedExtraClasses(classes);
+    
+    if (!contract?.contract_html || !contract.subject) return;
+    
+    // Get the brand name from subject (format: "CONTRATO REGISTRO DE MARCA - BRAND")
+    const brandName = contract.subject.includes(' - ')
+      ? contract.subject.split(' - ').slice(1).join(' - ').trim()
+      : contract.subject;
+
+    // Build all classes: parse existing from contract + new extras
+    // For simplicity, update clause text reactively
+    let updatedHtml = contract.contract_html;
+    
+    if (classes.length > 0) {
+      // Format classes for contract clause 1.1
+      const classesText = formatClassesForContract(brandName, classes);
+      
+      // Update payment details with new class count
+      const currentClassCount = (contract.contract_value && contract.payment_method)
+        ? Math.round(contract.contract_value / (contract.payment_method === 'avista' ? 699 : contract.payment_method === 'cartao6x' ? 1194 : 1197))
+        : 1;
+      const totalClasses = currentClassCount + classes.length;
+      const paymentDetails = getPaymentDetailsWithClasses(contract.payment_method || 'avista', totalClasses);
+      
+      // Append class info note to contract
+      const classNote = `<div style="margin-top:12px;padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">
+        <p style="font-weight:600;margin-bottom:4px;">Classes NCL adicionais selecionadas na assinatura:</p>
+        <p>${classes.map(c => `Classe ${c.number} – ${c.description}`).join('<br/>')}</p>
+        <p style="margin-top:8px;">${paymentDetails}</p>
+      </div>`;
+      
+      // Append before closing body or at end
+      if (updatedHtml.includes('</body>')) {
+        updatedHtml = updatedHtml.replace('</body>', classNote + '</body>');
+      } else {
+        updatedHtml += classNote;
+      }
+    }
+    
+    setCurrentContractHtml(updatedHtml);
+    
+    // Update contract value in database reactively
+    if (contract.payment_method && contract.contract_value) {
+      const unitValue = contract.payment_method === 'avista' ? 699 
+        : contract.payment_method === 'cartao6x' ? 1194 : 1197;
+      const currentClassCount = Math.max(1, Math.round(contract.contract_value / unitValue));
+      const newTotal = unitValue * (currentClassCount + classes.length);
+      
+      supabase.from('contracts')
+        .update({ contract_value: newTotal })
+        .eq('id', contract.id)
+        .then(({ error }) => {
+          if (error) console.error('Error updating contract value:', error);
+        });
     }
   };
 
@@ -628,7 +710,7 @@ export default function AssinarDocumento() {
               <div className="p-6">
                 <DocumentRenderer
                   documentType={(contract.document_type as any) || 'procuracao'}
-                  content={contract.contract_html || ''}
+                  content={currentContractHtml || contract.contract_html || ''}
                   clientSignature={null}
                   signatoryName={contract.signatory_name || undefined}
                   signatoryCpf={contract.signatory_cpf || undefined}
@@ -642,6 +724,17 @@ export default function AssinarDocumento() {
               <h2 className="text-xl font-bold text-gray-900 mb-6">
                 Assinatura Eletrônica
               </h2>
+
+              {/* NCL Upsell Card - before acceptance */}
+              {suggestedClasses.length > 0 && contract.document_type !== 'procuracao' && (
+                <div className="mb-6">
+                  <NCLUpsellCard
+                    suggestedClasses={suggestedClasses}
+                    selectedClasses={selectedExtraClasses}
+                    onClassesChange={handleUpsellClassChange}
+                  />
+                </div>
+              )}
 
               {/* Terms Acceptance */}
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">

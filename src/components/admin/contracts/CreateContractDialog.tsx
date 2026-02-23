@@ -9,7 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, FileText, Send, Copy, Link, UserPlus, Search, CalendarIcon } from 'lucide-react';
+import { Loader2, FileText, Send, Copy, Link, UserPlus, Search, CalendarIcon, Brain, Shield } from 'lucide-react';
+import type { NCLClass } from '@/lib/nclClasses';
+import { NCLClassSelector } from '@/components/cliente/checkout/NCLClassSelector';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -167,6 +169,11 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
   const [pixPaymentDate, setPixPaymentDate] = useState<Date | undefined>(undefined);
   const [boletoVencimentoDate, setBoletoVencimentoDate] = useState<Date | undefined>(undefined);
 
+  // NCL Classes state
+  const [adminSuggestedClasses, setAdminSuggestedClasses] = useState<NCLClass[]>([]);
+  const [adminSelectedClasses, setAdminSelectedClasses] = useState<NCLClass[]>([]);
+  const [loadingSuggestClasses, setLoadingSuggestClasses] = useState(false);
+
   // Legacy form data for existing client flows
   const [formData, setFormData] = useState({
     user_id: '',
@@ -308,6 +315,43 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     }
   };
 
+  // Suggest NCL classes using AI viability check
+  const handleSuggestClasses = async () => {
+    const bName = brandQuantity > 1 ? brandsArray[0]?.brandName : brandData.brandName;
+    const bArea = brandQuantity > 1 ? brandsArray[0]?.businessArea : brandData.businessArea;
+    
+    if (!bArea || bArea.length < 3) {
+      toast.error('Preencha o Ramo de Atividade antes de sugerir classes');
+      return;
+    }
+    
+    setLoadingSuggestClasses(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('inpi-viability-check', {
+        body: { brandName: bName || 'Marca', businessArea: bArea },
+      });
+      
+      if (error) throw error;
+      
+      if (data?.classes && data?.classDescriptions) {
+        const classes: NCLClass[] = data.classes.map((num: number, i: number) => ({
+          number: num,
+          description: data.classDescriptions?.[i] || `Classe ${num}`,
+        }));
+        setAdminSuggestedClasses(classes);
+        setAdminSelectedClasses([]); // None pre-selected
+        toast.success(`${classes.length} classes sugeridas para "${bArea}"`);
+      } else {
+        toast.warning('Não foi possível sugerir classes para este ramo');
+      }
+    } catch (err) {
+      console.error('Error suggesting classes:', err);
+      toast.error('Erro ao consultar classes. Tente novamente.');
+    } finally {
+      setLoadingSuggestClasses(false);
+    }
+  };
+
   const generateContractNumber = () => {
     const year = new Date().getFullYear();
     const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
@@ -367,14 +411,15 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     });
   };
 
-  // Get contract value based on payment method - multiplied by brand quantity
+  // Get contract value based on payment method - multiplied by brand quantity and class count
   const getContractValue = (): number | null => {
     if (!paymentMethod) return null;
     const quantity = brandQuantity;
+    const classMultiplier = adminSelectedClasses.length > 0 ? adminSelectedClasses.length : 1;
     switch (paymentMethod) {
-      case 'avista': return 699 * quantity;
-      case 'cartao6x': return 1194 * quantity;
-      case 'boleto3x': return 1197 * quantity;
+      case 'avista': return 699 * quantity * classMultiplier;
+      case 'cartao6x': return 1194 * quantity * classMultiplier;
+      case 'boleto3x': return 1197 * quantity * classMultiplier;
       default: return null;
     }
   };
@@ -749,7 +794,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         signature_status: 'not_signed',
         visible_to_client: true,
         lead_id: leadId || null,
-        created_by: adminUser?.id || null, // ← Camada 2: registra admin criador
+        created_by: adminUser?.id || null,
+        suggested_classes: adminSuggestedClasses.length > 0 ? adminSuggestedClasses : null,
       } as any).select().single();
 
       if (error) throw error;
@@ -946,6 +992,9 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     // Reset multiple brands state
     setBrandQuantity(1);
     setBrandsArray([{ brandName: '', businessArea: '', nclClass: '' }]);
+    // Reset NCL classes
+    setAdminSuggestedClasses([]);
+    setAdminSelectedClasses([]);
   };
 
   const handleProfileChange = async (userId: string) => {
@@ -1480,9 +1529,26 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="businessArea" className={cn(validationErrors.brand_businessArea && "text-destructive")}>
-                            Ramo de Atividade *
-                          </Label>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="businessArea" className={cn(validationErrors.brand_businessArea && "text-destructive")}>
+                              Ramo de Atividade *
+                            </Label>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleSuggestClasses}
+                              disabled={loadingSuggestClasses}
+                              className="gap-1.5 text-xs"
+                            >
+                              {loadingSuggestClasses ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Brain className="h-3 w-3" />
+                              )}
+                              Sugerir Classes
+                            </Button>
+                          </div>
                           <Input
                             id="businessArea"
                             value={brandData.businessArea}
@@ -1503,6 +1569,17 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                             <p className="text-destructive text-xs">{validationErrors.brand_businessArea}</p>
                           )}
                         </div>
+
+                        {/* NCL Class Selector - shown after suggesting */}
+                        {adminSuggestedClasses.length > 0 && (
+                          <div className="md:col-span-2">
+                            <NCLClassSelector
+                              suggestedClasses={adminSuggestedClasses}
+                              selectedClasses={adminSelectedClasses}
+                              onClassesChange={setAdminSelectedClasses}
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
 
