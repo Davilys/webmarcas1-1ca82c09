@@ -1,53 +1,36 @@
 
-# Correcao Completa do Rebrand para "WebMarcas Intelligence PI"
+# Adicionar Modulo "Analise Inteligente da Marca" no Formulario do Cliente
 
-## Problema
+## Situacao Atual
 
-Ainda existem ocorrencias do nome antigo em 2 lugares:
+- O formulario do cliente (`ViabilityStep.tsx`) ja possui a animacao de pesquisa com as 6 etapas (Conectando ao INPI, Varrendo base, etc.) -- igual a imagem 1. Isso ja esta implementado.
+- O que FALTA e o modulo de score duplo "Analise Inteligente da Marca" (imagem 2) que ja existe no site (`ViabilitySearchSection.tsx`) mas NAO existe no formulario do cliente.
 
-1. **No banco de dados** -- Os templates de contrato salvos na tabela `contract_templates` ainda contem "WEB MARCAS PATENTES EIRELI" e "Web Marcas e Patentes Eireli". E por isso que a pre-visualizacao na pagina de modelos mostra o nome antigo (a imagem enviada confirma isso).
+## O que sera feito
 
-2. **No codigo** -- Alguns arquivos ainda usam "WebMarcas Patentes" em vez de "WebMarcas Intelligence PI".
+Copiar o modulo `CommercialIntelligenceModule` (com os 2 scores: Potencial de Deferimento + Risco de Concorrente Registrar) para dentro do `ViabilityStep.tsx`, posicionando-o nos resultados da consulta, logo antes dos botoes de acao ("Continuar com o Registro" / "Fazer nova consulta").
 
----
+## Detalhes da implementacao
 
-## Alteracoes
+### Arquivo: `src/components/cliente/checkout/ViabilityStep.tsx`
 
-### 1. Banco de Dados (Migration SQL)
+1. Adicionar o componente `CommercialIntelligenceModule` internamente (igual ao do site), incluindo:
+   - Score 1: Potencial de Deferimento (gauge animado + barra de progresso)
+   - Score 2: Risco de Concorrente Registrar (gauge animado + barra de progresso)
+   - Mensagens dinamicas por faixa de score
+   - Logica de risco: 1 sinal = 73%, mais de 3 = 91%
+   - Aviso legal
 
-Atualizar os 4 templates ativos na tabela `contract_templates`:
-- Substituir `WEB MARCAS PATENTES EIRELI` por `WebMarcas Intelligence PI`
-- Substituir `Web Marcas e Patentes Eireli` por `WebMarcas Intelligence PI`
-- Substituir `Web Marcas Patentes EIRELI` por `WebMarcas Intelligence PI`
+2. Inserir o modulo na secao de resultados (apos o aviso "Aja rapido!" e antes dos botoes), passando os dados reais do resultado da consulta (`result.inpiData`, `result.cnpjData`, `result.internetData`).
 
-Isso resolve o problema mostrado na imagem -- o preview carrega o conteudo do banco.
+3. Adicionar imports necessarios: `Brain`, `Target`, `BarChart3`.
 
-**Nota**: Isso NAO altera contratos ja assinados (tabela `contracts`), apenas os modelos/templates.
+### O que NAO muda
 
-### 2. Codigo -- Arquivos com nome antigo restante
-
-**`src/pages/AssinarDocumento.tsx`** (linha 525)
-- `"WebMarcas Patentes"` --> `"WebMarcas Intelligence PI"`
-
-**`src/components/contracts/DocumentRenderer.tsx`** (linhas 302, 396, 619)
-- 3 ocorrencias de `"WebMarcas Patentes"` --> `"WebMarcas Intelligence PI"`
-
-**`supabase/functions/check-signature-expiration/index.ts`** (linha 226)
-- `"WebMarcas Patentes"` --> `"WebMarcas Intelligence PI"`
-
-### 3. O que NAO muda
-
-- CNPJ permanece identico em todos os lugares
-- Endereco permanece identico
-- Contratos ja assinados na tabela `contracts` -- nao serao tocados
-- Rotas, permissoes, integracoes, APIs
-- Logica dos renderizadores (as condicoes `.includes()` ja suportam ambos os nomes)
-
----
-
-## Detalhes Tecnicos
-
-- 1 migration SQL para atualizar conteudo dos templates no banco
-- 3 arquivos de codigo editados (apenas texto)
-- 1 edge function editada e re-deployada
-- Impacto zero em logica ou funcionalidades
+- Animacao de pesquisa (ja existe e permanece igual)
+- Formulario de busca
+- Botoes de acao
+- Impressao de laudo
+- Fluxo de checkout
+- Banco de dados
+- Nenhum outro arquivo
