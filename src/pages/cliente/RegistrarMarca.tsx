@@ -6,7 +6,7 @@ import { ClientLayout } from "@/components/cliente/ClientLayout";
 import { CheckoutProgress } from "@/components/cliente/checkout/CheckoutProgress";
 import { ViabilityStep } from "@/components/cliente/checkout/ViabilityStep";
 import { PersonalDataStep, type PersonalData } from "@/components/cliente/checkout/PersonalDataStep";
-import { BrandDataStep, type BrandData } from "@/components/cliente/checkout/BrandDataStep";
+import { BrandDataStep, type BrandData, type SuggestedClass } from "@/components/cliente/checkout/BrandDataStep";
 import { PaymentStep } from "@/components/cliente/checkout/PaymentStep";
 import { ContractStep } from "@/components/cliente/checkout/ContractStep";
 import { toast } from "sonner";
@@ -28,12 +28,14 @@ export default function RegistrarMarca() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [viabilityResult, setViabilityResult] = useState<ViabilityResult | null>(null);
+  const [suggestedClasses, setSuggestedClasses] = useState<SuggestedClass[]>([]);
   const [personalData, setPersonalData] = useState<PersonalData>({
     fullName: "", email: "", phone: "", cpf: "",
     cep: "", address: "", addressNumber: "", neighborhood: "", city: "", state: "",
   });
   const [brandData, setBrandData] = useState<BrandData>({
     brandName: "", businessArea: "", hasCNPJ: false, cnpj: "", companyName: "",
+    selectedClasses: [], classDescriptions: [],
   });
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentValue, setPaymentValue] = useState(0);
@@ -67,6 +69,22 @@ export default function RegistrarMarca() {
   const handleViabilityNext = (brand: string, area: string, result: ViabilityResult) => {
     setBrandData(prev => ({ ...prev, brandName: brand, businessArea: area }));
     setViabilityResult(result);
+    // Extract suggested classes from viability result
+    if (result.classes && result.classDescriptions) {
+      const classes: SuggestedClass[] = result.classes.map((num, i) => ({
+        number: num,
+        description: result.classDescriptions?.[i] || `Classe ${num}`,
+      }));
+      setSuggestedClasses(classes);
+      // Pre-select first class
+      setBrandData(prev => ({
+        ...prev,
+        brandName: brand,
+        businessArea: area,
+        selectedClasses: classes.length > 0 ? [classes[0].number] : [],
+        classDescriptions: classes.length > 0 ? [classes[0].description] : [],
+      }));
+    }
     setStep(2);
   };
 
@@ -214,6 +232,7 @@ export default function RegistrarMarca() {
                     initialData={brandData}
                     onNext={handleBrandDataNext}
                     onBack={() => setStep(2)}
+                    suggestedClasses={suggestedClasses}
                   />
                 </motion.div>
               )}
@@ -223,6 +242,7 @@ export default function RegistrarMarca() {
                     selectedMethod={paymentMethod}
                     onNext={handlePaymentNext}
                     onBack={() => setStep(3)}
+                    classCount={brandData.selectedClasses?.length || 1}
                   />
                 </motion.div>
               )}

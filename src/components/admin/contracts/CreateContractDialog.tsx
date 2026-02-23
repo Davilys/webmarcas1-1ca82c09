@@ -149,6 +149,10 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     companyName: '',
   });
 
+  // Suggested NCL classes for admin to define
+  const [suggestedClassesInput, setSuggestedClassesInput] = useState('');
+  const [suggestedClassDescriptions, setSuggestedClassDescriptions] = useState<{number: number; description: string}[]>([]);
+
   // Multiple brands support - NEW
   interface BrandItem {
     brandName: string;
@@ -749,7 +753,10 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         signature_status: 'not_signed',
         visible_to_client: true,
         lead_id: leadId || null,
-        created_by: adminUser?.id || null, // ← Camada 2: registra admin criador
+        created_by: adminUser?.id || null,
+        suggested_classes: suggestedClassDescriptions.length > 0
+          ? suggestedClassDescriptions.map(c => ({ number: c.number, description: c.description, selected: false }))
+          : null,
       } as any).select().single();
 
       if (error) throw error;
@@ -1502,6 +1509,57 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                           {validationErrors.brand_businessArea && (
                             <p className="text-destructive text-xs">{validationErrors.brand_businessArea}</p>
                           )}
+                        </div>
+
+                        {/* NCL Classes Sugeridas - Admin */}
+                        <div className="space-y-2 md:col-span-2">
+                          <Label className="text-xs font-medium">
+                            Classes NCL Sugeridas (opcional)
+                          </Label>
+                          <Input
+                            value={suggestedClassesInput}
+                            onChange={(e) => {
+                              setSuggestedClassesInput(e.target.value);
+                              // Parse comma-separated numbers
+                              const nums = e.target.value.split(',')
+                                .map(s => parseInt(s.trim()))
+                                .filter(n => !isNaN(n) && n > 0 && n <= 45);
+                              setSuggestedClassDescriptions(prev => {
+                                const existing = new Map(prev.map(p => [p.number, p.description]));
+                                return nums.map(n => ({
+                                  number: n,
+                                  description: existing.get(n) || '',
+                                }));
+                              });
+                            }}
+                            placeholder="Ex: 35, 42, 9 (separados por vírgula)"
+                            className="text-sm"
+                          />
+                          {suggestedClassDescriptions.length > 0 && (
+                            <div className="space-y-2 mt-2">
+                              {suggestedClassDescriptions.map((cls) => (
+                                <div key={cls.number} className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold shrink-0 w-16">Classe {cls.number}:</span>
+                                  <Input
+                                    value={cls.description}
+                                    onChange={(e) => {
+                                      setSuggestedClassDescriptions(prev =>
+                                        prev.map(c => c.number === cls.number
+                                          ? { ...c, description: e.target.value }
+                                          : c
+                                        )
+                                      );
+                                    }}
+                                    placeholder={`Descrição da classe ${cls.number}`}
+                                    className="text-xs h-8"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-[10px] text-muted-foreground">
+                            Classes que serão sugeridas ao cliente na página de assinatura
+                          </p>
                         </div>
                       </div>
                     )}
