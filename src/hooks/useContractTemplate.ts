@@ -246,6 +246,7 @@ export function replaceContractVariables(
     };
     paymentMethod: string;
     multipleBrands?: BrandItem[];
+    selectedClasses?: { number: number; description: string }[];
   }
 ): string {
   const { personalData, brandData, paymentMethod } = data;
@@ -270,28 +271,34 @@ export function replaceContractVariables(
     ? `inscrita no CNPJ sob nº ${brandData.cnpj}, ` 
     : '';
 
-  // Payment method details with total for multiple brands
+  // Payment method details with total for multiple brands/classes
   const getPaymentDetails = () => {
     const brandCount = data.multipleBrands?.length || 1;
+    const classCount = data.selectedClasses?.length || 1;
+    const multiplier = Math.max(brandCount, classCount);
     
     switch (paymentMethod) {
       case 'avista': {
-        const totalSuffix = brandCount > 1 
-          ? ` Valor total de ${brandCount} marcas: R$ ${(699 * brandCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+        const totalSuffix = multiplier > 1 
+          ? ` Valor total de ${multiplier} ${classCount > 1 ? 'classes' : 'marcas'}: R$ ${(699 * multiplier).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
           : '';
         return `• Pagamento à vista via PIX: R$ 699,00 (seiscentos e noventa e nove reais) - com 43% de desconto sobre o valor integral de R$ 1.230,00.${totalSuffix}`;
       }
       case 'cartao6x': {
-        const totalSuffix = brandCount > 1 
-          ? ` Valor total de ${brandCount} marcas: R$ ${(1194 * brandCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+        const installment = 199 * multiplier;
+        const total = 1194 * multiplier;
+        const totalSuffix = multiplier > 1 
+          ? ` Valor total de ${multiplier} ${classCount > 1 ? 'classes' : 'marcas'}: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
           : '';
-        return `• Pagamento parcelado no Cartão de Crédito: 6x de R$ 199,00 (cento e noventa e nove reais) = Total: R$ 1.194,00 - sem juros.${totalSuffix}`;
+        return `• Pagamento parcelado no Cartão de Crédito: 6x de R$ ${installment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} - sem juros.${totalSuffix}`;
       }
       case 'boleto3x': {
-        const totalSuffix = brandCount > 1 
-          ? ` Valor total de ${brandCount} marcas: R$ ${(1197 * brandCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+        const installment = 399 * multiplier;
+        const total = 1197 * multiplier;
+        const totalSuffix = multiplier > 1 
+          ? ` Valor total de ${multiplier} ${classCount > 1 ? 'classes' : 'marcas'}: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
           : '';
-        return `• Pagamento parcelado via Boleto Bancário: 3x de R$ 399,00 (trezentos e noventa e nove reais) = Total: R$ 1.197,00.${totalSuffix}`;
+        return `• Pagamento parcelado via Boleto Bancário: 3x de R$ ${installment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`;
       }
       default:
         return `• Forma de pagamento a ser definida.`;
@@ -323,8 +330,16 @@ export function replaceContractVariables(
     .replace(/\{\{data_extenso\}\}/g, currentDate)
     .replace(/\{\{data\}\}/g, new Date().toLocaleDateString('pt-BR'));
 
-  // Handle brand name replacement - inline format for multiple brands in clause 10.1
-  if (data.multipleBrands && data.multipleBrands.length > 1) {
+  // Handle brand name replacement - with NCL classes support
+  if (data.selectedClasses && data.selectedClasses.length > 1) {
+    // Format with classes for clause 1.1 and 10.1
+    const classesInline = data.selectedClasses.map((cls, index) =>
+      `${index + 1}. Marca: <strong>${brandData.brandName}</strong> – Classe NCL: <strong>${cls.number}</strong>`
+    ).join('. ') + '.';
+    result = result.replace(/\{\{marca\}\}/g, classesInline);
+  } else if (data.selectedClasses && data.selectedClasses.length === 1) {
+    result = result.replace(/\{\{marca\}\}/g, `${brandData.brandName} – Classe NCL: ${data.selectedClasses[0].number}`);
+  } else if (data.multipleBrands && data.multipleBrands.length > 1) {
     const brandsInline = formatMultipleBrandsInline(data.multipleBrands);
     result = result.replace(/\{\{marca\}\}/g, brandsInline);
   } else {

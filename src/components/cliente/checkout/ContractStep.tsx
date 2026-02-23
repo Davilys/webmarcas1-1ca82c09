@@ -8,8 +8,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useContractTemplate, replaceContractVariables } from "@/hooks/useContractTemplate";
 import { ContractRenderer, generateContractPrintHTML } from "@/components/contracts/ContractRenderer";
 import { downloadUnifiedContractPDF, printUnifiedContract } from "@/hooks/useUnifiedContractDownload";
+import { NCLUpsellCard } from "./NCLUpsellCard";
 import type { PersonalData } from "./PersonalDataStep";
 import type { BrandData } from "./BrandDataStep";
+import type { NCLClass } from "@/lib/nclClasses";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +23,9 @@ interface ContractStepProps {
   onSubmit: (contractHtml: string) => void;
   onBack: () => void;
   isSubmitting: boolean;
+  selectedClasses?: NCLClass[];
+  suggestedClasses?: NCLClass[];
+  onClassesChange?: (classes: NCLClass[]) => void;
 }
 
 export function ContractStep({
@@ -31,6 +36,9 @@ export function ContractStep({
   onSubmit,
   onBack,
   isSubmitting,
+  selectedClasses,
+  suggestedClasses,
+  onClassesChange,
 }: ContractStepProps) {
   const [accepted, setAccepted] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -38,8 +46,8 @@ export function ContractStep({
 
   const getProcessedContract = useCallback(() => {
     if (!template) return '';
-    return replaceContractVariables(template.content, { personalData, brandData, paymentMethod });
-  }, [template, personalData, brandData, paymentMethod]);
+    return replaceContractVariables(template.content, { personalData, brandData, paymentMethod, selectedClasses });
+  }, [template, personalData, brandData, paymentMethod, selectedClasses]);
 
   const printContract = async () => {
     try {
@@ -71,6 +79,9 @@ export function ContractStep({
     const fullContractHtml = generateContractPrintHTML(contractContent, brandData.brandName, personalData.fullName, personalData.cpf, undefined, true, documentType);
     onSubmit(fullContractHtml);
   };
+
+  // Calculate dynamic value based on classes
+  const dynamicValue = selectedClasses && selectedClasses.length > 0 ? paymentValue : paymentValue;
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -126,7 +137,7 @@ export function ContractStep({
             { label: "Marca", value: brandData.brandName, highlight: false },
             { label: "Titular", value: personalData.fullName, highlight: false },
             { label: "Pagamento", value: getPaymentLabel(), highlight: false },
-            { label: "Total", value: formatCurrency(paymentValue), highlight: true },
+            { label: "Total", value: formatCurrency(dynamicValue), highlight: true },
           ].map((item, i) => (
             <div key={i} className={cn("p-4", i >= 2 && "border-t border-border")}>
               <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
@@ -175,6 +186,16 @@ export function ContractStep({
           </div>
         </ScrollArea>
       </div>
+
+      {/* NCL Upsell Card - between contract and acceptance */}
+      {suggestedClasses && suggestedClasses.length > 0 && selectedClasses && onClassesChange && 
+        selectedClasses.length < suggestedClasses.length && (
+        <NCLUpsellCard
+          suggestedClasses={suggestedClasses}
+          selectedClasses={selectedClasses}
+          onClassesChange={onClassesChange}
+        />
+      )}
 
       {/* Accept Checkbox */}
       <motion.div

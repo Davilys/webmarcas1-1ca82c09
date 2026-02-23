@@ -16,6 +16,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import SocialProofNotification from "@/components/SocialProofNotification";
 import type { ViabilityResult } from "@/lib/api/viability";
+import type { NCLClass } from "@/lib/nclClasses";
 import logo from "@/assets/webmarcas-logo.png";
 import WhatsAppButton from "@/components/layout/WhatsAppButton";
 
@@ -48,6 +49,8 @@ export default function Registrar() {
   const [brandData, setBrandData] = useState<BrandData | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [paymentValue, setPaymentValue] = useState<number>(0);
+  const [suggestedClasses, setSuggestedClasses] = useState<NCLClass[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<NCLClass[]>([]);
 
   // Phrase rotation effect
   useEffect(() => {
@@ -120,6 +123,15 @@ export default function Registrar() {
 
   const handleViabilityNext = (brandName: string, businessArea: string, result: ViabilityResult) => {
     setViabilityData({ brandName, businessArea, result });
+    // Extract suggested classes from viability result
+    if (result.classes && result.classDescriptions) {
+      const classes: NCLClass[] = result.classes.map((num, i) => ({
+        number: num,
+        description: result.classDescriptions?.[i] || `Classe ${num}`,
+      }));
+      setSuggestedClasses(classes);
+      setSelectedClasses([]); // None pre-selected
+    }
     setStep(2);
   };
 
@@ -333,6 +345,9 @@ export default function Registrar() {
                 }}
                 onNext={handleBrandDataNext}
                 onBack={() => setStep(2)}
+                suggestedClasses={suggestedClasses}
+                selectedClasses={selectedClasses}
+                onClassesChange={setSelectedClasses}
               />
             )}
 
@@ -341,6 +356,7 @@ export default function Registrar() {
                 selectedMethod={paymentMethod}
                 onNext={handlePaymentNext}
                 onBack={() => setStep(3)}
+                classCount={selectedClasses.length || 1}
               />
             )}
 
@@ -356,6 +372,9 @@ export default function Registrar() {
                 onBack={() => setStep(4)}
                 onSubmit={(html) => handleSubmit(html)}
                 isSubmitting={isSubmitting}
+                selectedClasses={selectedClasses}
+                suggestedClasses={suggestedClasses}
+                onClassesChange={setSelectedClasses}
               />
             )}
           </CardContent>

@@ -8,6 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { z } from "zod";
 import { validateCNPJ, formatCNPJ } from "@/lib/validators";
 import { cn } from "@/lib/utils";
+import { NCLClassSelector } from "./NCLClassSelector";
+import type { NCLClass } from "@/lib/nclClasses";
 
 const brandDataSchema = z.object({
   brandName: z.string().min(2, "Nome da marca obrigatório").max(100),
@@ -38,9 +40,12 @@ interface BrandDataStepProps {
   initialData: BrandData;
   onNext: (data: BrandData) => void;
   onBack: () => void;
+  suggestedClasses?: NCLClass[];
+  selectedClasses?: NCLClass[];
+  onClassesChange?: (classes: NCLClass[]) => void;
 }
 
-export function BrandDataStep({ initialData, onNext, onBack }: BrandDataStepProps) {
+export function BrandDataStep({ initialData, onNext, onBack, suggestedClasses, selectedClasses, onClassesChange }: BrandDataStepProps) {
   const [data, setData] = useState<BrandData>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -54,6 +59,11 @@ export function BrandDataStep({ initialData, onNext, onBack }: BrandDataStepProp
         if (err.path[0]) newErrors[err.path[0] as string] = err.message;
       });
       setErrors(newErrors);
+      return;
+    }
+    // Block if suggested classes exist but none selected
+    if (suggestedClasses && suggestedClasses.length > 0 && (!selectedClasses || selectedClasses.length === 0)) {
+      setErrors({ classes: 'Selecione ao menos uma classe NCL' });
       return;
     }
     onNext(data);
@@ -138,6 +148,15 @@ export function BrandDataStep({ initialData, onNext, onBack }: BrandDataStepProp
               <p className="text-destructive text-xs">{errors.businessArea}</p>
             )}
           </div>
+
+          {/* NCL Classes Selector */}
+          {suggestedClasses && suggestedClasses.length > 0 && onClassesChange && (
+            <NCLClassSelector
+              suggestedClasses={suggestedClasses}
+              selectedClasses={selectedClasses || []}
+              onClassesChange={onClassesChange}
+            />
+          )}
 
           {/* CNPJ Toggle */}
           <div className="rounded-xl border border-border bg-muted/20 p-4">

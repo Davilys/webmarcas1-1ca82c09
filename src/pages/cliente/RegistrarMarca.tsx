@@ -11,6 +11,7 @@ import { PaymentStep } from "@/components/cliente/checkout/PaymentStep";
 import { ContractStep } from "@/components/cliente/checkout/ContractStep";
 import { toast } from "sonner";
 import type { ViabilityResult } from "@/lib/api/viability";
+import type { NCLClass } from "@/lib/nclClasses";
 import { generateAndUploadContractPdf } from "@/hooks/useContractPdfUpload";
 import { Shield, Award, Clock, Star } from "lucide-react";
 
@@ -37,6 +38,8 @@ export default function RegistrarMarca() {
   });
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentValue, setPaymentValue] = useState(0);
+  const [suggestedClasses, setSuggestedClasses] = useState<NCLClass[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<NCLClass[]>([]);
 
   // Pre-fill user data if logged in
   useEffect(() => {
@@ -67,6 +70,15 @@ export default function RegistrarMarca() {
   const handleViabilityNext = (brand: string, area: string, result: ViabilityResult) => {
     setBrandData(prev => ({ ...prev, brandName: brand, businessArea: area }));
     setViabilityResult(result);
+    // Extract suggested classes from viability result
+    if (result.classes && result.classDescriptions) {
+      const classes: NCLClass[] = result.classes.map((num, i) => ({
+        number: num,
+        description: result.classDescriptions?.[i] || `Classe ${num}`,
+      }));
+      setSuggestedClasses(classes);
+      setSelectedClasses([]); // None pre-selected
+    }
     setStep(2);
   };
 
@@ -214,6 +226,9 @@ export default function RegistrarMarca() {
                     initialData={brandData}
                     onNext={handleBrandDataNext}
                     onBack={() => setStep(2)}
+                    suggestedClasses={suggestedClasses}
+                    selectedClasses={selectedClasses}
+                    onClassesChange={setSelectedClasses}
                   />
                 </motion.div>
               )}
@@ -223,6 +238,7 @@ export default function RegistrarMarca() {
                     selectedMethod={paymentMethod}
                     onNext={handlePaymentNext}
                     onBack={() => setStep(3)}
+                    classCount={selectedClasses.length || 1}
                   />
                 </motion.div>
               )}
@@ -236,6 +252,9 @@ export default function RegistrarMarca() {
                     onSubmit={(html) => handleSubmit(html)}
                     onBack={() => setStep(4)}
                     isSubmitting={isSubmitting}
+                    selectedClasses={selectedClasses}
+                    suggestedClasses={suggestedClasses}
+                    onClassesChange={setSelectedClasses}
                   />
                 </motion.div>
               )}
