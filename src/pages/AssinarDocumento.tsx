@@ -640,8 +640,8 @@ export default function AssinarDocumento() {
               </div>
             </div>
 
-            {/* NCL Class Suggestion Card */}
-            {contract.suggested_classes && contract.suggested_classes.some(cls => !cls.selected) && (
+            {/* NCL Class Suggestion Card - shows when there are unselected classes for client to pick */}
+            {contract.suggested_classes && contract.suggested_classes.length > 0 && contract.suggested_classes.some(cls => !cls.selected) && (
               <NCLClassSuggestionCard
                 contractId={contract.id}
                 suggestedClasses={contract.suggested_classes}
