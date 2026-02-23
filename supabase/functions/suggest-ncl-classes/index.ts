@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -20,8 +21,6 @@ serve(async (req) => {
       );
     }
 
-    const aiGatewayUrl = 'https://ai.gateway.lovable.dev';
-
     const systemPrompt = `Você é um especialista em classificação de marcas no INPI (Instituto Nacional da Propriedade Industrial) do Brasil. 
 Sua tarefa é sugerir as classes NCL (Classificação de Nice) mais apropriadas para o registro de uma marca com base no ramo de atividade informado.
 
@@ -38,31 +37,39 @@ Formato de resposta:
 - Ramo de atividade: ${businessArea}
 ${brandName ? `- Nome da marca: ${brandName}` : ''}`;
 
-    const response = await fetch(`${aiGatewayUrl}/v1/chat/completions`, {
+    // Call the centralized ai-engine function which respects the configured provider
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+
+    const aiResponse = await fetch(`${supabaseUrl}/functions/v1/ai-engine`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+        'Authorization': `Bearer ${supabaseServiceKey}`,
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
+        action: 'generate',
+        module: 'suggest-ncl-classes',
+        taskType: 'class_suggestion',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.3,
-        max_tokens: 500,
+        options: {
+          temperature: 0.3,
+          max_tokens: 500,
+        },
       }),
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('AI Gateway error:', errText);
-      throw new Error('Erro na consulta de IA');
+    const aiResult = await aiResponse.json();
+
+    if (!aiResponse.ok || aiResult.error) {
+      console.error('AI Engine error:', aiResult.error);
+      throw new Error(aiResult.error || 'Erro na consulta de IA');
     }
 
-    const aiResult = await response.json();
-    const content = aiResult.choices?.[0]?.message?.content || '[]';
+    const content = aiResult.content || '[]';
     
     // Parse JSON from AI response (handle potential markdown wrapping)
     let classes = [];
