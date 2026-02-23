@@ -9,6 +9,7 @@ import { LeadSourceChart } from '@/components/admin/dashboard/LeadSourceChart';
 import { RecentActivity } from '@/components/admin/dashboard/RecentActivity';
 import { CEOIntelligenceSection } from '@/components/admin/dashboard/CEOIntelligenceSection';
 import { PredictiveIntelligenceSection } from '@/components/admin/dashboard/PredictiveIntelligenceSection';
+import { MonetizationEngineSection } from '@/components/admin/dashboard/MonetizationEngineSection';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Users, FileText, TrendingUp, Target, CreditCard,
@@ -748,6 +749,9 @@ export default function AdminDashboard() {
 
           {/* ── INTELIGÊNCIA PREDITIVA - FASE 1 ── */}
           <PredictiveIntelligenceSection />
+
+          {/* ── MOTOR DE MONETIZAÇÃO ── */}
+          <MonetizationEngineSection />
 
           {/* ── FOOTER STATUS BAR ──────────────── */}
           <motion.div

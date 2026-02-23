@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.ai-engine]
 verify_jwt = false
+
+[functions.recalculate-upsell-weights]
+verify_jwt = false

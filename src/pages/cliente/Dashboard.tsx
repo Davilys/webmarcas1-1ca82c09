@@ -6,6 +6,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motio
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { UpsellRecommendationCard } from '@/components/cliente/UpsellRecommendationCard';
 import {
   FileText, Clock, CheckCircle, AlertCircle, Bell, CreditCard,
   ChevronRight, TrendingUp, Shield, Zap, Activity, ArrowUpRight,
@@ -858,8 +859,17 @@ export default function Dashboard() {
         {/* Main content */}
         <div className="grid lg:grid-cols-3 gap-4">
           {/* Processes — wider */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-4">
             <ProcessesPanel userId={user?.id} />
+            {/* Upsell Recommendation - Light Version */}
+            <UpsellRecommendationCard
+              context={{
+                userId: user?.id,
+                classeAtual: undefined, // Will use general recommendations
+                segmento: undefined,
+                scoreComercial: 70,
+              }}
+            />
           </div>
 
           {/* Right column */}

@@ -2363,6 +2363,123 @@ export type Database = {
         }
         Relationships: []
       }
+      upsell_engine_config: {
+        Row: {
+          engine_enabled: boolean | null
+          global_confidence: number | null
+          id: string
+          last_optimization: string | null
+          last_recalculation: string | null
+          mode: string | null
+          stats: Json | null
+          updated_at: string
+        }
+        Insert: {
+          engine_enabled?: boolean | null
+          global_confidence?: number | null
+          id?: string
+          last_optimization?: string | null
+          last_recalculation?: string | null
+          mode?: string | null
+          stats?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          engine_enabled?: boolean | null
+          global_confidence?: number | null
+          id?: string
+          last_optimization?: string | null
+          last_recalculation?: string | null
+          mode?: string | null
+          stats?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      upsell_engine_weights: {
+        Row: {
+          confidence_index: number | null
+          created_at: string
+          dimension: string
+          dimension_value: string
+          id: string
+          is_premium: boolean | null
+          peso: number
+          taxa_aceite: number | null
+          total_aceites: number | null
+          total_sugestoes: number | null
+          updated_at: string
+        }
+        Insert: {
+          confidence_index?: number | null
+          created_at?: string
+          dimension: string
+          dimension_value: string
+          id?: string
+          is_premium?: boolean | null
+          peso?: number
+          taxa_aceite?: number | null
+          total_aceites?: number | null
+          total_sugestoes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          confidence_index?: number | null
+          created_at?: string
+          dimension?: string
+          dimension_value?: string
+          id?: string
+          is_premium?: boolean | null
+          peso?: number
+          taxa_aceite?: number | null
+          total_aceites?: number | null
+          total_sugestoes?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      upsell_monetization_logs: {
+        Row: {
+          aceitou: boolean | null
+          classe_principal: string | null
+          confidence_index: number | null
+          created_at: string
+          id: string
+          justificativa: string | null
+          score_comercial: number | null
+          segmento: string | null
+          upsell_sugerido: string
+          upsell_tipo: string | null
+          user_id: string | null
+        }
+        Insert: {
+          aceitou?: boolean | null
+          classe_principal?: string | null
+          confidence_index?: number | null
+          created_at?: string
+          id?: string
+          justificativa?: string | null
+          score_comercial?: number | null
+          segmento?: string | null
+          upsell_sugerido: string
+          upsell_tipo?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          aceitou?: boolean | null
+          classe_principal?: string | null
+          confidence_index?: number | null
+          created_at?: string
+          id?: string
+          justificativa?: string | null
+          score_comercial?: number | null
+          segmento?: string | null
+          upsell_sugerido?: string
+          upsell_tipo?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -2480,6 +2597,7 @@ export type Database = {
         Args: { keep_id: string; merge_id: string }
         Returns: undefined
       }
+      recalculate_upsell_weights: { Args: never; Returns: Json }
       sync_intelligence_history: { Args: never; Returns: Json }
     }
     Enums: {
