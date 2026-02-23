@@ -20,7 +20,7 @@ serve(async (req) => {
       );
     }
 
-    const aiGatewayUrl = Deno.env.get('AI_GATEWAY_URL') || 'https://ai-gateway.lovable.dev';
+    const aiGatewayUrl = 'https://ai.gateway.lovable.dev';
 
     const systemPrompt = `Você é um especialista em classificação de marcas no INPI (Instituto Nacional da Propriedade Industrial) do Brasil. 
 Sua tarefa é sugerir as classes NCL (Classificação de Nice) mais apropriadas para o registro de uma marca com base no ramo de atividade informado.
@@ -42,7 +42,7 @@ ${brandName ? `- Nome da marca: ${brandName}` : ''}`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-lite',
