@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Download, Printer, Check, Shield, FileText, Lock, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Download, Printer, Check, Shield, FileText, Lock, Sparkles, ShieldCheck, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -9,18 +9,20 @@ import { useContractTemplate, replaceContractVariables } from "@/hooks/useContra
 import { ContractRenderer, generateContractPrintHTML } from "@/components/contracts/ContractRenderer";
 import { downloadUnifiedContractPDF, printUnifiedContract } from "@/hooks/useUnifiedContractDownload";
 import type { PersonalData } from "./PersonalDataStep";
-import type { BrandData } from "./BrandDataStep";
+import type { BrandData, SuggestedClass } from "./BrandDataStep";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { usePricing } from "@/hooks/usePricing";
 
 interface ContractStepProps {
   personalData: PersonalData;
   brandData: BrandData;
   paymentMethod: string;
   paymentValue: number;
-  onSubmit: (contractHtml: string) => void;
+  onSubmit: (contractHtml: string, updatedBrandData?: BrandData, updatedPaymentValue?: number) => void;
   onBack: () => void;
   isSubmitting: boolean;
+  suggestedClasses?: SuggestedClass[];
 }
 
 export function ContractStep({
@@ -31,15 +33,60 @@ export function ContractStep({
   onSubmit,
   onBack,
   isSubmitting,
+  suggestedClasses = [],
 }: ContractStepProps) {
   const [accepted, setAccepted] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const { template, isLoading, documentType } = useContractTemplate('Contrato Padrão - Registro de Marca INPI');
+  const { pricing } = usePricing();
+
+  // Track additional classes selected in this step
+  const [extraSelectedNumbers, setExtraSelectedNumbers] = useState<number[]>([]);
+
+  // Classes already selected in the form (locked)
+  const alreadySelectedClasses = useMemo(() => {
+    return suggestedClasses.filter(cls => 
+      brandData.selectedClasses?.includes(cls.number)
+    );
+  }, [suggestedClasses, brandData.selectedClasses]);
+
+  // Classes NOT selected in the form (available for upsell)
+  const availableClasses = useMemo(() => {
+    return suggestedClasses.filter(cls => 
+      !brandData.selectedClasses?.includes(cls.number)
+    );
+  }, [suggestedClasses, brandData.selectedClasses]);
+
+  const hasSuggestions = suggestedClasses.length > 0;
+
+  // Compute effective brand data with extra classes
+  const effectiveBrandData = useMemo(() => {
+    if (extraSelectedNumbers.length === 0) return brandData;
+    const extraDescs = extraSelectedNumbers.map(num => {
+      const cls = suggestedClasses.find(c => c.number === num);
+      return cls?.description || `Classe ${num}`;
+    });
+    return {
+      ...brandData,
+      selectedClasses: [...(brandData.selectedClasses || []), ...extraSelectedNumbers],
+      classDescriptions: [...(brandData.classDescriptions || []), ...extraDescs],
+    };
+  }, [brandData, extraSelectedNumbers, suggestedClasses]);
+
+  // Compute effective payment value
+  const effectiveClassCount = effectiveBrandData.selectedClasses?.length || 1;
+  const effectivePaymentValue = useMemo(() => {
+    switch (paymentMethod) {
+      case 'cartao6x': return pricing.cartao.value * effectiveClassCount;
+      case 'boleto3x': return pricing.boleto.value * effectiveClassCount;
+      default: return pricing.avista.value * effectiveClassCount;
+    }
+  }, [paymentMethod, effectiveClassCount, pricing]);
 
   const getProcessedContract = useCallback(() => {
     if (!template) return '';
-    return replaceContractVariables(template.content, { personalData, brandData, paymentMethod });
-  }, [template, personalData, brandData, paymentMethod]);
+    return replaceContractVariables(template.content, { personalData, brandData: effectiveBrandData, paymentMethod });
+  }, [template, personalData, effectiveBrandData, paymentMethod]);
 
   const printContract = async () => {
     try {
@@ -68,8 +115,8 @@ export function ContractStep({
       return;
     }
     const contractContent = getProcessedContract();
-    const fullContractHtml = generateContractPrintHTML(contractContent, brandData.brandName, personalData.fullName, personalData.cpf, undefined, true, documentType);
-    onSubmit(fullContractHtml);
+    const fullContractHtml = generateContractPrintHTML(contractContent, effectiveBrandData.brandName, personalData.fullName, personalData.cpf, undefined, true, documentType);
+    onSubmit(fullContractHtml, extraSelectedNumbers.length > 0 ? effectiveBrandData : undefined, extraSelectedNumbers.length > 0 ? effectivePaymentValue : undefined);
   };
 
   const formatCurrency = (value: number) =>
@@ -126,7 +173,7 @@ export function ContractStep({
             { label: "Marca", value: brandData.brandName, highlight: false },
             { label: "Titular", value: personalData.fullName, highlight: false },
             { label: "Pagamento", value: getPaymentLabel(), highlight: false },
-            { label: "Total", value: formatCurrency(paymentValue), highlight: true },
+            { label: "Total", value: formatCurrency(effectivePaymentValue), highlight: true },
           ].map((item, i) => (
             <div key={i} className={cn("p-4", i >= 2 && "border-t border-border")}>
               <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
@@ -175,6 +222,101 @@ export function ContractStep({
           </div>
         </ScrollArea>
       </div>
+
+      {/* NCL Classes Suggestion Card */}
+      {hasSuggestions && (
+        <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="bg-primary/10 p-2 rounded-xl shrink-0">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm">Classes NCL de Proteção</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Classes selecionadas e sugestões complementares do departamento jurídico.
+              </p>
+            </div>
+          </div>
+
+          {/* Already selected classes (locked) */}
+          {alreadySelectedClasses.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Selecionadas no formulário</p>
+              {alreadySelectedClasses.map(cls => (
+                <div key={cls.number} className="flex items-center gap-3 p-3 rounded-xl bg-primary/10 border border-primary/20">
+                  <Checkbox checked disabled className="opacity-70" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold">Classe NCL {cls.number}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{cls.description}</p>
+                  </div>
+                  <Check className="w-4 h-4 text-primary shrink-0" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Available classes for upsell */}
+          {availableClasses.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Proteção complementar recomendada
+              </p>
+              {availableClasses.map(cls => {
+                const isExtra = extraSelectedNumbers.includes(cls.number);
+                return (
+                  <div
+                    key={cls.number}
+                    onClick={() => setExtraSelectedNumbers(prev =>
+                      isExtra ? prev.filter(n => n !== cls.number) : [...prev, cls.number]
+                    )}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all",
+                      isExtra
+                        ? "bg-primary/10 border-primary/30"
+                        : "bg-card border-border hover:border-primary/30"
+                    )}
+                  >
+                    <Checkbox checked={isExtra} onCheckedChange={() =>
+                      setExtraSelectedNumbers(prev =>
+                        isExtra ? prev.filter(n => n !== cls.number) : [...prev, cls.number]
+                      )
+                    } />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold">Classe NCL {cls.number}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{cls.description}</p>
+                    </div>
+                    <span className="text-[10px] font-medium text-primary whitespace-nowrap">
+                      <Plus className="w-3 h-3 inline" /> {formatCurrency(
+                        paymentMethod === 'cartao6x' ? pricing.cartao.value :
+                        paymentMethod === 'boleto3x' ? pricing.boleto.value :
+                        pricing.avista.value
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Updated total if extra classes selected */}
+          {extraSelectedNumbers.length > 0 && (
+            <div className="rounded-xl bg-card border border-border p-3 space-y-1">
+              <div className="flex justify-between text-[11px] text-muted-foreground">
+                <span>Valor original ({brandData.selectedClasses?.length || 1} classe{(brandData.selectedClasses?.length || 1) > 1 ? 's' : ''}):</span>
+                <span>{formatCurrency(paymentValue)}</span>
+              </div>
+              <div className="flex justify-between text-[11px] text-primary font-medium">
+                <span>+ {extraSelectedNumbers.length} classe(s) adicional(is):</span>
+                <span>+ {formatCurrency(effectivePaymentValue - paymentValue)}</span>
+              </div>
+              <div className="border-t border-border pt-1 flex justify-between">
+                <span className="text-xs font-bold">Novo total:</span>
+                <span className="text-sm font-bold text-primary">{formatCurrency(effectivePaymentValue)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Accept Checkbox */}
       <motion.div

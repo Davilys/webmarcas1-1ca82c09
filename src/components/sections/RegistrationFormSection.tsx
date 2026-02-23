@@ -337,9 +337,14 @@ const RegistrationFormSection = () => {
                 brandData={brandData}
                 paymentMethod={paymentMethod}
                 paymentValue={paymentValue}
-                onSubmit={handleContractSubmit}
+                onSubmit={(html, updatedBrandData, updatedPaymentValue) => {
+                  if (updatedBrandData) setBrandData(updatedBrandData);
+                  if (updatedPaymentValue) setPaymentValue(updatedPaymentValue);
+                  handleContractSubmit(html);
+                }}
                 onBack={() => handleBack(4)}
                 isSubmitting={isSubmitting}
+                suggestedClasses={suggestedClasses}
               />
             )}
           </div>

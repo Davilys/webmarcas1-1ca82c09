@@ -253,9 +253,14 @@ export default function RegistrarMarca() {
                     brandData={brandData}
                     paymentMethod={paymentMethod}
                     paymentValue={paymentValue}
-                    onSubmit={(html) => handleSubmit(html)}
+                    onSubmit={(html, updatedBrandData, updatedPaymentValue) => {
+                      if (updatedBrandData) setBrandData(updatedBrandData);
+                      if (updatedPaymentValue) setPaymentValue(updatedPaymentValue);
+                      handleSubmit(html);
+                    }}
                     onBack={() => setStep(4)}
                     isSubmitting={isSubmitting}
+                    suggestedClasses={suggestedClasses}
                   />
                 </motion.div>
               )}
