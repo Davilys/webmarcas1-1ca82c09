@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, CheckCircle, AlertTriangle, AlertCircle, ShieldX, Printer, ArrowRight, Sparkles, Shield, TrendingUp, Zap, Database, Cpu, Globe, Lock, FileSearch, ScanLine, Building2 } from "lucide-react";
+import { Search, CheckCircle, AlertTriangle, AlertCircle, ShieldX, Printer, ArrowRight, Sparkles, Shield, TrendingUp, Zap, Database, Cpu, Globe, Lock, FileSearch, ScanLine, Building2, Brain, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -123,6 +123,149 @@ function INPISearchAnimation({ brandName }: { brandName: string }) {
         <Lock className="w-3 h-3 text-muted-foreground/50" />
         <p className="text-[10px] text-muted-foreground/50 uppercase tracking-widest">Conexão criptografada • Base oficial INPI</p>
       </div>
+    </motion.div>
+  );
+}
+
+// ─── Commercial Intelligence Module (dual-score) ─────────────────────
+function CommercialIntelligenceModule({ inpiTotal = 0, cnpjMatches = [], socialMatches = [] }: {
+  inpiTotal?: number;
+  cnpjMatches?: { nome: string; cnpj: string; situacao: string }[];
+  socialMatches?: { plataforma: string; encontrado: boolean; url?: string }[];
+}) {
+  const hasInpiConflict = inpiTotal > 0;
+  const deferimentScore = hasInpiConflict ? Math.max(15, 90 - (inpiTotal * 18)) : 92;
+
+  const activeCnpjs = cnpjMatches.filter(m => m.situacao?.toLowerCase() === 'ativa').length;
+  const socialPresence = socialMatches.filter(s => s.encontrado).length;
+  const competitorSignals = activeCnpjs + socialPresence;
+  let competitorRiskScore: number;
+  if (competitorSignals === 0) competitorRiskScore = 15;
+  else if (competitorSignals === 1) competitorRiskScore = 73;
+  else if (competitorSignals <= 3) competitorRiskScore = 73 + Math.round((competitorSignals - 1) * 6);
+  else competitorRiskScore = 91;
+
+  const d = deferimentScore;
+  const dLabel = d >= 80 ? 'Alto' : d >= 60 ? 'Médio' : 'Baixo';
+  const dColor = d >= 80 ? 'text-emerald-500' : d >= 60 ? 'text-amber-500' : 'text-red-500';
+  const dBarColor = d >= 80 ? 'from-emerald-500 to-green-400' : d >= 60 ? 'from-amber-500 to-orange-400' : 'from-red-500 to-rose-400';
+
+  const c = competitorRiskScore;
+  const cLabel = c >= 70 ? 'Alto' : c >= 40 ? 'Médio' : 'Baixo';
+  const cColor = c >= 70 ? 'text-red-500' : c >= 40 ? 'text-amber-500' : 'text-emerald-500';
+  const cBarColor = c >= 70 ? 'from-red-500 to-rose-400' : c >= 40 ? 'from-amber-500 to-orange-400' : 'from-emerald-500 to-green-400';
+
+  const worstScore = Math.min(d, 100 - c);
+  const borderColor = worstScore >= 60 ? 'border-emerald-500/30' : worstScore >= 30 ? 'border-amber-500/30' : 'border-red-500/30';
+  const bgGlow = worstScore >= 60 ? 'bg-emerald-500/5' : worstScore >= 30 ? 'bg-amber-500/5' : 'bg-red-500/5';
+
+  const deferimentMessage = d >= 80
+    ? 'Alto potencial de deferimento. Recomendamos protocolar imediatamente.'
+    : d >= 60
+    ? 'Marca viável, porém o registro imediato reduz riscos futuros.'
+    : 'Foram encontradas marcas similares no INPI. Recomendamos avaliação estratégica do nome antes do protocolo.';
+
+  const competitorMessage = c >= 70
+    ? `⚠️ Alto risco de outra empresa registrar! ${activeCnpjs > 0 ? `${activeCnpjs} empresa(s) ativa(s) com nome similar.` : ''} ${socialPresence > 0 ? `Presença em ${socialPresence} rede(s) social(is).` : ''} Registre primeiro!`
+    : c >= 40
+    ? 'Existem sinais de uso por terceiros. O registro antecipado é recomendado.'
+    : 'Baixo risco concorrencial detectado. Momento ideal para garantir a marca.';
+
+  const ScoreGauge = ({ value, color, label, sublabel }: { value: number; color: string; label: string; sublabel: string }) => (
+    <div className="flex items-center gap-3">
+      <div className="relative w-16 h-16">
+        <svg width="64" height="64" className="-rotate-90">
+          <circle cx="32" cy="32" r="26" fill="none" stroke="hsl(var(--muted))" strokeWidth="5" />
+          <motion.circle cx="32" cy="32" r="26" fill="none" stroke={color} strokeWidth="5" strokeLinecap="round"
+            strokeDasharray={2 * Math.PI * 26}
+            initial={{ strokeDashoffset: 2 * Math.PI * 26 }}
+            animate={{ strokeDashoffset: 2 * Math.PI * 26 * (1 - value / 100) }}
+            transition={{ duration: 1.2, ease: 'easeOut' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-lg font-black" style={{ color }}>{value}</span>
+        </div>
+      </div>
+      <div>
+        <p className="text-sm font-bold">{label}</p>
+        <p className="text-xs font-semibold" style={{ color }}>{sublabel}</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}
+      className={`rounded-2xl border ${borderColor} ${bgGlow} p-5 space-y-5`}>
+      <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-md">
+          <Brain className="h-4.5 w-4.5 text-white" />
+        </div>
+        <div>
+          <h4 className="font-semibold text-base">🧠 Análise Inteligente da Marca</h4>
+          <p className="text-[11px] text-muted-foreground">Motor preditivo WebMarcas Intelligence PI™</p>
+        </div>
+      </div>
+
+      {/* Score 1: Potencial de Deferimento */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <TrendingUp className="h-4 w-4 text-blue-500" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Potencial de Deferimento</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+          <ScoreGauge value={d} color={d >= 80 ? '#10b981' : d >= 60 ? '#f59e0b' : '#ef4444'} label="Score de Deferimento" sublabel={`Potencial ${dLabel}`} />
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] text-muted-foreground">Potencial</span>
+              <span className={`text-xs font-bold ${dColor}`}>{d}/100</span>
+            </div>
+            <div className="h-2.5 w-full rounded-full bg-muted/40 overflow-hidden">
+              <motion.div className={`h-full rounded-full bg-gradient-to-r ${dBarColor}`} initial={{ width: 0 }} animate={{ width: `${d}%` }} transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }} />
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              {hasInpiConflict ? `${inpiTotal} marca(s) similar(es) encontrada(s) no INPI` : 'Nenhuma marca idêntica encontrada no INPI'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-card/60 border border-border/30">
+          <Target className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+          <p className="text-sm text-foreground leading-relaxed">{deferimentMessage}</p>
+        </div>
+      </div>
+
+      {/* Score 2: Risco de Concorrente Registrar */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Risco de Concorrente Registrar</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+          <ScoreGauge value={c} color={c >= 70 ? '#ef4444' : c >= 40 ? '#f59e0b' : '#10b981'} label="Risco Concorrencial" sublabel={`Risco ${cLabel}`} />
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] text-muted-foreground">Nível de risco</span>
+              <span className={`text-xs font-bold ${cColor}`}>{c}/100</span>
+            </div>
+            <div className="h-2.5 w-full rounded-full bg-muted/40 overflow-hidden">
+              <motion.div className={`h-full rounded-full bg-gradient-to-r ${cBarColor}`} initial={{ width: 0 }} animate={{ width: `${c}%` }} transition={{ duration: 1, ease: 'easeOut', delay: 0.5 }} />
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1.5 space-y-0.5">
+              {activeCnpjs > 0 && <p>🏢 {activeCnpjs} empresa(s) ativa(s) com nome similar</p>}
+              {socialPresence > 0 && <p>🌐 Presença em {socialPresence} rede(s) social(is)</p>}
+              {competitorSignals === 0 && <p>✅ Nenhum sinal concorrencial detectado</p>}
+            </div>
+          </div>
+        </div>
+        <div className={`flex items-start gap-2.5 p-3 rounded-xl border ${c >= 70 ? 'bg-red-500/5 border-red-500/20' : c >= 40 ? 'bg-amber-500/5 border-amber-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
+          <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${cColor}`} />
+          <p className="text-sm text-foreground leading-relaxed">{competitorMessage}</p>
+        </div>
+      </div>
+
+      <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+        Indicador baseado em dados históricos internos e públicos. Não representa garantia de resultado.
+      </p>
     </motion.div>
   );
 }
@@ -360,6 +503,15 @@ export function ViabilityStep({ onNext }: ViabilityStepProps) {
           <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 shrink-0" />
           <p className="text-xs text-muted-foreground leading-relaxed"><strong className="text-foreground">Aja rápido!</strong> O dono da marca é quem registra primeiro.</p>
         </motion.div>
+      )}
+
+      {/* Commercial Intelligence Module */}
+      {result.level !== 'blocked' && (
+        <CommercialIntelligenceModule
+          inpiTotal={result.inpiData?.totalResultados || 0}
+          cnpjMatches={result.cnpjData?.matches || []}
+          socialMatches={result.internetData?.socialMatches || []}
+        />
       )}
 
       {/* Actions */}
