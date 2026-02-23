@@ -417,7 +417,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini',
         messages: apiMessages,
         stream: true,
         max_tokens: 4096,

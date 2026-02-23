@@ -20,7 +20,13 @@ serve(async (req) => {
       );
     }
 
-    const aiGatewayUrl = 'https://ai.gateway.lovable.dev';
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: 'OPENAI_API_KEY não configurada' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const systemPrompt = `Você é um especialista em classificação de marcas no INPI (Instituto Nacional da Propriedade Industrial) do Brasil. 
 Sua tarefa é sugerir as classes NCL (Classificação de Nice) mais apropriadas para o registro de uma marca com base no ramo de atividade informado.
@@ -38,13 +44,14 @@ Formato de resposta:
 - Ramo de atividade: ${businessArea}
 ${brandName ? `- Nome da marca: ${brandName}` : ''}`;
 
-    const response = await fetch(`${aiGatewayUrl}/v1/chat/completions`, {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -56,14 +63,13 @@ ${brandName ? `- Nome da marca: ${brandName}` : ''}`;
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('AI Gateway error:', errText);
+      console.error('OpenAI error:', errText);
       throw new Error('Erro na consulta de IA');
     }
 
     const aiResult = await response.json();
     const content = aiResult.choices?.[0]?.message?.content || '[]';
     
-    // Parse JSON from AI response (handle potential markdown wrapping)
     let classes = [];
     try {
       const jsonMatch = content.match(/\[[\s\S]*\]/);
@@ -75,7 +81,6 @@ ${brandName ? `- Nome da marca: ${brandName}` : ''}`;
       classes = [];
     }
 
-    // Validate and sanitize
     classes = classes
       .filter((c: any) => c.number && c.number >= 1 && c.number <= 45 && c.description)
       .map((c: any) => ({ number: Number(c.number), description: String(c.description).substring(0, 100) }))
