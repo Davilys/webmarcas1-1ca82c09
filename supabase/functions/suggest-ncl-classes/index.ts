@@ -37,39 +37,72 @@ Formato de resposta:
 - Ramo de atividade: ${businessArea}
 ${brandName ? `- Nome da marca: ${brandName}` : ''}`;
 
-    // Call the centralized ai-engine function which respects the configured provider
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    let content = '';
+    let success = false;
 
-    const aiResponse = await fetch(`${supabaseUrl}/functions/v1/ai-engine`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseServiceKey}`,
-      },
-      body: JSON.stringify({
-        action: 'generate',
-        module: 'suggest-ncl-classes',
-        taskType: 'class_suggestion',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        options: {
-          temperature: 0.3,
-          max_tokens: 500,
-        },
-      }),
-    });
-
-    const aiResult = await aiResponse.json();
-
-    if (!aiResponse.ok || aiResult.error) {
-      console.error('AI Engine error:', aiResult.error);
-      throw new Error(aiResult.error || 'Erro na consulta de IA');
+    // Try Lovable AI gateway first
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (LOVABLE_API_KEY && !success) {
+      try {
+        const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature: 0.3,
+            max_tokens: 500,
+          }),
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          content = data.choices?.[0]?.message?.content || '';
+          if (content) success = true;
+        } else {
+          console.log('Lovable AI unavailable, trying OpenAI fallback');
+        }
+      } catch (e) {
+        console.log('Lovable AI failed, trying OpenAI fallback');
+      }
     }
 
-    const content = aiResult.content || '[]';
+    // Fallback: call OpenAI directly
+    if (!success) {
+      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+      if (!OPENAI_API_KEY) throw new Error('No AI provider available');
+
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          max_completion_tokens: 500,
+        }),
+      });
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(`OpenAI error ${resp.status}: ${txt}`);
+      }
+
+      const data = await resp.json();
+      content = data.choices?.[0]?.message?.content || '[]';
+    }
+
+    console.log('AI content received:', content.substring(0, 300));
     
     // Parse JSON from AI response (handle potential markdown wrapping)
     let classes = [];
@@ -77,6 +110,8 @@ ${brandName ? `- Nome da marca: ${brandName}` : ''}`;
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         classes = JSON.parse(jsonMatch[0]);
+      } else {
+        console.error('No JSON array found in AI response:', content);
       }
     } catch (parseErr) {
       console.error('Failed to parse AI response:', content);
