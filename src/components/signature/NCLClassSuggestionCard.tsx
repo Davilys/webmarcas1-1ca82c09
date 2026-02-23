@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Shield, Check, Loader2, Plus, CheckCircle2 } from 'lucide-react';
+import { Shield, Check, Loader2, Plus } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 interface SuggestedClass {
@@ -28,13 +29,10 @@ export function NCLClassSuggestionCard({
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Classes já selecionadas pelo ADM
-  const preSelectedClasses = suggestedClasses.filter(cls => cls.selected);
-  // Classes disponíveis para o cliente escolher
+  // Only show unselected classes
   const availableClasses = suggestedClasses.filter(cls => !cls.selected);
 
-  // Se não há classes disponíveis para seleção, não mostrar nada
-  if (availableClasses.length === 0 && preSelectedClasses.length === 0) return null;
+  if (availableClasses.length === 0) return null;
 
   const getPerClassPrice = () => {
     switch (paymentMethod) {
@@ -98,124 +96,103 @@ export function NCLClassSuggestionCard({
     }
   };
 
+  const getPaymentLabel = () => {
+    switch (paymentMethod) {
+      case 'cartao6x': return `6x de ${formatCurrency(newTotal / 6)}`;
+      case 'boleto3x': return `3x de ${formatCurrency(newTotal / 3)}`;
+      default: return `${formatCurrency(newTotal)} à vista (PIX)`;
+    }
+  };
+
   return (
-    <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 my-6">
-      {/* Header */}
-      <div className="flex items-start gap-3 mb-5">
-        <div className="bg-primary/10 p-2.5 rounded-full">
-          <Shield className="h-5 w-5 text-primary" />
+    <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-6 my-6">
+      <div className="flex items-start gap-3 mb-4">
+        <div className="bg-amber-100 p-2 rounded-full">
+          <Shield className="h-5 w-5 text-amber-700" />
         </div>
         <div>
-          <h3 className="text-lg font-bold text-foreground">
-            Classes NCL de Proteção
+          <h3 className="text-lg font-bold text-amber-900">
+            Proteção Complementar Recomendada
           </h3>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Classes selecionadas e sugestões complementares do departamento jurídico.
+          <p className="text-sm text-amber-700 mt-1">
+            Nosso departamento jurídico sugere proteger sua marca também nas classes abaixo. 
+            Ao selecionar, seu contrato e valor serão atualizados automaticamente.
           </p>
         </div>
       </div>
 
-      {/* Seção 1: Classes já selecionadas pelo ADM */}
-      {preSelectedClasses.length > 0 && (
-        <div className="mb-5">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Selecionadas no Formulário
-          </p>
-          <div className="space-y-2">
-            {preSelectedClasses.map((cls) => (
-              <div
-                key={cls.number}
-                className="flex items-center justify-between p-3.5 rounded-lg bg-primary/5 border border-primary/20"
-              >
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="font-semibold text-foreground">Classe NCL {cls.number}</p>
-                    <p className="text-sm text-muted-foreground">{cls.description}</p>
-                  </div>
-                </div>
-                <Check className="h-5 w-5 text-primary" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Seção 2: Proteção Complementar */}
-      {availableClasses.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Proteção Complementar Recomendada
-          </p>
-          <div className="space-y-2 mb-4">
-            {availableClasses.map((cls) => (
-              <div
-                key={cls.number}
-                className={`flex items-center gap-3 p-3.5 rounded-lg border transition-all cursor-pointer ${
-                  selectedNumbers.includes(cls.number)
-                    ? 'bg-primary/5 border-primary/30'
-                    : 'bg-background border-border hover:border-primary/20'
-                }`}
-                onClick={() => toggleClass(cls.number)}
-              >
-                <Checkbox
-                  checked={selectedNumbers.includes(cls.number)}
-                  onCheckedChange={() => toggleClass(cls.number)}
-                  className="mt-0.5"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground">Classe NCL {cls.number}</p>
-                  <p className="text-sm text-muted-foreground truncate">{cls.description}</p>
-                </div>
-                <span className="text-sm font-medium text-primary whitespace-nowrap">
-                  + {formatCurrency(perClassPrice)}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Resumo de valor */}
-          {selectedNumbers.length > 0 && (
-            <div className="bg-background rounded-lg p-4 border border-border mb-4">
-              <div className="flex justify-between items-center text-sm text-muted-foreground mb-1">
-                <span>Valor atual do contrato:</span>
-                <span>{formatCurrency(currentValue)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm text-primary mb-2">
-                <span>+ {selectedNumbers.length} classe(s) adicional(is):</span>
-                <span>+ {formatCurrency(additionalValue)}</span>
-              </div>
-              <div className="border-t pt-2 flex justify-between items-center">
-                <span className="font-bold text-foreground">Novo valor total:</span>
-                <p className="font-bold text-lg text-primary">{formatCurrency(newTotal)}</p>
-              </div>
-            </div>
-          )}
-
-          <Button
-            onClick={handleConfirm}
-            disabled={selectedNumbers.length === 0 || isUpdating}
-            className="w-full"
+      <div className="space-y-3 mb-4">
+        {availableClasses.map((cls) => (
+          <div
+            key={cls.number}
+            className={`flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${
+              selectedNumbers.includes(cls.number)
+                ? 'bg-amber-100 border-amber-400'
+                : 'bg-white border-gray-200 hover:border-amber-300'
+            }`}
+            onClick={() => toggleClass(cls.number)}
           >
-            {isUpdating ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Atualizando contrato...
-              </>
-            ) : selectedNumbers.length > 0 ? (
-              <>
-                <Check className="h-4 w-4 mr-2" />
-                Confirmar {selectedNumbers.length} classe(s) adicional(is)
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4 mr-2" />
-                Selecione as classes desejadas
-              </>
-            )}
-          </Button>
+            <Checkbox
+              checked={selectedNumbers.includes(cls.number)}
+              onCheckedChange={() => toggleClass(cls.number)}
+              className="mt-0.5"
+            />
+            <div className="flex-1">
+              <p className="font-semibold text-gray-900">
+                Classe NCL {cls.number}
+              </p>
+              <p className="text-sm text-gray-600 mt-0.5">
+                {cls.description}
+              </p>
+            </div>
+            <span className="text-sm font-medium text-amber-800 whitespace-nowrap">
+              + {formatCurrency(perClassPrice)}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {selectedNumbers.length > 0 && (
+        <div className="bg-white rounded-lg p-4 border border-amber-200 mb-4">
+          <div className="flex justify-between items-center text-sm text-gray-600 mb-1">
+            <span>Valor atual do contrato:</span>
+            <span>{formatCurrency(currentValue)}</span>
+          </div>
+          <div className="flex justify-between items-center text-sm text-amber-700 mb-2">
+            <span>+ {selectedNumbers.length} classe(s) adicional(is):</span>
+            <span>+ {formatCurrency(additionalValue)}</span>
+          </div>
+          <div className="border-t pt-2 flex justify-between items-center">
+            <span className="font-bold text-gray-900">Novo valor total:</span>
+            <div className="text-right">
+              <p className="font-bold text-lg text-amber-900">{getPaymentLabel()}</p>
+            </div>
+          </div>
         </div>
       )}
+
+      <Button
+        onClick={handleConfirm}
+        disabled={selectedNumbers.length === 0 || isUpdating}
+        className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+      >
+        {isUpdating ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Atualizando contrato...
+          </>
+        ) : selectedNumbers.length > 0 ? (
+          <>
+            <Check className="h-4 w-4 mr-2" />
+            Confirmar {selectedNumbers.length} classe(s) adicional(is)
+          </>
+        ) : (
+          <>
+            <Plus className="h-4 w-4 mr-2" />
+            Selecione as classes desejadas
+          </>
+        )}
+      </Button>
     </div>
   );
 }
