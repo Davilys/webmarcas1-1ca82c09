@@ -1,38 +1,80 @@
 
-# Correcao de 2 Bugs no Sistema de Classes NCL
+# Classes NCL Sugeridas no Formulario de Dados da Marca
 
-## Problema 1: Auto-selecao automatica no Admin
-**Onde:** `CreateContractDialog.tsx`, linha 955
-**Bug:** Quando a IA sugere as classes, o codigo faz `setSelectedSuggestedClasses(classes.map(...))`, selecionando TODAS automaticamente. O admin deveria ver as sugestoes e escolher manualmente quais incluir.
+## Resumo
 
-**Correcao:** Remover a auto-selecao. Apos a IA retornar as classes, apenas exibi-las sem nenhuma pre-selecionada. O admin clica nas que deseja incluir no contrato. As nao selecionadas pelo admin ficam como sugestoes de upsell para o cliente na pagina de assinatura.
+Adicionar a selecao de classes NCL sugeridas pelo laudo de viabilidade no passo "Dados da Marca" (BrandDataStep). As classes aparecem como checkboxes com descricao do que protegem. O valor no passo de pagamento multiplica automaticamente pela quantidade de classes selecionadas. Isso sera implementado em 3 locais: landing page (/registro), portal do cliente (/cliente/registrar-marca) e painel admin (criar contrato).
 
-## Problema 2: Pagina de assinatura com layout diferente do formulario do site
-**Onde:** `NCLClassSuggestionCard.tsx` e `AssinarDocumento.tsx`
-**Bug:** O card de classes na pagina de assinatura (/assinar/:token) usa um layout diferente (estilo amber/amarelo) do formulario de registro do site (estilo azul/primary com secoes "Selecionadas" e "Protecao Complementar" separadas).
+## O que o usuario ve
 
-**Correcao:** Atualizar o `NCLClassSuggestionCard` para replicar o layout do formulario de registro (imagem de referencia 343):
-- Secao "SELECIONADAS NO FORMULARIO" mostrando as classes ja incluidas (selected: true) com check, sem possibilidade de desmarcar
-- Secao "PROTECAO COMPLEMENTAR RECOMENDADA" mostrando as classes nao selecionadas (selected: false) com preco unitario ao lado, para o cliente selecionar
-- Visual azul/primary consistente com o restante do site
+No formulario "Informacoes da Marca", abaixo do campo "Ramo de Atividade" e acima do CNPJ:
 
----
+- Secao "Classes NCL Sugeridas pelo Laudo"
+- Classe principal ja pre-selecionada (obrigatoria)
+- Classes complementares como checkboxes com descricao (ex: "Classe 35 - Protege atividades comerciais, franquias e publicidade")
+- Opcao de destaque "Registrar todas as classes" com badge de recomendacao
+- Ao selecionar mais classes, o passo de pagamento calcula automaticamente (699 x N classes no PIX, etc.)
 
 ## Detalhes Tecnicos
 
-### Arquivo 1: `src/components/admin/contracts/CreateContractDialog.tsx`
-- Linha 955: Trocar `setSelectedSuggestedClasses(classes.map((c: any) => c.number))` por `setSelectedSuggestedClasses([])` — nenhuma classe pre-selecionada
+### 1. Atualizar interface BrandData
 
-### Arquivo 2: `src/components/signature/NCLClassSuggestionCard.tsx`
-- Redesenhar o componente para seguir o layout do `BrandDataStep.tsx`:
-  - Titulo: "Classes NCL de Protecao" com subtitulo "Classes selecionadas e sugestoes complementares do departamento juridico."
-  - Secao superior: classes ja selecionadas pelo admin (selected: true), exibidas com check, sem acao
-  - Secao inferior "PROTECAO COMPLEMENTAR RECOMENDADA": classes nao selecionadas (selected: false), com checkbox interativo e preco "+ R$ XXX" ao lado
-  - Resumo de valor e botao de confirmacao ao final
-  - Cores: azul/primary em vez de amber
+**Arquivo: `src/components/cliente/checkout/BrandDataStep.tsx`**
+- Adicionar `selectedClasses: number[]` e `classDescriptions: string[]` ao tipo `BrandData`
+- Valores default: arrays vazios
 
-### Seguranca
-- Nenhuma tabela, schema ou API sera alterada
-- Nenhuma logica de calculo de preco sera modificada
-- A edge function `update-contract-classes` permanece intacta
-- Apenas mudancas visuais no frontend (2 arquivos)
+### 2. Atualizar BrandDataStep - UI de selecao de classes
+
+**Arquivo: `src/components/cliente/checkout/BrandDataStep.tsx`**
+- Receber nova prop `suggestedClasses: { number: number; description: string }[]`
+- Abaixo do campo "Ramo de Atividade", renderizar secao com:
+  - Titulo "Classes NCL Sugeridas"
+  - Subtitulo "Selecione as classes de protecao para sua marca"
+  - Checkboxes para cada classe (numero + descricao)
+  - Primeira classe pre-selecionada
+  - Botao/badge "Selecionar todas" com destaque
+- Ao submeter, incluir `selectedClasses` e `classDescriptions` no objeto BrandData
+
+### 3. Propagar classes sugeridas - Portal do Cliente
+
+**Arquivo: `src/pages/cliente/RegistrarMarca.tsx`**
+- No `handleViabilityNext`, extrair `result.classes` e `result.classDescriptions` do resultado da viabilidade
+- Armazenar em estado `suggestedClasses`
+- Passar como prop para `BrandDataStep`
+- Pre-selecionar a primeira classe no `brandData.selectedClasses`
+
+### 4. Propagar classes sugeridas - Landing Page
+
+**Arquivo: `src/components/sections/RegistrationFormSection.tsx`**
+- Mesma logica: extrair classes do resultado de viabilidade
+- Passar para `BrandDataStep` como prop
+- Funciona identicamente ao portal do cliente
+
+### 5. PaymentStep - Valores dinamicos por quantidade de classes
+
+**Arquivo: `src/components/cliente/checkout/PaymentStep.tsx`**
+- Receber nova prop `classCount: number` (default 1)
+- Multiplicar valores do `usePricing()` pela quantidade:
+  - PIX: valor avista x classCount
+  - Cartao: valor cartao x classCount
+  - Boleto: valor boleto x classCount
+- Exibir indicador "X classes selecionadas" no topo
+
+### 6. RegistrarMarca e RegistrationFormSection - Passar classCount
+
+- Ambos os arquivos passam `brandData.selectedClasses.length || 1` para `PaymentStep`
+
+### 7. Admin CreateContractDialog - Campo de classes sugeridas
+
+**Arquivo: `src/components/admin/contracts/CreateContractDialog.tsx`**
+- Adicionar campo de input para classes sugeridas (numeros separados por virgula)
+- Campo de descricao para cada classe
+- Mesma logica de selecao para o admin poder definir as classes ao gerar contrato
+
+## O que NAO muda
+
+- Banco de dados (nenhuma tabela nova)
+- Edge functions
+- Layout principal ou fluxo de assinatura
+- APIs externas
+- A coluna `suggested_classes` na tabela contracts (ja criada anteriormente) sera populada com as classes NAO selecionadas para o upsell na pagina de assinatura
