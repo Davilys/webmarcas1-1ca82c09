@@ -71,6 +71,3 @@ verify_jwt = false
 
 [functions.recalculate-upsell-weights]
 verify_jwt = false
-
-[functions.update-contract-classes]
-verify_jwt = false

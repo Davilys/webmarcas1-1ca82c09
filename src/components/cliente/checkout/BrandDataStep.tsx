@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Building2, Briefcase, Hash, FileText, Sparkles, ShieldCheck, CheckCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, Briefcase, Hash, FileText, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,8 +15,6 @@ const brandDataSchema = z.object({
   hasCNPJ: z.boolean(),
   cnpj: z.string().optional(),
   companyName: z.string().optional(),
-  selectedClasses: z.array(z.number()).optional(),
-  classDescriptions: z.array(z.string()).optional(),
 }).refine((data) => {
   if (data.hasCNPJ) {
     if (!data.cnpj || !validateCNPJ(data.cnpj)) return false;
@@ -34,72 +32,17 @@ export interface BrandData {
   hasCNPJ: boolean;
   cnpj: string;
   companyName: string;
-  selectedClasses?: number[];
-  classDescriptions?: string[];
-}
-
-export interface SuggestedClass {
-  number: number;
-  description: string;
 }
 
 interface BrandDataStepProps {
   initialData: BrandData;
   onNext: (data: BrandData) => void;
   onBack: () => void;
-  suggestedClasses?: SuggestedClass[];
 }
 
-export function BrandDataStep({ initialData, onNext, onBack, suggestedClasses = [] }: BrandDataStepProps) {
-  const [data, setData] = useState<BrandData>(() => ({
-    ...initialData,
-    selectedClasses: initialData.selectedClasses?.length
-      ? initialData.selectedClasses
-      : suggestedClasses.length > 0
-        ? [suggestedClasses[0].number]
-        : [],
-    classDescriptions: initialData.classDescriptions?.length
-      ? initialData.classDescriptions
-      : suggestedClasses.length > 0
-        ? [suggestedClasses[0].description]
-        : [],
-  }));
+export function BrandDataStep({ initialData, onNext, onBack }: BrandDataStepProps) {
+  const [data, setData] = useState<BrandData>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const toggleClass = (cls: SuggestedClass, index: number) => {
-    // First class is mandatory
-    if (index === 0) return;
-    
-    setData(prev => {
-      const selected = prev.selectedClasses || [];
-      const descriptions = prev.classDescriptions || [];
-      
-      if (selected.includes(cls.number)) {
-        return {
-          ...prev,
-          selectedClasses: selected.filter(n => n !== cls.number),
-          classDescriptions: descriptions.filter(d => d !== cls.description),
-        };
-      } else {
-        return {
-          ...prev,
-          selectedClasses: [...selected, cls.number],
-          classDescriptions: [...descriptions, cls.description],
-        };
-      }
-    });
-  };
-
-  const selectAll = () => {
-    setData(prev => ({
-      ...prev,
-      selectedClasses: suggestedClasses.map(c => c.number),
-      classDescriptions: suggestedClasses.map(c => c.description),
-    }));
-  };
-
-  const allSelected = suggestedClasses.length > 0 && 
-    suggestedClasses.every(c => (data.selectedClasses || []).includes(c.number));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,82 +138,6 @@ export function BrandDataStep({ initialData, onNext, onBack, suggestedClasses = 
               <p className="text-destructive text-xs">{errors.businessArea}</p>
             )}
           </div>
-
-          {/* NCL Classes Section */}
-          {suggestedClasses.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-4 space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  <div>
-                    <p className="text-sm font-semibold">Classes NCL Sugeridas</p>
-                    <p className="text-xs text-muted-foreground">Proteções recomendadas pelo laudo de viabilidade</p>
-                  </div>
-                </div>
-                {suggestedClasses.length > 1 && !allSelected && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={selectAll}
-                    className="text-xs h-7 gap-1 border-primary/30 text-primary hover:bg-primary/10"
-                  >
-                    <CheckCheck className="w-3 h-3" />
-                    Todas
-                  </Button>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                {suggestedClasses.map((cls, index) => {
-                  const isSelected = (data.selectedClasses || []).includes(cls.number);
-                  const isFirst = index === 0;
-                  return (
-                    <label
-                      key={cls.number}
-                      className={cn(
-                        "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all",
-                        isSelected
-                          ? "border-primary/40 bg-primary/5"
-                          : "border-border hover:border-primary/20 hover:bg-muted/30",
-                        isFirst && "cursor-default"
-                      )}
-                    >
-                      <Checkbox
-                        checked={isSelected}
-                        disabled={isFirst}
-                        onCheckedChange={() => toggleClass(cls, index)}
-                        className="mt-0.5 shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">Classe {cls.number}</span>
-                          {isFirst && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                              Principal
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                          {cls.description}
-                        </p>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-
-              {(data.selectedClasses || []).length > 1 && (
-                <p className="text-xs text-primary font-medium text-center pt-1">
-                  {(data.selectedClasses || []).length} classes selecionadas — proteção ampliada ✓
-                </p>
-              )}
-            </motion.div>
-          )}
 
           {/* CNPJ Toggle */}
           <div className="rounded-xl border border-border bg-muted/20 p-4">

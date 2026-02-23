@@ -23,10 +23,9 @@ interface PaymentStepProps {
   selectedMethod: string;
   onNext: (method: string, value: number) => void;
   onBack: () => void;
-  classCount?: number;
 }
 
-export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1 }: PaymentStepProps) {
+export function PaymentStep({ selectedMethod, onNext, onBack }: PaymentStepProps) {
   const [selected, setSelected] = useState(selectedMethod || "");
   const [error, setError] = useState("");
   const { pricing, isLoading } = usePricing();
@@ -40,9 +39,9 @@ export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1 }: 
       id: "avista",
       title: "PIX — À Vista",
       subtitle: "Pagamento instantâneo e seguro",
-      price: `R$ ${(pricing.avista.value * classCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      price: `R$ ${pricing.avista.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       totalLabel: "Total",
-      priceValue: pricing.avista.value * classCount,
+      priceValue: pricing.avista.value,
       icon: QrCode,
       badge: "Melhor preço",
       badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
@@ -52,9 +51,9 @@ export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1 }: 
       id: "cartao6x",
       title: "Cartão de Crédito",
       subtitle: `${pricing.cartao.installments}x sem juros`,
-      price: `R$ ${(pricing.cartao.installmentValue * classCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      price: `R$ ${pricing.cartao.installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       totalLabel: `${pricing.cartao.installments}x de`,
-      priceValue: pricing.cartao.value * classCount,
+      priceValue: pricing.cartao.value,
       icon: CreditCard,
       badge: "Sem juros",
       badgeColor: "bg-blue-500/10 text-blue-600 border-blue-500/20",
@@ -64,13 +63,13 @@ export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1 }: 
       id: "boleto3x",
       title: "Boleto Parcelado",
       subtitle: `${pricing.boleto.installments}x sem juros`,
-      price: `R$ ${(pricing.boleto.installmentValue * classCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      price: `R$ ${pricing.boleto.installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
       totalLabel: `${pricing.boleto.installments}x de`,
-      priceValue: pricing.boleto.value * classCount,
+      priceValue: pricing.boleto.value,
       icon: FileText,
       features: ["Até 3 dias úteis", "Parcelado sem juros", "Emissão automática"],
     },
-  ], [pricing, classCount]);
+  ], [pricing]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,11 +106,6 @@ export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1 }: 
           </div>
           <h2 className="text-2xl font-bold">Escolha como pagar</h2>
           <p className="text-muted-foreground text-sm">Selecione a forma mais conveniente para você.</p>
-          {classCount > 1 && (
-            <p className="text-xs font-medium text-primary">
-              {classCount} classes NCL selecionadas — valores ajustados automaticamente
-            </p>
-          )}
         </div>
 
         {/* Payment Options */}

@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CheckoutProgress } from "@/components/cliente/checkout/CheckoutProgress";
 import { ViabilityStep } from "@/components/cliente/checkout/ViabilityStep";
 import { PersonalDataStep, type PersonalData } from "@/components/cliente/checkout/PersonalDataStep";
-import { BrandDataStep, type BrandData, type SuggestedClass } from "@/components/cliente/checkout/BrandDataStep";
+import { BrandDataStep, type BrandData } from "@/components/cliente/checkout/BrandDataStep";
 import { PaymentStep } from "@/components/cliente/checkout/PaymentStep";
 import { ContractStep } from "@/components/cliente/checkout/ContractStep";
 import type { ViabilityResult } from "@/lib/api/viability";
@@ -24,7 +24,6 @@ const RegistrationFormSection = () => {
 
   // Form data states
   const [viabilityData, setViabilityData] = useState<ViabilityData | null>(null);
-  const [suggestedClasses, setSuggestedClasses] = useState<SuggestedClass[]>([]);
   const [personalData, setPersonalData] = useState<PersonalData | null>(null);
   const [brandData, setBrandData] = useState<BrandData | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -68,14 +67,6 @@ const RegistrationFormSection = () => {
   // Handlers
   const handleViabilityNext = useCallback((brandName: string, businessArea: string, result: ViabilityResult) => {
     setViabilityData({ brandName, businessArea, result });
-    // Extract suggested classes
-    if (result.classes && result.classDescriptions) {
-      const classes: SuggestedClass[] = result.classes.map((num, i) => ({
-        number: num,
-        description: result.classDescriptions?.[i] || `Classe ${num}`,
-      }));
-      setSuggestedClasses(classes);
-    }
     setStep(2);
     scrollToForm();
   }, []);
@@ -122,11 +113,8 @@ const RegistrationFormSection = () => {
     scrollToForm();
   }, []);
 
-  const handleContractSubmit = useCallback(async (contractHtml: string, finalBrandData?: BrandData, finalPaymentValue?: number) => {
-    const activeBrandData = finalBrandData || brandData;
-    const activePaymentValue = finalPaymentValue || paymentValue;
-
-    if (!personalData || !activeBrandData) {
+  const handleContractSubmit = useCallback(async (contractHtml: string) => {
+    if (!personalData || !brandData) {
       toast({
         title: "Erro",
         description: "Dados incompletos. Por favor, preencha todos os campos.",
@@ -154,14 +142,14 @@ const RegistrationFormSection = () => {
             state: personalData.state,
           },
           brandData: {
-            brandName: activeBrandData.brandName,
-            businessArea: activeBrandData.businessArea,
-            hasCNPJ: activeBrandData.hasCNPJ,
-            cnpj: activeBrandData.cnpj,
-            companyName: activeBrandData.companyName,
+            brandName: brandData.brandName,
+            businessArea: brandData.businessArea,
+            hasCNPJ: brandData.hasCNPJ,
+            cnpj: brandData.cnpj,
+            companyName: brandData.companyName,
           },
           paymentMethod,
-          paymentValue: activePaymentValue,
+          paymentValue,
           contractHtml,
         },
       });
@@ -176,10 +164,6 @@ const RegistrationFormSection = () => {
       }
 
       console.log('Asaas payment created:', data);
-
-      // Update state for orderData
-      if (finalBrandData) setBrandData(finalBrandData);
-      if (finalPaymentValue) setPaymentValue(finalPaymentValue);
 
       // Save order data for payment page
       const orderData = {
@@ -196,14 +180,14 @@ const RegistrationFormSection = () => {
           state: personalData.state,
         },
         brandData: {
-          brandName: activeBrandData.brandName,
-          businessArea: activeBrandData.businessArea,
-          hasCNPJ: activeBrandData.hasCNPJ,
-          cnpj: activeBrandData.cnpj,
-          companyName: activeBrandData.companyName,
+          brandName: brandData.brandName,
+          businessArea: brandData.businessArea,
+          hasCNPJ: brandData.hasCNPJ,
+          cnpj: brandData.cnpj,
+          companyName: brandData.companyName,
         },
         paymentMethod,
-        paymentValue: activePaymentValue,
+        paymentValue,
         contractHtml,
         acceptedAt: new Date().toISOString(),
         leadId: data.leadId,
@@ -273,8 +257,6 @@ const RegistrationFormSection = () => {
     hasCNPJ: false,
     cnpj: "",
     companyName: "",
-    selectedClasses: suggestedClasses.length > 0 ? [suggestedClasses[0].number] : [],
-    classDescriptions: suggestedClasses.length > 0 ? [suggestedClasses[0].description] : [],
   });
 
   return (
@@ -323,7 +305,6 @@ const RegistrationFormSection = () => {
                 initialData={brandData || getInitialBrandData()}
                 onNext={handleBrandDataNext}
                 onBack={() => handleBack(2)}
-                suggestedClasses={suggestedClasses}
               />
             )}
 
@@ -333,7 +314,6 @@ const RegistrationFormSection = () => {
                 selectedMethod={paymentMethod}
                 onNext={handlePaymentNext}
                 onBack={() => handleBack(3)}
-                classCount={brandData?.selectedClasses?.length || 1}
               />
             )}
 
@@ -344,12 +324,9 @@ const RegistrationFormSection = () => {
                 brandData={brandData}
                 paymentMethod={paymentMethod}
                 paymentValue={paymentValue}
-                onSubmit={(html, updatedBrandData, updatedPaymentValue) => {
-                  handleContractSubmit(html, updatedBrandData, updatedPaymentValue);
-                }}
+                onSubmit={handleContractSubmit}
                 onBack={() => handleBack(4)}
                 isSubmitting={isSubmitting}
-                suggestedClasses={suggestedClasses}
               />
             )}
           </div>

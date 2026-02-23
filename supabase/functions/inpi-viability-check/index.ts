@@ -79,25 +79,25 @@ function getClassesForBusinessAreaFallback(businessArea: string): { classes: num
 
 // ========== ETAPA 2: Mapeamento NCL via IA ==========
 async function suggestClassesWithAI(businessArea: string): Promise<{ classes: number[], descriptions: string[] }> {
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-  if (!OPENAI_API_KEY) {
-    console.log('[CLASSES] OPENAI_API_KEY não configurada, usando fallback');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    console.log('[CLASSES] LOVABLE_API_KEY não configurada, usando fallback');
     return getClassesForBusinessAreaFallback(businessArea);
   }
 
   try {
     console.log(`[CLASSES] Consultando IA para ramo: "${businessArea}"`);
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: 'openai/gpt-5.2',
         messages: [
           { role: 'system', content: 'Você é um especialista em propriedade intelectual e classificação NCL do INPI Brasil. Responda sempre em JSON válido, sem markdown.' },
           { role: 'user', content: `Sugira EXATAMENTE 3 classes NCL (1-45) para o ramo "${businessArea}". JSON: {"classes":[n1,n2,n3],"descriptions":["Classe XX – desc1","Classe XX – desc2","Classe XX – desc3"]}` }
         ],
         temperature: 0.3,
-        max_tokens: 600,
+        max_completion_tokens: 600,
       }),
     });
 
@@ -224,18 +224,18 @@ async function searchINPI(brandName: string, mainClass: number): Promise<{
     }
 
     // Enviar resultados reais ao GPT-5.2 para estruturar
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
       return { totalResultados: allResults.length, resultados: [], consultadoEm: now, error: 'IA indisponível para estruturar resultados' };
     }
 
     const searchData = allResults.map(r => `- ${r.title}\n  URL: ${r.url}\n  ${r.description}`).join('\n\n');
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: 'openai/gpt-5.2',
         messages: [
           {
             role: 'system',
@@ -250,7 +250,7 @@ NÃO invente números de processo ou dados. Extraia apenas do que está nos resu
           }
         ],
         temperature: 0.1,
-        max_tokens: 800,
+        max_completion_tokens: 800,
       }),
     });
 
@@ -296,16 +296,16 @@ async function searchCNPJ(brandName: string): Promise<{
       return { total: 0, matches: [] };
     }
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) return { total: 0, matches: [] };
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) return { total: 0, matches: [] };
 
     const searchData = allResults.map(r => `- ${r.title}\n  URL: ${r.url}\n  ${r.description}`).join('\n\n');
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: 'openai/gpt-5.2',
         messages: [
           {
             role: 'system',
@@ -319,7 +319,7 @@ Extraia APENAS dados reais dos resultados. Se não houver dados de CNPJ nos resu
           }
         ],
         temperature: 0.1,
-        max_tokens: 600,
+        max_completion_tokens: 600,
       }),
     });
 
@@ -414,7 +414,7 @@ async function generateFinalAnalysis(
   description: string;
   laudo: string;
 }> {
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
   const collectedData = `
@@ -438,18 +438,18 @@ ${inpiData.error ? `- Erro: ${inpiData.error}` : ''}
 ${classDescriptions.join('\n')}
 `;
 
-  if (!OPENAI_API_KEY) {
+  if (!LOVABLE_API_KEY) {
     // Fallback sem IA
     return buildFallbackAnalysis(brandName, businessArea, classes, classDescriptions, inpiData, cnpjData, internetData, now);
   }
 
   try {
     console.log('[ANALISE] Gerando laudo via IA...');
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: 'openai/gpt-5.2',
         messages: [
           {
             role: 'system',
@@ -487,7 +487,7 @@ Use separadores ━━━ entre seções. Use emojis nos títulos das seções. 
           }
         ],
         temperature: 0.3,
-        max_tokens: 3000,
+        max_completion_tokens: 3000,
       }),
     });
 
