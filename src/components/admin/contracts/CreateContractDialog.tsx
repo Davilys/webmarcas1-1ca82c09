@@ -951,8 +951,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
 
       setSuggestedClassDescriptions(classes);
       setSuggestedClassesInput(classes.map((c: any) => c.number).join(', '));
-      // Do NOT auto-select — admin must manually choose which classes to include
-      setSelectedSuggestedClasses([]);
+      // Auto-select all suggested classes
+      setSelectedSuggestedClasses(classes.map((c: any) => c.number));
       toast.success(`${classes.length} classe(s) NCL sugerida(s) pela IA`);
     } catch (err: any) {
       console.error('Error generating NCL suggestions:', err);
@@ -1610,9 +1610,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                                       ? "bg-primary/10 border-primary/40"
                                       : "bg-background border-border hover:border-primary/30"
                                   )}
-                                  onClick={(e) => {
-                                    // Prevent double-toggle if click originated from Checkbox
-                                    if ((e.target as HTMLElement).closest('button[role="checkbox"]')) return;
+                                  onClick={() => {
                                     setSelectedSuggestedClasses(prev =>
                                       prev.includes(cls.number)
                                         ? prev.filter(n => n !== cls.number)
