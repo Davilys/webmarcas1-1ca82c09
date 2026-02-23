@@ -11,6 +11,7 @@ import CreditCardForm from '@/components/payment/CreditCardForm';
 import { toast } from 'sonner';
 import { Loader2, Download, Printer, CheckCircle, AlertCircle, FileText, CreditCard, QrCode, Copy } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { NCLClassSuggestionCard } from '@/components/signature/NCLClassSuggestionCard';
 import webmarcasLogo from '@/assets/webmarcas-logo-new.png';
 
 interface ContractData {
@@ -31,6 +32,8 @@ interface ContractData {
   blockchain_network: string | null;
   signature_ip: string | null;
   payment_method: string | null;
+  contract_value: number | null;
+  suggested_classes: Array<{ number: number; description: string; selected: boolean }> | null;
 }
 
 interface PaymentData {
@@ -636,6 +639,17 @@ export default function AssinarDocumento() {
                 />
               </div>
             </div>
+
+            {/* NCL Class Suggestion Card */}
+            {contract.suggested_classes && contract.suggested_classes.some(cls => !cls.selected) && (
+              <NCLClassSuggestionCard
+                contractId={contract.id}
+                suggestedClasses={contract.suggested_classes}
+                currentValue={contract.contract_value || 699}
+                paymentMethod={contract.payment_method}
+                onContractUpdated={fetchContract}
+              />
+            )}
 
             {/* Signature Section */}
             <div className="bg-white rounded-lg shadow-lg p-6">
