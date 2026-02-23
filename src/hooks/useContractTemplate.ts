@@ -243,6 +243,8 @@ export function replaceContractVariables(
       hasCNPJ: boolean;
       cnpj: string;
       companyName: string;
+      selectedClasses?: number[];
+      classDescriptions?: string[];
     };
     paymentMethod: string;
     multipleBrands?: BrandItem[];
@@ -270,28 +272,42 @@ export function replaceContractVariables(
     ? `inscrita no CNPJ sob nº ${brandData.cnpj}, ` 
     : '';
 
-  // Payment method details with total for multiple brands
+  // Payment method details with total for multiple classes/brands
   const getPaymentDetails = () => {
+    const classCount = brandData.selectedClasses?.length || 1;
     const brandCount = data.multipleBrands?.length || 1;
+    const multiplier = Math.max(classCount, brandCount);
+
+    const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     
     switch (paymentMethod) {
       case 'avista': {
-        const totalSuffix = brandCount > 1 
-          ? ` Valor total de ${brandCount} marcas: R$ ${(699 * brandCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+        const unitValue = 699;
+        const total = unitValue * multiplier;
+        const classInfo = multiplier > 1 
+          ? ` (${multiplier} classes NCL — Total: R$ ${fmt(total)})`
           : '';
-        return `• Pagamento à vista via PIX: R$ 699,00 (seiscentos e noventa e nove reais) - com 43% de desconto sobre o valor integral de R$ 1.230,00.${totalSuffix}`;
+        return `• Pagamento à vista via PIX: R$ ${fmt(total)} - com 43% de desconto sobre o valor integral de R$ ${fmt(1230 * multiplier)}.${classInfo}`;
       }
       case 'cartao6x': {
-        const totalSuffix = brandCount > 1 
-          ? ` Valor total de ${brandCount} marcas: R$ ${(1194 * brandCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+        const unitInstallment = 199;
+        const totalPerUnit = 1194;
+        const total = totalPerUnit * multiplier;
+        const installment = unitInstallment * multiplier;
+        const classInfo = multiplier > 1 
+          ? ` (${multiplier} classes NCL)`
           : '';
-        return `• Pagamento parcelado no Cartão de Crédito: 6x de R$ 199,00 (cento e noventa e nove reais) = Total: R$ 1.194,00 - sem juros.${totalSuffix}`;
+        return `• Pagamento parcelado no Cartão de Crédito: 6x de R$ ${fmt(installment)} = Total: R$ ${fmt(total)} - sem juros.${classInfo}`;
       }
       case 'boleto3x': {
-        const totalSuffix = brandCount > 1 
-          ? ` Valor total de ${brandCount} marcas: R$ ${(1197 * brandCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+        const unitInstallment = 399;
+        const totalPerUnit = 1197;
+        const total = totalPerUnit * multiplier;
+        const installment = unitInstallment * multiplier;
+        const classInfo = multiplier > 1 
+          ? ` (${multiplier} classes NCL)`
           : '';
-        return `• Pagamento parcelado via Boleto Bancário: 3x de R$ 399,00 (trezentos e noventa e nove reais) = Total: R$ 1.197,00.${totalSuffix}`;
+        return `• Pagamento parcelado via Boleto Bancário: 3x de R$ ${fmt(installment)} = Total: R$ ${fmt(total)}.${classInfo}`;
       }
       default:
         return `• Forma de pagamento a ser definida.`;
@@ -329,6 +345,22 @@ export function replaceContractVariables(
     result = result.replace(/\{\{marca\}\}/g, brandsInline);
   } else {
     result = result.replace(/\{\{marca\}\}/g, brandData.brandName);
+  }
+
+  // Inject selected NCL classes into clause 1.1
+  const selectedClasses = brandData.selectedClasses || [];
+  const classDescs = brandData.classDescriptions || [];
+  if (selectedClasses.length > 0) {
+    const classesText = selectedClasses.map((num, i) => {
+      const desc = classDescs[i] || '';
+      return desc ? `Classe NCL ${num} (${desc})` : `Classe NCL ${num}`;
+    }).join('; ');
+    
+    // Insert classes after "ramo de atividade" in clause 1.1
+    const ramoPattern = /(no ramo de atividade:\s*[^.]+)/i;
+    if (ramoPattern.test(result)) {
+      result = result.replace(ramoPattern, `$1, nas seguintes classes: ${classesText}`);
+    }
   }
 
   return result;
