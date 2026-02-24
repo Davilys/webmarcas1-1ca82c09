@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, FileText, Send, Copy, Link, UserPlus, Search, CalendarIcon } from 'lucide-react';
+import { Loader2, FileText, Send, Copy, Link, UserPlus, Search, CalendarIcon, Brain, CheckSquare } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -120,6 +121,11 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
   const [isLoadingCEP, setIsLoadingCEP] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [currentTab, setCurrentTab] = useState('personal');
+
+  // AI suggested classes state
+  const [suggestedClasses, setSuggestedClasses] = useState<{ classes: number[]; descriptions: string[] } | null>(null);
+  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
+  const [loadingClasses, setLoadingClasses] = useState(false);
 
   // Client search autocomplete state
   const [clientSearch, setClientSearch] = useState('');
@@ -367,10 +373,16 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     });
   };
 
-  // Get contract value based on payment method - multiplied by brand quantity
+  // Get multiplier: if classes selected use that count, otherwise use brandQuantity
+  const getQuantityMultiplier = (): number => {
+    if (selectedClasses.length > 0) return selectedClasses.length;
+    return brandQuantity;
+  };
+
+  // Get contract value based on payment method - multiplied by quantity
   const getContractValue = (): number | null => {
     if (!paymentMethod) return null;
-    const quantity = brandQuantity;
+    const quantity = getQuantityMultiplier();
     switch (paymentMethod) {
       case 'avista': return 699 * quantity;
       case 'cartao6x': return 1194 * quantity;
@@ -393,14 +405,59 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
   // Get payment description for display - with quantity suffix
   const getPaymentDescription = () => {
     if (!paymentMethod) return 'Nenhuma (sem cobrança)';
-    const qty = brandQuantity;
-    const suffix = qty > 1 ? ` (${qty} marcas)` : '';
+    const qty = getQuantityMultiplier();
+    const label = selectedClasses.length > 0 ? `${qty} classe${qty > 1 ? 's' : ''}` : (qty > 1 ? `${qty} marcas` : '');
+    const suffix = label ? ` (${label})` : '';
     switch (paymentMethod) {
       case 'avista': return `PIX à vista - R$ ${(699 * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${suffix}`;
       case 'cartao6x': return `Cartão 6x de R$ ${(199 * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = R$ ${(1194 * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${suffix}`;
       case 'boleto3x': return `Boleto 3x de R$ ${(399 * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = R$ ${(1197 * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${suffix}`;
       default: return 'Nenhuma (sem cobrança)';
     }
+  };
+
+  // Generate AI suggested classes
+  const handleGenerateClasses = async () => {
+    if (!brandData.brandName || !brandData.businessArea) {
+      toast.error('Preencha o nome da marca e ramo de atividade primeiro');
+      return;
+    }
+    setLoadingClasses(true);
+    setSuggestedClasses(null);
+    setSelectedClasses([]);
+    try {
+      const { data, error } = await supabase.functions.invoke('inpi-viability-check', {
+        body: { brandName: brandData.brandName, businessArea: brandData.businessArea },
+      });
+      if (error) throw error;
+      if (data?.classes && data.classes.length > 0) {
+        setSuggestedClasses({
+          classes: data.classes,
+          descriptions: data.classDescriptions || [],
+        });
+        toast.success(`${data.classes.length} classes NCL sugeridas`);
+      } else {
+        toast.warning('Nenhuma classe sugerida retornada pela IA');
+      }
+    } catch (err: any) {
+      console.error('Error generating classes:', err);
+      toast.error('Erro ao gerar classes sugeridas');
+    } finally {
+      setLoadingClasses(false);
+    }
+  };
+
+  const toggleClassSelection = (cls: number) => {
+    setSelectedClasses(prev =>
+      prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls]
+    );
+  };
+
+  const selectAllClasses = () => {
+    if (!suggestedClasses) return;
+    setSelectedClasses(
+      selectedClasses.length === suggestedClasses.classes.length ? [] : [...suggestedClasses.classes]
+    );
   };
 
   const generateDocumentHtml = () => {
@@ -749,7 +806,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         signature_status: 'not_signed',
         visible_to_client: true,
         lead_id: leadId || null,
-        created_by: adminUser?.id || null, // ← Camada 2: registra admin criador
+        created_by: adminUser?.id || null,
+        suggested_classes: suggestedClasses ? { classes: suggestedClasses.classes, descriptions: suggestedClasses.descriptions, selected: selectedClasses } : null,
       } as any).select().single();
 
       if (error) throw error;
@@ -946,6 +1004,10 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     // Reset multiple brands state
     setBrandQuantity(1);
     setBrandsArray([{ brandName: '', businessArea: '', nclClass: '' }]);
+    // Reset AI classes state
+    setSuggestedClasses(null);
+    setSelectedClasses([]);
+    setLoadingClasses(false);
   };
 
   const handleProfileChange = async (userId: string) => {
@@ -1503,6 +1565,82 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                             <p className="text-destructive text-xs">{validationErrors.brand_businessArea}</p>
                           )}
                         </div>
+
+                        {/* AI Generate Classes Button - only for single brand */}
+                        {brandQuantity <= 1 && (
+                          <div className="md:col-span-2 space-y-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleGenerateClasses}
+                              disabled={loadingClasses || !brandData.brandName || !brandData.businessArea}
+                              className="gap-2"
+                            >
+                              {loadingClasses ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Brain className="h-4 w-4" />
+                              )}
+                              {loadingClasses ? 'Gerando...' : 'Gerar Classes Sugeridas'}
+                            </Button>
+
+                            {/* Suggested classes checkboxes */}
+                            {suggestedClasses && suggestedClasses.classes.length > 0 && (
+                              <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-medium">Classes NCL Sugeridas</p>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={selectAllClasses}
+                                    className="h-7 text-xs gap-1"
+                                  >
+                                    <CheckSquare className="h-3 w-3" />
+                                    {selectedClasses.length === suggestedClasses.classes.length ? 'Desmarcar Todas' : 'Selecionar Todas'}
+                                  </Button>
+                                </div>
+                                {suggestedClasses.classes.map((cls, idx) => (
+                                  <div
+                                    key={cls}
+                                    className={cn(
+                                      "flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors",
+                                      selectedClasses.includes(cls) ? "bg-primary/5 border-primary" : "bg-background border-border hover:border-primary/50"
+                                    )}
+                                    onClick={() => toggleClassSelection(cls)}
+                                  >
+                                    <Checkbox
+                                      checked={selectedClasses.includes(cls)}
+                                      onCheckedChange={() => toggleClassSelection(cls)}
+                                      className="mt-0.5"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium text-sm">Classe {cls}</span>
+                                        {idx === 0 && (
+                                          <Badge variant="default" className="text-[10px] px-1.5 py-0">
+                                            Classe Principal
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {suggestedClasses.descriptions[idx] && (
+                                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                          {suggestedClasses.descriptions[idx]}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                                {selectedClasses.length > 0 && (
+                                  <p className="text-xs text-muted-foreground pt-1">
+                                    {selectedClasses.length} classe{selectedClasses.length > 1 ? 's' : ''} selecionada{selectedClasses.length > 1 ? 's' : ''} — valores serão multiplicados por {selectedClasses.length}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1613,7 +1751,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-2xl font-bold text-primary">R$ 699,00</p>
+                              <p className="text-2xl font-bold text-primary">R$ {(699 * getQuantityMultiplier()).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                              {getQuantityMultiplier() > 1 && <p className="text-xs text-muted-foreground">{getQuantityMultiplier()}x R$ 699,00</p>}
                               <p className="text-xs text-green-600 font-medium">43% OFF</p>
                             </div>
                           </div>
@@ -1686,8 +1825,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-bold">6x de R$ 199,00</p>
-                            <p className="text-xs text-muted-foreground">Total: R$ 1.194,00</p>
+                            <p className="text-lg font-bold">6x de R$ {(199 * getQuantityMultiplier()).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            <p className="text-xs text-muted-foreground">Total: R$ {(1194 * getQuantityMultiplier()).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                           </div>
                         </div>
                       </div>
@@ -1721,8 +1860,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-lg font-bold">3x de R$ 399,00</p>
-                              <p className="text-xs text-muted-foreground">Total: R$ 1.197,00</p>
+                              <p className="text-lg font-bold">3x de R$ {(399 * getQuantityMultiplier()).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                              <p className="text-xs text-muted-foreground">Total: R$ {(1197 * getQuantityMultiplier()).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                             </div>
                           </div>
                         </div>
