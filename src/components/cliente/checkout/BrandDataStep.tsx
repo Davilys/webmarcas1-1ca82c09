@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, Building2, Briefcase, Hash, FileText, Sparkles, 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { z } from "zod";
 import { validateCNPJ, formatCNPJ } from "@/lib/validators";
 import { cn } from "@/lib/utils";
@@ -162,11 +162,12 @@ export function BrandDataStep({
           {/* CNPJ Toggle */}
           <div className="rounded-xl border border-border bg-muted/20 p-4">
             <div className="flex items-center gap-3">
-              <Checkbox
+              <input
                 id="hasCNPJ"
+                type="checkbox"
                 checked={data.hasCNPJ}
-                onCheckedChange={(checked) => setData({ ...data, hasCNPJ: !!checked })}
-                className="shrink-0"
+                onChange={(e) => setData({ ...data, hasCNPJ: e.target.checked })}
+                className="h-4 w-4 shrink-0 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
               <Label htmlFor="hasCNPJ" className="text-sm cursor-pointer leading-relaxed">
                 <span className="font-semibold">Tenho CNPJ</span>
@@ -245,9 +246,11 @@ export function BrandDataStep({
                 {suggestedClasses.map((cls, idx) => {
                   const desc = suggestedClassDescriptions[idx] || `Classe ${cls}`;
                   const isChecked = selectedClasses.includes(cls);
+                  const checkboxId = `ncl-class-${cls}`;
                   return (
-                    <motion.div
+                    <motion.label
                       key={cls}
+                      htmlFor={checkboxId}
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.05 }}
@@ -257,18 +260,19 @@ export function BrandDataStep({
                           ? "border-primary/40 bg-primary/5"
                           : "border-border/50 bg-card hover:border-primary/20"
                       )}
-                      onClick={() => handleClassToggle(cls)}
                     >
-                      <Checkbox
+                      <input
+                        id={checkboxId}
+                        type="checkbox"
                         checked={isChecked}
-                        onCheckedChange={() => handleClassToggle(cls)}
-                        className="shrink-0"
+                        onChange={() => handleClassToggle(cls)}
+                        className="h-4 w-4 shrink-0 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium">Classe NCL {cls}</p>
                         <p className="text-xs text-muted-foreground truncate">{desc}</p>
                       </div>
-                    </motion.div>
+                    </motion.label>
                   );
                 })}
               </div>
