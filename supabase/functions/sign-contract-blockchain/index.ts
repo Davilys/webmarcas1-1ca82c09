@@ -502,6 +502,7 @@ serve(async (req) => {
               hash_contrato: contractHash,
               ip_assinatura: clientIP,
               verification_url: verificationUrl,
+              link_area_cliente: `${verificationBaseUrl}/cliente/documentos`,
               ots_file_url: otsFileUrl,
               base_url: 'https://webmarcas.net',
             }
