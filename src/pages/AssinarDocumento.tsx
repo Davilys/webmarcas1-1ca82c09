@@ -141,7 +141,7 @@ export default function AssinarDocumento() {
     }
   }, [token]);
 
-  const fetchContract = async () => {
+  const fetchContract = async (): Promise<ContractData | null> => {
     setLoading(true);
     setError(null);
     
@@ -163,7 +163,7 @@ export default function AssinarDocumento() {
 
       if (!response.ok || result.error) {
         setError(result.error || 'Documento não encontrado');
-        return;
+        return null;
       }
 
       setContract(result.contract);
@@ -171,9 +171,12 @@ export default function AssinarDocumento() {
       if (result.contract.signature_status === 'signed') {
         setSigned(true);
       }
+      
+      return result.contract as ContractData;
     } catch (err) {
       console.error('Error fetching contract:', err);
       setError('Erro ao carregar documento. Tente novamente.');
+      return null;
     } finally {
       setLoading(false);
     }
@@ -368,7 +371,7 @@ export default function AssinarDocumento() {
         
         // Generate PDF with blockchain data
         const signedHtml = generateSignedContractHtml(
-          contract.contract_html,
+          displayContractHtml || contract.contract_html,
           brandName,
           contract.signatory_name || '',
           contract.signatory_cpf || '',
@@ -400,11 +403,11 @@ export default function AssinarDocumento() {
       toast.success('Documento assinado com sucesso!');
       setSigned(true);
       
-      // Refresh contract data
-      await fetchContract();
+      // Refresh contract data and use returned value to avoid stale closure
+      const refreshedContract = await fetchContract();
       
-      // If contract has payment_method, create payment
-      if (contract.payment_method) {
+      // If contract has payment_method, create payment (use refreshed data, not stale state)
+      if (refreshedContract?.payment_method) {
         await createPaymentAfterSignature();
       }
     } catch (err: any) {
@@ -444,7 +447,7 @@ export default function AssinarDocumento() {
     const logoBase64 = await getLogoBase64ForPDF();
 
     const html = generateDocumentPrintHTML(
-      (contract.document_type as any) || 'procuracao',
+      (contract.document_type as any) || 'contract',
       contract.contract_html || '',
       contract.client_signature_image,
       contract.blockchain_hash ? {
