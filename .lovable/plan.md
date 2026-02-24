@@ -1,79 +1,52 @@
 
 
-## Plano: Classes Selecionaveis no Contrato com Atualizacao de Valor e Clausula
+## Correções no ContractStep - Classes Sugeridas
 
-### Problema Atual
-As classes sugeridas nao selecionadas aparecem no contrato apenas como aviso informativo, pedindo para o cliente voltar a etapa anterior. O cliente precisa poder selecionar diretamente no contrato, e ao fazer isso:
-- O valor total deve ser recalculado
-- A clausula 1.1 deve incluir as novas classes
-- O resumo do pedido deve atualizar
+### Bug 1: Classe some ao ser selecionada
 
-### Solucao
-
-#### A) `ContractStep.tsx` - Tornar classes selecionaveis
-
-Mudancas na interface e logica:
-
-1. Adicionar callback `onSelectedClassesChange` nas props para propagar mudancas ao pai
-2. Adicionar callback `onPaymentValueChange` para atualizar o valor exibido
-3. Substituir o bloco informativo por checkboxes nativos clicaveis em cada classe nao selecionada
-4. Ao marcar uma classe:
-   - Chamar `onSelectedClassesChange` com a lista atualizada
-   - Recalcular o valor com base no metodo de pagamento (PIX: R$699/classe, Cartao: R$1.194/classe, Boleto: R$1.197/classe)
-   - O contrato se regenera automaticamente pois `getProcessedContract()` usa `selectedClasses` via `useCallback`
-
-Visualmente:
-- Cada classe tera um checkbox + badge com numero + descricao
-- Ao selecionar, mostra o acrescimo de valor (ex: "+R$ 699,00")
-- Destaque visual verde para classes recem-adicionadas
-
-#### B) `Registrar.tsx` - Receber mudancas do ContractStep
-
-1. Passar `onSelectedClassesChange={setSelectedClasses}` para o ContractStep
-2. Criar funcao `recalculatePaymentValue(classes, method)` que atualiza `paymentValue` quando classes mudam no step 5
-3. Passar `onPaymentValueChange={setPaymentValue}` para o ContractStep
-
-#### C) `RegistrationFormSection.tsx` e `RegistrarMarca.tsx` - Mesma logica
-
-Garantir que os outros pontos de entrada do formulario tambem passem os callbacks de mudanca para o ContractStep.
-
-### Detalhes Tecnicos
-
-```text
-ContractStep
-  |-- props: selectedClasses, suggestedClasses, paymentMethod
-  |-- props: onSelectedClassesChange(newList)
-  |-- props: onPaymentValueChange(newValue)
-  |
-  |-- Bloco "Classes sugeridas"
-  |     |-- checkbox nativo por classe nao selecionada
-  |     |-- ao toggle: chama onSelectedClassesChange
-  |     |-- recalcula valor: quantidade * preco_por_metodo
-  |     |-- chama onPaymentValueChange
-  |
-  |-- getProcessedContract() reage automaticamente
-  |     (ja depende de selectedClasses no useCallback)
-  |
-  |-- Resumo do Pedido: "Total" atualiza via paymentValue prop
+**Causa raiz**: O bloco de upsell (linha 224) filtra apenas classes NAO selecionadas:
+```typescript
+const unselected = (suggestedClasses || []).filter(
+  cls => !(selectedClasses || []).includes(cls)
+);
+if (unselected.length === 0) return null; // some tudo quando seleciona todas
 ```
 
-Calculo de valor por metodo:
-- `avista` (PIX): R$ 699 por classe
-- `cartao6x`: R$ 1.194 por classe
-- `boleto3x`: R$ 1.197 por classe
+E o checkbox esta hardcoded `checked={false}`.
 
-### Arquivos a editar
+**Correcao**: Mostrar TODAS as classes sugeridas que NAO estavam na selecao original do BrandDataStep. Ao selecionar, a classe continua visivel com checkbox marcado (checked=true) e destaque visual verde.
 
-| Arquivo | Alteracao |
-|---------|-----------|
-| `ContractStep.tsx` | Adicionar checkboxes clicaveis, callbacks de mudanca, recalculo de valor |
-| `Registrar.tsx` | Passar callbacks onSelectedClassesChange e onPaymentValueChange |
-| `RegistrationFormSection.tsx` | Passar mesmos callbacks |
-| `RegistrarMarca.tsx` | Passar mesmos callbacks |
+Logica:
+- Calcular `originalSelected` = classes que ja vinham selecionadas do BrandDataStep (nao mostrar essas)
+- Mostrar todas as classes sugeridas que NAO estavam no original
+- O `checked` do checkbox reflete se a classe esta em `selectedClasses` atual
+- Classes marcadas ganham borda verde e fundo verde claro
+- Classes desmarcadas mantem o visual amber atual
 
-### Resultado esperado
-- No passo do contrato, as classes nao selecionadas aparecem com checkbox
-- Ao selecionar uma classe, o valor total atualiza instantaneamente
-- A clausula 1.1 do contrato inclui a nova classe automaticamente
-- O resumo "Total" no topo reflete o novo valor
-- Sem crash ou tela branca (usando checkboxes nativos, sem Radix)
+### Bug 2: Texto sem persuasao juridica
+
+**Correcao**: Substituir titulo e descricao por texto com orientacao juridica persuasiva:
+
+- Titulo: "⚖️ Orientacao Juridica" (com icone Scale do lucide)
+- Subtitulo em destaque: "O ideal e registrar nas X classes para maxima protecao."
+- Texto explicativo: "Sem o registro nestas categorias, terceiros podem usar sua marca legalmente nestes segmentos. A protecao parcial deixa sua marca vulneravel."
+
+### Arquivo a editar
+
+`src/components/cliente/checkout/ContractStep.tsx`:
+
+1. Trocar o filtro de `unselected` para mostrar todas as sugeridas que nao estavam na selecao original
+2. Checkbox com `checked` dinamico baseado em `selectedClasses.includes(cls)`
+3. Estilo condicional: verde quando selecionado, amber quando nao
+4. Nao esconder o bloco quando todas estiverem selecionadas (manter visivel com todas marcadas)
+5. Novo texto persuasivo com tom juridico
+6. Importar icone `Scale` do lucide-react
+
+### Detalhes tecnicos
+
+Para saber quais classes sao "extras" (sugeridas mas nao selecionadas originalmente no BrandDataStep), precisamos comparar `suggestedClasses` com as classes que ja vieram selecionadas. Como o componente recebe `selectedClasses` atualizado reativamente, vamos filtrar as classes sugeridas que NAO faziam parte da selecao inicial. Para isso, mostraremos todas as `suggestedClasses` que nao estavam na lista original — usando a diferenca entre `suggestedClasses` e as classes que o usuario ja escolheu no passo anterior.
+
+Na pratica, a abordagem mais simples e robusta: mostrar TODAS as classes de `suggestedClasses` no bloco, com checkbox marcado/desmarcado conforme `selectedClasses`. As classes que ja estavam selecionadas desde o BrandDataStep aparecerao marcadas e o cliente pode desmarcar se quiser. Isso da controle total.
+
+Porem, para nao confundir com as classes "obrigatorias", vamos filtrar apenas as que NAO estao na selecao inicial. Para isso, guardaremos a selecao inicial com `useRef` no mount.
+
