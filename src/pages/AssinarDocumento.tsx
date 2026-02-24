@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,65 @@ import { DocumentRenderer, generateDocumentPrintHTML, getSignatureBase64, getLog
 import { generateAndUploadContractPdf, generateSignedContractHtml } from '@/hooks/useContractPdfUpload';
 import CreditCardForm from '@/components/payment/CreditCardForm';
 import { toast } from 'sonner';
-import { Loader2, Download, Printer, CheckCircle, AlertCircle, FileText, CreditCard, QrCode, Copy } from 'lucide-react';
+import { Loader2, Download, Printer, CheckCircle, AlertCircle, FileText, CreditCard, QrCode, Copy, Shield, Plus } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import webmarcasLogo from '@/assets/webmarcas-logo-new.png';
+
+// NCL class descriptions
+const NCL_CLASS_DESCRIPTIONS: Record<number, string> = {
+  1: 'Produtos químicos',
+  2: 'Tintas e vernizes',
+  3: 'Cosméticos e produtos de limpeza',
+  4: 'Óleos e combustíveis',
+  5: 'Produtos farmacêuticos',
+  6: 'Metais comuns',
+  7: 'Máquinas e ferramentas',
+  8: 'Ferramentas manuais',
+  9: 'Aparelhos eletrônicos e tecnologia',
+  10: 'Equipamentos médicos',
+  11: 'Iluminação e climatização',
+  12: 'Veículos',
+  13: 'Armas de fogo',
+  14: 'Joalheria e relojoaria',
+  15: 'Instrumentos musicais',
+  16: 'Papel e impressos',
+  17: 'Borracha e plásticos',
+  18: 'Couro e artigos de viagem',
+  19: 'Materiais de construção',
+  20: 'Móveis',
+  21: 'Utensílios domésticos',
+  22: 'Cordas e fibras têxteis',
+  23: 'Fios para uso têxtil',
+  24: 'Tecidos e coberturas',
+  25: 'Vestuário, calçados e chapelaria',
+  26: 'Rendas e bordados',
+  27: 'Tapetes e revestimentos',
+  28: 'Jogos e brinquedos',
+  29: 'Alimentos de origem animal',
+  30: 'Alimentos de origem vegetal',
+  31: 'Produtos agrícolas',
+  32: 'Cervejas e bebidas não alcoólicas',
+  33: 'Bebidas alcoólicas',
+  34: 'Tabaco',
+  35: 'Publicidade e negócios',
+  36: 'Seguros e finanças',
+  37: 'Construção e reparos',
+  38: 'Telecomunicações',
+  39: 'Transporte e armazenagem',
+  40: 'Tratamento de materiais',
+  41: 'Educação e entretenimento',
+  42: 'Serviços de TI e científicos',
+  43: 'Alimentação e hospedagem',
+  44: 'Serviços médicos',
+  45: 'Serviços jurídicos e segurança',
+};
+
+// Price per class by payment method
+const PRICE_PER_CLASS: Record<string, number> = {
+  avista: 699,
+  cartao6x: 1194,
+  boleto3x: 1197,
+};
 
 interface ContractData {
   id: string;
@@ -31,6 +87,8 @@ interface ContractData {
   blockchain_network: string | null;
   signature_ip: string | null;
   payment_method: string | null;
+  suggested_classes: any | null;
+  contract_value: number | null;
 }
 
 interface PaymentData {
@@ -73,6 +131,9 @@ export default function AssinarDocumento() {
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [paymentComplete, setPaymentComplete] = useState(false);
+
+  // Upsell state
+  const [extraSelectedClasses, setExtraSelectedClasses] = useState<number[]>([]);
 
   useEffect(() => {
     if (token) {
@@ -120,6 +181,91 @@ export default function AssinarDocumento() {
 
   // Verificar se é procuração (exige rubrica manuscrita)
   const isProcuracao = contract?.document_type === 'procuracao';
+
+  // ========== UPSELL: Available classes ==========
+  const availableUpsellClasses = useMemo(() => {
+    if (!contract?.suggested_classes || isProcuracao) return [];
+    const suggested = contract.suggested_classes as Array<{ classNumber: number; className: string; selected?: boolean }>;
+    // Filter classes that were NOT selected by the admin (i.e. suggested but not in the contract)
+    return suggested.filter(sc => !sc.selected);
+  }, [contract?.suggested_classes, isProcuracao]);
+
+  // Count original classes in the contract
+  const originalClassCount = useMemo(() => {
+    if (!contract?.suggested_classes) return 1;
+    const suggested = contract.suggested_classes as Array<{ classNumber: number; selected?: boolean }>;
+    const selectedCount = suggested.filter(sc => sc.selected).length;
+    return selectedCount || 1;
+  }, [contract?.suggested_classes]);
+
+  // Unit price per class based on payment method
+  const unitPricePerClass = useMemo(() => {
+    if (!contract?.payment_method) return 699;
+    return PRICE_PER_CLASS[contract.payment_method] || 699;
+  }, [contract?.payment_method]);
+
+  // Total extra value
+  const extraValue = extraSelectedClasses.length * unitPricePerClass;
+  const totalClasses = originalClassCount + extraSelectedClasses.length;
+  const totalValue = totalClasses * unitPricePerClass;
+
+  // Toggle class selection
+  const toggleExtraClass = useCallback((classNumber: number) => {
+    setExtraSelectedClasses(prev =>
+      prev.includes(classNumber)
+        ? prev.filter(c => c !== classNumber)
+        : [...prev, classNumber]
+    );
+  }, []);
+
+  // Updated contract HTML with extra classes
+  const displayContractHtml = useMemo(() => {
+    if (!contract?.contract_html || extraSelectedClasses.length === 0) {
+      return contract?.contract_html || '';
+    }
+
+    let html = contract.contract_html;
+    const brandName = contract.subject || 'Marca';
+
+    // Get all selected classes (original + extra)
+    const suggested = (contract.suggested_classes || []) as Array<{ classNumber: number; selected?: boolean }>;
+    const originalClasses = suggested.filter(sc => sc.selected).map(sc => sc.classNumber);
+    const allClasses = [...originalClasses, ...extraSelectedClasses].sort((a, b) => a - b);
+
+    // Build numbered list for clause 1.1
+    const classListText = allClasses.map((cls, i) =>
+      `${i + 1}. Marca: ${brandName} - Classe NCL: ${cls}`
+    ).join('. ') + '.';
+
+    // Replace clause 1.1 content - look for the brand name pattern
+    // Match patterns like "denominação "BrandName"" or numbered list
+    const clause11Regex = /(?:denominação\s*"[^"]*")|(?:\d+\.\s*Marca:\s*[^.]+\.\s*)+/i;
+    if (clause11Regex.test(html)) {
+      html = html.replace(clause11Regex, classListText);
+    }
+
+    // Format currency helper
+    const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    // Update clause 5.1 - replace payment values
+    // Look for R$ patterns near "CLÁUSULA 5" or "valor" sections
+    const paymentMethod = contract.payment_method || 'avista';
+    if (paymentMethod === 'avista') {
+      // Replace PIX value
+      html = html.replace(/R\$\s*[\d.,]+(?=\s*(?:\(|à vista|via PIX))/gi, fmt(totalValue));
+    } else if (paymentMethod === 'cartao6x') {
+      // Replace installment values: total and per-installment
+      const installmentValue = totalValue / 6;
+      html = html.replace(/R\$\s*[\d.,]+(?=\s*(?:\(|parcelad|dividid|em\s*6))/gi, fmt(totalValue));
+      html = html.replace(/(?<=6[x×]\s*(?:de\s*)?)R\$\s*[\d.,]+/gi, fmt(installmentValue));
+    } else if (paymentMethod === 'boleto3x') {
+      const installmentValue = totalValue / 3;
+      html = html.replace(/R\$\s*[\d.,]+(?=\s*(?:\(|parcelad|dividid|em\s*3))/gi, fmt(totalValue));
+      html = html.replace(/(?<=3[x×]\s*(?:de\s*)?)R\$\s*[\d.,]+/gi, fmt(installmentValue));
+    }
+
+    return html;
+  }, [contract?.contract_html, contract?.subject, contract?.suggested_classes, contract?.payment_method, extraSelectedClasses, totalValue]);
 
   // Create Asaas payment after signature
   const createPaymentAfterSignature = async () => {
@@ -189,11 +335,15 @@ export default function AssinarDocumento() {
           },
           body: JSON.stringify({
             contractId: contract.id,
-            contractHtml: contract.contract_html,
+            contractHtml: extraSelectedClasses.length > 0 ? displayContractHtml : contract.contract_html,
             signatureImage: signature,
             signatureToken: token,
             deviceInfo,
             baseUrl: window.location.origin,
+            ...(extraSelectedClasses.length > 0 && {
+              updatedContractHtml: displayContractHtml,
+              updatedContractValue: totalValue,
+            }),
           }),
         }
       );
@@ -628,7 +778,7 @@ export default function AssinarDocumento() {
               <div className="p-6">
                 <DocumentRenderer
                   documentType={(contract.document_type as any) || 'procuracao'}
-                  content={contract.contract_html || ''}
+                  content={displayContractHtml}
                   clientSignature={null}
                   signatoryName={contract.signatory_name || undefined}
                   signatoryCpf={contract.signatory_cpf || undefined}
@@ -642,6 +792,82 @@ export default function AssinarDocumento() {
               <h2 className="text-xl font-bold text-gray-900 mb-6">
                 Assinatura Eletrônica
               </h2>
+
+              {/* Upsell Card - Classes NCL extras */}
+              {availableUpsellClasses.length > 0 && (
+                <div className="mb-6 rounded-lg border-2 border-amber-300 bg-amber-50 overflow-hidden">
+                  <div className="p-4 bg-amber-100 border-b border-amber-200">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-amber-700" />
+                      <h3 className="font-bold text-amber-900">Proteção Recomendada pelo Jurídico</h3>
+                    </div>
+                    <p className="text-sm text-amber-700 mt-1">
+                      Caso queira registrar sua marca nas classes abaixo, selecione para ampliar sua proteção:
+                    </p>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {availableUpsellClasses.map((cls: any) => {
+                      const classNum = cls.classNumber;
+                      const isSelected = extraSelectedClasses.includes(classNum);
+                      return (
+                        <div
+                          key={classNum}
+                          className={`flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-amber-400 bg-amber-50'
+                              : 'border-gray-200 bg-white hover:border-amber-300'
+                          }`}
+                          onClick={() => toggleExtraClass(classNum)}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleExtraClass(classNum)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-0.5"
+                          />
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900">
+                              Classe NCL {classNum}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {cls.className || NCL_CLASS_DESCRIPTIONS[classNum] || `Classe ${classNum}`}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-amber-700">
+                              + {unitPricePerClass.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {extraSelectedClasses.length > 0 && (
+                      <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Plus className="h-4 w-4 text-green-700" />
+                            <span className="text-sm font-medium text-green-800">
+                              {extraSelectedClasses.length} classe(s) extra(s) selecionada(s)
+                            </span>
+                          </div>
+                          <span className="font-bold text-green-800">
+                            + {extraValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </span>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-green-200 flex justify-between">
+                          <span className="text-sm font-semibold text-green-900">
+                            Total ({totalClasses} classes):
+                          </span>
+                          <span className="font-bold text-green-900">
+                            {totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Terms Acceptance */}
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">

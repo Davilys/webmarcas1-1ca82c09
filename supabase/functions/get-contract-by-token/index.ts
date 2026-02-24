@@ -47,7 +47,9 @@ serve(async (req) => {
         blockchain_tx_id,
         blockchain_network,
         signature_ip,
-        payment_method
+        payment_method,
+        suggested_classes,
+        contract_value
       `)
       .eq('signature_token', token)
       .single();

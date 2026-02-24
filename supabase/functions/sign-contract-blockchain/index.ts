@@ -94,7 +94,7 @@ serve(async (req) => {
                      'unknown';
     const userAgent = req.headers.get('user-agent') || 'unknown';
     
-    const { contractId, contractHtml, deviceInfo, leadId, signatureImage, signatureToken, baseUrl } = await req.json();
+    const { contractId, contractHtml, deviceInfo, leadId, signatureImage, signatureToken, baseUrl, updatedContractHtml, updatedContractValue } = await req.json();
     
     if (!contractId) {
       return new Response(
@@ -108,8 +108,29 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // If upsell classes were added, update contract_html and contract_value BEFORE signing
+    if (updatedContractHtml && updatedContractValue) {
+      console.log('Updating contract with upsell data. New value:', updatedContractValue);
+      const { error: upsellError } = await supabase
+        .from('contracts')
+        .update({
+          contract_html: updatedContractHtml,
+          contract_value: updatedContractValue,
+        })
+        .eq('id', contractId);
+
+      if (upsellError) {
+        console.error('Error updating contract with upsell data:', upsellError);
+        return new Response(
+          JSON.stringify({ error: 'Erro ao atualizar contrato com classes extras', details: upsellError }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Generate SHA-256 hash of contract content + signature
-    const hashContent = (contractHtml || '') + (signatureImage || '');
+    const finalContractHtml = updatedContractHtml || contractHtml || '';
+    const hashContent = finalContractHtml + (signatureImage || '');
     const contractHash = await generateSHA256(hashContent);
     console.log('Contract hash generated:', contractHash);
 
