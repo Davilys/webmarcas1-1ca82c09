@@ -1608,10 +1608,6 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                                       "flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors",
                                       selectedClasses.includes(cls) ? "bg-primary/5 border-primary" : "bg-background border-border hover:border-primary/50"
                                     )}
-                                     onClick={(e) => {
-                                       if ((e.target as HTMLElement).closest('button[role="checkbox"]')) return;
-                                       toggleClassSelection(cls);
-                                     }}
                                    >
                                      <Checkbox
                                        checked={selectedClasses.includes(cls)}
