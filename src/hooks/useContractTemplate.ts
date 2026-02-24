@@ -246,6 +246,8 @@ export function replaceContractVariables(
     };
     paymentMethod: string;
     multipleBrands?: BrandItem[];
+    selectedClasses?: number[];
+    classDescriptions?: string[];
   }
 ): string {
   const { personalData, brandData, paymentMethod } = data;
@@ -270,28 +272,35 @@ export function replaceContractVariables(
     ? `inscrita no CNPJ sob nº ${brandData.cnpj}, ` 
     : '';
 
-  // Payment method details with total for multiple brands
+  // Payment method details with total for multiple brands or classes
   const getPaymentDetails = () => {
+    const classCount = data.selectedClasses?.length || 0;
     const brandCount = data.multipleBrands?.length || 1;
+    const quantity = classCount > 0 ? classCount : brandCount;
     
     switch (paymentMethod) {
       case 'avista': {
-        const totalSuffix = brandCount > 1 
-          ? ` Valor total de ${brandCount} marcas: R$ ${(699 * brandCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+        const total = 699 * quantity;
+        const totalSuffix = quantity > 1 
+          ? ` Valor total de ${quantity} ${classCount > 0 ? 'classes' : 'marcas'}: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
           : '';
-        return `• Pagamento à vista via PIX: R$ 699,00 (seiscentos e noventa e nove reais) - com 43% de desconto sobre o valor integral de R$ 1.230,00.${totalSuffix}`;
+        return `• Pagamento à vista via PIX: R$ ${quantity === 1 ? '699,00' : total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${quantity === 1 ? 'seiscentos e noventa e nove reais' : 'valor total'}) - com 43% de desconto sobre o valor integral.${totalSuffix}`;
       }
       case 'cartao6x': {
-        const totalSuffix = brandCount > 1 
-          ? ` Valor total de ${brandCount} marcas: R$ ${(1194 * brandCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+        const total = 1194 * quantity;
+        const installment = total / 6;
+        const totalSuffix = quantity > 1 
+          ? ` Valor total de ${quantity} ${classCount > 0 ? 'classes' : 'marcas'}: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
           : '';
-        return `• Pagamento parcelado no Cartão de Crédito: 6x de R$ 199,00 (cento e noventa e nove reais) = Total: R$ 1.194,00 - sem juros.${totalSuffix}`;
+        return `• Pagamento parcelado no Cartão de Crédito: 6x de R$ ${installment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} - sem juros.${totalSuffix}`;
       }
       case 'boleto3x': {
-        const totalSuffix = brandCount > 1 
-          ? ` Valor total de ${brandCount} marcas: R$ ${(1197 * brandCount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+        const total = 1197 * quantity;
+        const installment = total / 3;
+        const totalSuffix = quantity > 1 
+          ? ` Valor total de ${quantity} ${classCount > 0 ? 'classes' : 'marcas'}: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
           : '';
-        return `• Pagamento parcelado via Boleto Bancário: 3x de R$ 399,00 (trezentos e noventa e nove reais) = Total: R$ 1.197,00.${totalSuffix}`;
+        return `• Pagamento parcelado via Boleto Bancário: 3x de R$ ${installment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.${totalSuffix}`;
       }
       default:
         return `• Forma de pagamento a ser definida.`;
@@ -302,6 +311,17 @@ export function replaceContractVariables(
   const cpfCnpj = brandData.hasCNPJ && brandData.cnpj 
     ? brandData.cnpj 
     : personalData.cpf;
+
+  // Build marca replacement - with classes if available
+  let marcaReplacement = brandData.brandName;
+  if (data.selectedClasses && data.selectedClasses.length > 0) {
+    const classListLines = data.selectedClasses.map((cls, i) => {
+      const desc = data.classDescriptions?.[i] || `Classe ${cls}`;
+      return `${i + 1}. Marca: ${brandData.brandName} - Classe NCL: ${cls} (${desc})`;
+    });
+    // For clause 1.1: replace the entire marca pattern with class list
+    marcaReplacement = brandData.brandName; // Keep simple for {{marca}} placeholder
+  }
 
   // Replace all variables
   let result = template
@@ -329,6 +349,21 @@ export function replaceContractVariables(
     result = result.replace(/\{\{marca\}\}/g, brandsInline);
   } else {
     result = result.replace(/\{\{marca\}\}/g, brandData.brandName);
+  }
+
+  // Inject NCL classes into clause 1.1 if selectedClasses are provided
+  if (data.selectedClasses && data.selectedClasses.length > 0) {
+    const classListLines = data.selectedClasses.map((cls, i) => {
+      // Try to get description from classDescriptions array (mapped by suggestedClasses index)
+      const desc = data.classDescriptions?.[i] || `Classe ${cls}`;
+      return `${i + 1}. Marca: ${brandData.brandName} - Classe NCL: ${cls} (${desc})`;
+    }).join('\n');
+
+    // Replace the clause 1.1 pattern: registro da marca "X" junto ao INPI ... ramo de atividade: Y.
+    const clause11Pattern = /registro da marca "[^"]*" junto ao INPI até a conclusão do processo, no ramo de atividade: [^.]+\./i;
+    if (clause11Pattern.test(result)) {
+      result = result.replace(clause11Pattern, `registro das seguintes marcas junto ao INPI até a conclusão dos processos:\n\n${classListLines}`);
+    }
   }
 
   return result;
