@@ -1,6 +1,6 @@
 import { useMemo, useRef, useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import webmarcasLogo from '@/assets/webmarcas-logo-new.png';
+import webmarcasLogo from '@/assets/webmarcas-logo-mark.png';
 import davilysSignature from '@/assets/davilys-signature.png';
 import { ContractRenderer } from '@/components/contracts/ContractRenderer';
 
@@ -251,7 +251,7 @@ export function DocumentRenderer({
       {/* Header */}
       <div className="bg-white p-6 border-b">
         <div className="flex items-center justify-between pb-3">
-          <img src={webmarcasLogo} alt="WebMarcas" className="h-12 object-contain" />
+          <img src={webmarcasLogo} alt="WebMarcas" className="h-12 object-contain" onError={(e) => { e.currentTarget.src = WEBMARCAS_LOGO_FALLBACK; }} />
           <a href="https://www.webmarcas.net" className="text-sm font-medium" style={{ color: '#0EA5E9' }}>
             www.webmarcas.net
           </a>

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import webmarcasLogo from '@/assets/webmarcas-logo-new.png';
+import webmarcasLogo from '@/assets/webmarcas-logo-mark.png';
 import { CheckCircle } from 'lucide-react';
 
 export interface BlockchainSignature {
@@ -159,6 +159,7 @@ export function ContractRenderer({
               src={webmarcasLogo} 
               alt="WebMarcas" 
               className="h-12 object-contain"
+              onError={(e) => { e.currentTarget.src = WEBMARCAS_LOGO_FALLBACK; }}
             />
             <span className="text-sm font-medium" style={{ color: '#0284c7' }}>
               www.webmarcas.net
@@ -380,7 +381,8 @@ export function generateContractPrintHTML(
   clientCpf: string,
   blockchainSignature?: BlockchainSignature,
   showCertificationSection: boolean = true,
-  documentType: 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa' = 'contract'
+  documentType: 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa' = 'contract',
+  logoBase64?: string
 ): string {
   // Convert plain text to HTML with proper formatting
   const htmlContent = content
@@ -672,7 +674,7 @@ export function generateContractPrintHTML(
 <body>
   <!-- Header with Logo and URL -->
   <div class="header">
-    <img src="${WEBMARCAS_LOGO_FALLBACK}" alt="WebMarcas" class="header-logo" />
+    <img src="${logoBase64 || WEBMARCAS_LOGO_FALLBACK}" alt="WebMarcas" class="header-logo" />
     <span class="header-url">www.webmarcas.net</span>
   </div>
   
