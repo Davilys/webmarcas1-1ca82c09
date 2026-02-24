@@ -79,16 +79,18 @@ serve(async (req) => {
     // ========================================
     let userId: string | null = null;
 
-    // Check if user already exists by email (should have been created by sign-contract-blockchain)
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(u => u.email === personalData.email);
+    // Check if user already exists by email
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('email', personalData.email)
+      .maybeSingle();
 
-    if (existingUser) {
-      userId = existingUser.id;
-      console.log('Found existing user:', userId);
+    if (existingProfile) {
+      userId = existingProfile.id;
+      console.log('Found existing user via profile:', userId);
     } else {
-      // User should have been created during contract signing
-      // If not found, create with fixed password as fallback
+      // Try creating a new auth user
       const tempPassword = '123Mudar@';
       
       const { data: newUser, error: userError } = await supabaseAdmin.auth.admin.createUser({
@@ -102,19 +104,32 @@ serve(async (req) => {
       });
 
       if (userError) {
-        console.error('Error creating user:', userError);
-        throw new Error(`Erro ao criar usuário: ${userError.message}`);
+        // If email already exists in auth but not in profiles, look up via auth
+        if (userError.message?.includes('already been registered')) {
+          const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ filter: personalData.email, perPage: 1 });
+          const foundUser = usersData?.users?.find(u => u.email === personalData.email);
+          if (foundUser) {
+            userId = foundUser.id;
+            console.log('Found existing auth user after conflict:', userId);
+          } else {
+            console.error('Error creating user and could not find existing:', userError);
+            throw new Error(`Erro ao criar usuário: ${userError.message}`);
+          }
+        } else {
+          console.error('Error creating user:', userError);
+          throw new Error(`Erro ao criar usuário: ${userError.message}`);
+        }
+      } else {
+        userId = newUser.user?.id || null;
+        console.log('Created new user:', userId);
       }
-
-      userId = newUser.user?.id || null;
-      console.log('Created new user as fallback:', userId);
 
       // Assign 'user' role
       if (userId) {
         await supabaseAdmin.from('user_roles').insert({
           user_id: userId,
           role: 'user',
-        });
+        }).then(() => {}).catch(() => {});
       }
     }
 
