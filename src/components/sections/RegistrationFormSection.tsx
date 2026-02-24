@@ -339,6 +339,8 @@ const RegistrationFormSection = () => {
                 })}
                 suggestedClasses={suggestedClasses}
                 suggestedClassDescriptions={suggestedClassDescriptions}
+                onSelectedClassesChange={setSelectedClasses}
+                onPaymentValueChange={setPaymentValue}
               />
             )}
           </div>

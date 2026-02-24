@@ -279,6 +279,8 @@ export default function RegistrarMarca() {
                     })}
                     suggestedClasses={suggestedClasses}
                     suggestedClassDescriptions={suggestedClassDescriptions}
+                    onSelectedClassesChange={setSelectedClasses}
+                    onPaymentValueChange={setPaymentValue}
                   />
                 </motion.div>
               )}

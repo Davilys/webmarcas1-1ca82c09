@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Download, Printer, Check, Shield, FileText, Lock, Sparkles, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2, Download, Printer, Check, Shield, FileText, Lock, Sparkles, AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useContractTemplate, replaceContractVariables } from "@/hooks/useContractTemplate";
@@ -10,6 +10,7 @@ import type { PersonalData } from "./PersonalDataStep";
 import type { BrandData } from "./BrandDataStep";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { usePricing } from "@/hooks/usePricing";
 
 interface ContractStepProps {
   personalData: PersonalData;
@@ -23,6 +24,8 @@ interface ContractStepProps {
   classDescriptions?: string[];
   suggestedClasses?: number[];
   suggestedClassDescriptions?: string[];
+  onSelectedClassesChange?: (classes: number[]) => void;
+  onPaymentValueChange?: (value: number) => void;
 }
 
 export function ContractStep({
@@ -37,10 +40,38 @@ export function ContractStep({
   classDescriptions,
   suggestedClasses,
   suggestedClassDescriptions,
+  onSelectedClassesChange,
+  onPaymentValueChange,
 }: ContractStepProps) {
   const [accepted, setAccepted] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const { template, isLoading, documentType } = useContractTemplate('Contrato Padrão - Registro de Marca INPI');
+  const { pricing } = usePricing();
+
+  // Price per class by payment method
+  const getUnitPrice = useCallback(() => {
+    switch (paymentMethod) {
+      case 'avista': return pricing.avista.value;
+      case 'cartao6x': case 'cartao': return pricing.cartao.value;
+      case 'boleto3x': case 'boleto': return pricing.boleto.value;
+      default: return pricing.avista.value;
+    }
+  }, [paymentMethod, pricing]);
+
+  const handleToggleClass = useCallback((cls: number) => {
+    const currentSelected = selectedClasses || [];
+    const isSelected = currentSelected.includes(cls);
+    const newList = isSelected
+      ? currentSelected.filter(c => c !== cls)
+      : [...currentSelected, cls];
+
+    onSelectedClassesChange?.(newList);
+
+    // Recalculate value: at least 1 class
+    const classCount = Math.max(newList.length, 1);
+    const newValue = classCount * getUnitPrice();
+    onPaymentValueChange?.(newValue);
+  }, [selectedClasses, onSelectedClassesChange, onPaymentValueChange, getUnitPrice]);
 
   const getProcessedContract = useCallback(() => {
     if (!template) return '';
@@ -188,23 +219,24 @@ export function ContractStep({
         </div>
       </div>
 
-      {/* Upsell: unselected suggested classes */}
+      {/* Upsell: unselected suggested classes — interactive */}
       {(() => {
         const unselected = (suggestedClasses || []).filter(
           cls => !(selectedClasses || []).includes(cls)
         );
         if (unselected.length === 0) return null;
+        const unitPrice = getUnitPrice();
         return (
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 overflow-hidden">
             <div className="p-4 border-b border-amber-500/20 bg-amber-500/10 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
               <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                Classes sugeridas não selecionadas
+                Proteja sua marca em mais categorias
               </p>
             </div>
             <div className="p-4 space-y-2">
               <p className="text-xs text-muted-foreground mb-3">
-                A IA identificou estas classes como relevantes para proteger sua marca. Sem elas, terceiros podem registrar marcas similares nessas categorias.
+                A IA identificou estas classes como relevantes. Selecione para incluí-las no contrato e proteger sua marca.
               </p>
               {unselected.map((cls) => {
                 const idx = (suggestedClasses || []).indexOf(cls);
@@ -212,17 +244,29 @@ export function ContractStep({
                   ? suggestedClassDescriptions[idx]
                   : `Classe ${cls}`;
                 return (
-                  <div key={cls} className="flex items-start gap-2 p-2 rounded-lg bg-background/60 border border-border">
-                    <span className="shrink-0 w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-xs font-bold text-amber-700 dark:text-amber-300">
+                  <button
+                    key={cls}
+                    type="button"
+                    onClick={() => handleToggleClass(cls)}
+                    className="w-full flex items-start gap-3 p-3 rounded-xl bg-background/60 border border-border hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 text-left group"
+                  >
+                    <span className="shrink-0 w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-xs font-bold text-amber-700 dark:text-amber-300 group-hover:bg-primary/15 group-hover:text-primary transition-colors">
                       {cls}
                     </span>
-                    <p className="text-xs text-muted-foreground leading-relaxed pt-1">{desc}</p>
-                  </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-primary">
+                        +{formatCurrency(unitPrice)}
+                      </span>
+                      <span className="w-6 h-6 rounded-md border-2 border-primary/30 bg-primary/10 flex items-center justify-center group-hover:border-primary group-hover:bg-primary/20 transition-colors">
+                        <Plus className="w-3.5 h-3.5 text-primary" />
+                      </span>
+                    </div>
+                  </button>
                 );
               })}
-              <p className="text-[11px] text-muted-foreground mt-2 italic">
-                Para adicionar, volte à etapa "Dados da Marca" e selecione as classes desejadas.
-              </p>
             </div>
           </div>
         );

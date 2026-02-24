@@ -393,6 +393,8 @@ export default function Registrar() {
                 })}
                 suggestedClasses={suggestedClasses}
                 suggestedClassDescriptions={suggestedClassDescriptions}
+                onSelectedClassesChange={setSelectedClasses}
+                onPaymentValueChange={setPaymentValue}
               />
             )}
           </CardContent>
