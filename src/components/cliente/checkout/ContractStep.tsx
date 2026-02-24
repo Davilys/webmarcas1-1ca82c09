@@ -244,27 +244,27 @@ export function ContractStep({
                   ? suggestedClassDescriptions[idx]
                   : `Classe ${cls}`;
                 return (
-                  <button
+                  <label
                     key={cls}
-                    type="button"
                     onClick={() => handleToggleClass(cls)}
-                    className="w-full flex items-start gap-3 p-3 rounded-xl bg-background/60 border border-border hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 text-left group"
+                    className="w-full flex items-start gap-3 p-3 rounded-xl bg-background/60 border border-border hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 text-left group cursor-pointer"
                   >
+                    <input
+                      type="checkbox"
+                      checked={false}
+                      readOnly
+                      className="mt-0.5 shrink-0 h-4 w-4 rounded border-border text-primary cursor-pointer"
+                    />
                     <span className="shrink-0 w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-xs font-bold text-amber-700 dark:text-amber-300 group-hover:bg-primary/15 group-hover:text-primary transition-colors">
                       {cls}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
                     </div>
-                    <div className="shrink-0 flex items-center gap-1.5">
-                      <span className="text-xs font-semibold text-primary">
-                        +{formatCurrency(unitPrice)}
-                      </span>
-                      <span className="w-6 h-6 rounded-md border-2 border-primary/30 bg-primary/10 flex items-center justify-center group-hover:border-primary group-hover:bg-primary/20 transition-colors">
-                        <Plus className="w-3.5 h-3.5 text-primary" />
-                      </span>
-                    </div>
-                  </button>
+                    <span className="shrink-0 text-xs font-semibold text-primary">
+                      +{formatCurrency(unitPrice)}
+                    </span>
+                  </label>
                 );
               })}
             </div>
