@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Loader2, Download, Printer, Check, Shield, FileText, Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useContractTemplate, replaceContractVariables } from "@/hooks/useContractTemplate";
@@ -196,11 +195,12 @@ export function ContractStep({
         )}
         whileTap={{ scale: 0.99 }}
       >
-        <Checkbox
+        <input
           id="accept"
+          type="checkbox"
           checked={accepted}
-          onCheckedChange={(checked) => setAccepted(!!checked)}
-          className="mt-0.5 shrink-0"
+          onChange={(e) => setAccepted(e.target.checked)}
+          className="mt-0.5 shrink-0 h-4 w-4 rounded border-border text-primary"
         />
         <Label htmlFor="accept" className="text-sm leading-relaxed cursor-pointer">
           <span className="font-semibold">Li e aceito os termos do contrato</span> de prestação de serviços.

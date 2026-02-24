@@ -49,6 +49,11 @@ export default function Registrar() {
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [paymentValue, setPaymentValue] = useState<number>(0);
 
+  // NCL classes state
+  const [suggestedClasses, setSuggestedClasses] = useState<number[]>([]);
+  const [suggestedClassDescriptions, setSuggestedClassDescriptions] = useState<string[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
+
   // Phrase rotation effect
   useEffect(() => {
     const interval = setInterval(() => {
@@ -120,6 +125,10 @@ export default function Registrar() {
 
   const handleViabilityNext = (brandName: string, businessArea: string, result: ViabilityResult) => {
     setViabilityData({ brandName, businessArea, result });
+    if (Array.isArray(result.classes) && result.classes.length > 0) {
+      setSuggestedClasses(result.classes);
+      setSuggestedClassDescriptions(result.classDescriptions || []);
+    }
     setStep(2);
   };
 
@@ -148,6 +157,11 @@ export default function Registrar() {
     setIsSubmitting(true);
 
     try {
+      const selectedClassDescriptions = selectedClasses.map(cls => {
+        const idx = suggestedClasses.indexOf(cls);
+        return idx >= 0 ? suggestedClassDescriptions[idx] : `Classe ${cls}`;
+      });
+
       const { data, error } = await supabase.functions.invoke('create-asaas-payment', {
         body: {
           personalData: {
@@ -160,7 +174,11 @@ export default function Registrar() {
           },
           paymentMethod,
           paymentValue,
-          contractHtml, // Send the full contract HTML
+          contractHtml,
+          selectedClasses,
+          classDescriptions: selectedClassDescriptions,
+          suggestedClasses,
+          suggestedClassDescriptions,
         },
       });
 
@@ -333,6 +351,10 @@ export default function Registrar() {
                 }}
                 onNext={handleBrandDataNext}
                 onBack={() => setStep(2)}
+                suggestedClasses={suggestedClasses}
+                suggestedClassDescriptions={suggestedClassDescriptions}
+                selectedClasses={selectedClasses}
+                onSelectedClassesChange={setSelectedClasses}
               />
             )}
 
@@ -341,6 +363,7 @@ export default function Registrar() {
                 selectedMethod={paymentMethod}
                 onNext={handlePaymentNext}
                 onBack={() => setStep(3)}
+                classCount={selectedClasses.length > 0 ? selectedClasses.length : 1}
               />
             )}
 
@@ -356,6 +379,11 @@ export default function Registrar() {
                 onBack={() => setStep(4)}
                 onSubmit={(html) => handleSubmit(html)}
                 isSubmitting={isSubmitting}
+                selectedClasses={selectedClasses}
+                classDescriptions={selectedClasses.map(cls => {
+                  const idx = suggestedClasses.indexOf(cls);
+                  return idx >= 0 ? suggestedClassDescriptions[idx] : `Classe ${cls}`;
+                })}
               />
             )}
           </CardContent>
