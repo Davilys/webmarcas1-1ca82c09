@@ -349,6 +349,17 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     // For multiple brands, use first brand as primary and pass array
     const primaryBrand = brandQuantity > 1 ? brandsArray[0] : brandData;
     
+    // Map class descriptions for the selected classes
+    const classDescs = selectedClasses.map(cls => {
+      if (suggestedClasses) {
+        const idx = suggestedClasses.classes.indexOf(cls);
+        if (idx >= 0 && suggestedClasses.descriptions[idx]) {
+          return suggestedClasses.descriptions[idx];
+        }
+      }
+      return `Classe ${cls}`;
+    });
+
     return replaceContractVariables(template, {
       personalData: {
         fullName: personalData.fullName,
@@ -370,6 +381,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       },
       paymentMethod: paymentMethod,
       multipleBrands: brandQuantity > 1 ? brandsArray : undefined,
+      selectedClasses: selectedClasses.length > 0 ? selectedClasses : undefined,
+      classDescriptions: selectedClasses.length > 0 ? classDescs : undefined,
     });
   };
 

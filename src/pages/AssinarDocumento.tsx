@@ -229,54 +229,81 @@ export default function AssinarDocumento() {
     );
   }, []);
 
-  // Updated contract HTML with extra classes
+  // Updated contract HTML with classes and payment values injected
   const displayContractHtml = useMemo(() => {
-    if (!contract?.contract_html || extraSelectedClasses.length === 0) {
-      return contract?.contract_html || '';
-    }
+    if (!contract?.contract_html) return '';
 
-    let html = contract.contract_html;
-    const brandName = contract.subject || 'Marca';
-
-    // Get all selected classes (original + extra)
-    const sc = (contract.suggested_classes || {}) as { selected?: number[] };
+    const sc = (contract.suggested_classes || {}) as { classes?: number[]; descriptions?: string[]; selected?: number[] };
     const originalClasses = sc.selected || [];
     const allClasses = [...originalClasses, ...extraSelectedClasses].sort((a, b) => a - b);
 
-    // Build numbered list for clause 1.1
-    const classListText = allClasses.map((cls, i) =>
-      `${i + 1}. Marca: ${brandName} - Classe NCL: ${cls}`
-    ).join('. ') + '.';
-
-    // Replace clause 1.1 content - look for the brand name pattern
-    // Match patterns like "denominação "BrandName"" or numbered list
-    const clause11Regex = /(?:denominação\s*"[^"]*")|(?:\d+\.\s*Marca:\s*[^.]+\.\s*)+/i;
-    if (clause11Regex.test(html)) {
-      html = html.replace(clause11Regex, classListText);
+    // If no classes to inject and no payment method, return original
+    if (allClasses.length === 0 && !contract.payment_method) {
+      return contract.contract_html;
     }
 
-    // Format currency helper
-    const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    let html = contract.contract_html;
+    // Extract brand name from subject (remove prefix)
+    const brandName = (contract.subject || 'Marca').replace(/^CONTRATO REGISTRO DE MARCA\s*-\s*/i, '');
 
-    // Update clause 5.1 - replace payment values
-    // Look for R$ patterns near "CLÁUSULA 5" or "valor" sections
-    const paymentMethod = contract.payment_method || 'avista';
-    if (paymentMethod === 'avista') {
-      // Replace PIX value
-      html = html.replace(/R\$\s*[\d.,]+(?=\s*(?:\(|à vista|via PIX))/gi, fmt(totalValue));
-    } else if (paymentMethod === 'cartao6x') {
-      // Replace installment values: total and per-installment
-      const installmentValue = totalValue / 6;
-      html = html.replace(/R\$\s*[\d.,]+(?=\s*(?:\(|parcelad|dividid|em\s*6))/gi, fmt(totalValue));
-      html = html.replace(/(?<=6[x×]\s*(?:de\s*)?)R\$\s*[\d.,]+/gi, fmt(installmentValue));
-    } else if (paymentMethod === 'boleto3x') {
-      const installmentValue = totalValue / 3;
-      html = html.replace(/R\$\s*[\d.,]+(?=\s*(?:\(|parcelad|dividid|em\s*3))/gi, fmt(totalValue));
-      html = html.replace(/(?<=3[x×]\s*(?:de\s*)?)R\$\s*[\d.,]+/gi, fmt(installmentValue));
+    // ========== CLAUSE 1.1: Inject NCL classes ==========
+    if (allClasses.length > 0) {
+      const allSuggestedClasses = sc.classes || [];
+      const allDescriptions = sc.descriptions || [];
+
+      const classListText = allClasses.map((cls, i) => {
+        const suggestedIdx = allSuggestedClasses.indexOf(cls);
+        const desc = suggestedIdx >= 0 && allDescriptions[suggestedIdx]
+          ? allDescriptions[suggestedIdx]
+          : (NCL_CLASS_DESCRIPTIONS[cls] || `Classe ${cls}`);
+        return `${i + 1}. Marca: ${brandName} - Classe NCL: ${cls} (${desc})`;
+      }).join('\n');
+
+      // Match: registro da marca "X" junto ao INPI ... ramo de atividade: Y.
+      const clause11Pattern = /registro da marca "[^"]*" junto ao INPI até a conclusão do processo, no ramo de atividade: [^.]+\./i;
+      // Also match if already replaced with "registro das seguintes marcas..."
+      const clause11AltPattern = /registro das seguintes marcas junto ao INPI até a conclusão dos processos:\n[\s\S]*?(?=\n\n\d+\.\s*CLÁUSULA|\n\n2\.)/;
+
+      if (clause11Pattern.test(html)) {
+        html = html.replace(clause11Pattern, `registro das seguintes marcas junto ao INPI até a conclusão dos processos:\n\n${classListText}`);
+      } else if (clause11AltPattern.test(html)) {
+        html = html.replace(clause11AltPattern, `registro das seguintes marcas junto ao INPI até a conclusão dos processos:\n\n${classListText}`);
+      }
+    }
+
+    // ========== CLAUSE 5.1: Inject payment values ==========
+    const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const paymentMethod = contract.payment_method;
+
+    if (paymentMethod) {
+      const classCount = allClasses.length || 1;
+      const pricePerClass = PRICE_PER_CLASS[paymentMethod] || 699;
+      const total = classCount * pricePerClass;
+
+      let paymentText = '';
+      switch (paymentMethod) {
+        case 'avista':
+          paymentText = `• Pagamento à vista via PIX: ${fmt(total)} - com 43% de desconto.`;
+          break;
+        case 'cartao6x':
+          paymentText = `• Pagamento parcelado no Cartão de Crédito: 6x de ${fmt(total / 6)} = Total: ${fmt(total)} - sem juros.`;
+          break;
+        case 'boleto3x':
+          paymentText = `• Pagamento parcelado via Boleto Bancário: 3x de ${fmt(total / 3)} = Total: ${fmt(total)}.`;
+          break;
+      }
+
+      if (paymentText) {
+        // Replace existing payment line (both "a ser definida" and actual values)
+        const paymentLineRegex = /• (?:Forma de pagamento a ser definida\.|Pagamento[^\n]*\.(?:\s*Valor total[^\n]*\.)?)/;
+        if (paymentLineRegex.test(html)) {
+          html = html.replace(paymentLineRegex, paymentText);
+        }
+      }
     }
 
     return html;
-  }, [contract?.contract_html, contract?.subject, contract?.suggested_classes, contract?.payment_method, extraSelectedClasses, totalValue]);
+  }, [contract?.contract_html, contract?.subject, contract?.suggested_classes, contract?.payment_method, extraSelectedClasses]);
 
   // Create Asaas payment after signature
   const createPaymentAfterSignature = async () => {
