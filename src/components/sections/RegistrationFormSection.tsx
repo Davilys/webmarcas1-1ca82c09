@@ -6,7 +6,6 @@ import { CheckoutProgress } from "@/components/cliente/checkout/CheckoutProgress
 import { ViabilityStep } from "@/components/cliente/checkout/ViabilityStep";
 import { PersonalDataStep, type PersonalData } from "@/components/cliente/checkout/PersonalDataStep";
 import { BrandDataStep, type BrandData } from "@/components/cliente/checkout/BrandDataStep";
-import { NclClassSelectionStep } from "@/components/cliente/checkout/NclClassSelectionStep";
 import { PaymentStep } from "@/components/cliente/checkout/PaymentStep";
 import { ContractStep } from "@/components/cliente/checkout/ContractStep";
 import type { ViabilityResult } from "@/lib/api/viability";
@@ -34,7 +33,6 @@ const RegistrationFormSection = () => {
   const [suggestedClasses, setSuggestedClasses] = useState<number[]>([]);
   const [suggestedClassDescriptions, setSuggestedClassDescriptions] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
-  const [selectedClassDescriptions, setSelectedClassDescriptions] = useState<string[]>([]);
 
   // Track if form_started email was already triggered
   const [formStartedTriggered, setFormStartedTriggered] = useState(false);
@@ -78,7 +76,6 @@ const RegistrationFormSection = () => {
   // Handlers
   const handleViabilityNext = useCallback((brandName: string, businessArea: string, result: ViabilityResult) => {
     setViabilityData({ brandName, businessArea, result });
-    // Extract classes from viability result
     if (Array.isArray(result.classes) && result.classes.length > 0) {
       setSuggestedClasses(result.classes);
       setSuggestedClassDescriptions(result.classDescriptions || []);
@@ -119,21 +116,14 @@ const RegistrationFormSection = () => {
 
   const handleBrandDataNext = useCallback((data: BrandData) => {
     setBrandData(data);
-    setStep(4); // Now goes to NCL class selection
-    scrollToForm();
-  }, []);
-
-  const handleNclNext = useCallback((classes: number[], descriptions: string[]) => {
-    setSelectedClasses(classes);
-    setSelectedClassDescriptions(descriptions);
-    setStep(5); // Go to Payment
+    setStep(4); // Payment (step 4 now)
     scrollToForm();
   }, []);
 
   const handlePaymentNext = useCallback((method: string, value: number) => {
     setPaymentMethod(method);
     setPaymentValue(value);
-    setStep(6); // Go to Contract
+    setStep(5); // Contract (step 5 now)
     scrollToForm();
   }, []);
 
@@ -148,6 +138,12 @@ const RegistrationFormSection = () => {
     }
 
     setIsSubmitting(true);
+
+    // Derive selectedClassDescriptions from suggestedClasses by index
+    const selectedClassDescriptions = selectedClasses.map(cls => {
+      const idx = suggestedClasses.indexOf(cls);
+      return idx >= 0 ? suggestedClassDescriptions[idx] : `Classe ${cls}`;
+    });
 
     try {
       const { data, error } = await supabase.functions.invoke('create-asaas-payment', {
@@ -177,6 +173,7 @@ const RegistrationFormSection = () => {
           selectedClasses,
           classDescriptions: selectedClassDescriptions,
           suggestedClasses,
+          suggestedClassDescriptions,
         },
       });
 
@@ -251,7 +248,7 @@ const RegistrationFormSection = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [personalData, brandData, paymentMethod, paymentValue, selectedClasses, selectedClassDescriptions, suggestedClasses, navigate, toast]);
+  }, [personalData, brandData, paymentMethod, paymentValue, selectedClasses, suggestedClasses, suggestedClassDescriptions, navigate, toast]);
 
   const scrollToForm = () => {
     document.getElementById('registro')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -312,36 +309,34 @@ const RegistrationFormSection = () => {
                 initialData={brandData || getInitialBrandData()}
                 onNext={handleBrandDataNext}
                 onBack={() => handleBack(2)}
+                suggestedClasses={suggestedClasses}
+                suggestedClassDescriptions={suggestedClassDescriptions}
+                selectedClasses={selectedClasses}
+                onSelectedClassesChange={setSelectedClasses}
               />
             )}
             {step === 4 && (
-              <NclClassSelectionStep
-                suggestedClasses={suggestedClasses}
-                classDescriptions={suggestedClassDescriptions}
-                brandName={viabilityData?.brandName || brandData?.brandName || ""}
-                onNext={handleNclNext}
-                onBack={() => handleBack(3)}
-              />
-            )}
-            {step === 5 && (
               <PaymentStep
                 selectedMethod={paymentMethod}
                 onNext={handlePaymentNext}
-                onBack={() => handleBack(4)}
+                onBack={() => handleBack(3)}
                 classCount={classCount}
               />
             )}
-            {step === 6 && personalData && brandData && (
+            {step === 5 && personalData && brandData && (
               <ContractStep
                 personalData={personalData}
                 brandData={brandData}
                 paymentMethod={paymentMethod}
                 paymentValue={paymentValue}
                 onSubmit={handleContractSubmit}
-                onBack={() => handleBack(5)}
+                onBack={() => handleBack(4)}
                 isSubmitting={isSubmitting}
                 selectedClasses={selectedClasses}
-                classDescriptions={selectedClassDescriptions}
+                classDescriptions={selectedClasses.map(cls => {
+                  const idx = suggestedClasses.indexOf(cls);
+                  return idx >= 0 ? suggestedClassDescriptions[idx] : `Classe ${cls}`;
+                })}
               />
             )}
           </div>

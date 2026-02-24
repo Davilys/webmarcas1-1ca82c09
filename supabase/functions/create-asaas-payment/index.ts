@@ -39,6 +39,7 @@ interface PaymentRequest {
   selectedClasses?: number[];
   classDescriptions?: string[];
   suggestedClasses?: number[];
+  suggestedClassDescriptions?: string[];
 }
 
 interface ContractTemplate {
@@ -516,7 +517,7 @@ serve(async (req) => {
     // Create Supabase admin client
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { personalData, brandData, paymentMethod, paymentValue, contractHtml: providedContractHtml, userId, selectedClasses, classDescriptions, suggestedClasses: suggestedClassesFromClient }: PaymentRequest = await req.json();
+    const { personalData, brandData, paymentMethod, paymentValue, contractHtml: providedContractHtml, userId, selectedClasses, classDescriptions, suggestedClasses: suggestedClassesFromClient, suggestedClassDescriptions: suggestedClassDescsFromClient }: PaymentRequest = await req.json();
 
     console.log('Creating Asaas payment for:', personalData.fullName, '| Method:', paymentMethod);
 
@@ -910,9 +911,19 @@ serve(async (req) => {
         user_id: effectiveUserId || null, // Use effective user ID (found profile or session)
         contract_html: contractHtml || null,
         visible_to_client: true,
-        suggested_classes: selectedClasses && selectedClasses.length > 0
-          ? { classes: suggestedClassesFromClient || selectedClasses, descriptions: classDescriptions || [], selected: selectedClasses }
-          : null,
+        suggested_classes: (suggestedClassesFromClient && suggestedClassesFromClient.length > 0)
+          ? {
+              classes: suggestedClassesFromClient,
+              descriptions: suggestedClassDescsFromClient || [],
+              selected: selectedClasses || [],
+            }
+          : (selectedClasses && selectedClasses.length > 0)
+            ? {
+                classes: selectedClasses,
+                descriptions: classDescriptions || [],
+                selected: selectedClasses,
+              }
+            : null,
       })
       .select('id')
       .single();

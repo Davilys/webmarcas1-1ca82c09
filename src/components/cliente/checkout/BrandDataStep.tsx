@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Building2, Briefcase, Hash, FileText, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, Briefcase, Hash, FileText, Sparkles, Layers, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,11 +38,31 @@ interface BrandDataStepProps {
   initialData: BrandData;
   onNext: (data: BrandData) => void;
   onBack: () => void;
+  suggestedClasses?: number[];
+  suggestedClassDescriptions?: string[];
+  selectedClasses?: number[];
+  onSelectedClassesChange?: (classes: number[]) => void;
 }
 
-export function BrandDataStep({ initialData, onNext, onBack }: BrandDataStepProps) {
+export function BrandDataStep({
+  initialData,
+  onNext,
+  onBack,
+  suggestedClasses = [],
+  suggestedClassDescriptions = [],
+  selectedClasses = [],
+  onSelectedClassesChange,
+}: BrandDataStepProps) {
   const [data, setData] = useState<BrandData>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleClassToggle = (cls: number) => {
+    if (!onSelectedClassesChange) return;
+    const updated = selectedClasses.includes(cls)
+      ? selectedClasses.filter(c => c !== cls)
+      : [...selectedClasses, cls];
+    onSelectedClassesChange(updated);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,6 +219,83 @@ export function BrandDataStep({ initialData, onNext, onBack }: BrandDataStepProp
               )}
             </AnimatePresence>
           </div>
+
+          {/* NCL Classes Selection - embedded */}
+          {suggestedClasses.length > 0 && (
+            <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
+                  <Layers className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Classes NCL Sugeridas</p>
+                  <p className="text-xs text-muted-foreground">Selecione as classes que deseja proteger</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-muted/40 border border-border/50">
+                <Info className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Com base na análise de viabilidade, nossa IA identificou as classes mais relevantes para sua marca.
+                  Cada classe adicional amplia a proteção em diferentes segmentos de mercado.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {suggestedClasses.map((cls, idx) => {
+                  const desc = suggestedClassDescriptions[idx] || `Classe ${cls}`;
+                  const isChecked = selectedClasses.includes(cls);
+                  return (
+                    <motion.div
+                      key={cls}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer",
+                        isChecked
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border/50 bg-card hover:border-primary/20"
+                      )}
+                      onClick={() => handleClassToggle(cls)}
+                    >
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={() => handleClassToggle(cls)}
+                        className="shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">Classe NCL {cls}</p>
+                        <p className="text-xs text-muted-foreground truncate">{desc}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {selectedClasses.length > 0 && (
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground">
+                    {selectedClasses.length} classe{selectedClasses.length > 1 ? 's' : ''} selecionada{selectedClasses.length > 1 ? 's' : ''}
+                  </span>
+                  <span className="text-xs font-semibold text-primary">
+                    Proteção ampliada
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {suggestedClasses.length === 0 && (
+            <div className="rounded-xl border border-border bg-muted/20 p-4">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Classes NCL serão definidas automaticamente com base no seu ramo de atividade.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3 pt-2">

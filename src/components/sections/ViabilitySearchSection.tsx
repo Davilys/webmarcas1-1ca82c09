@@ -517,6 +517,8 @@ const ViabilitySearchSection = () => {
       brandName,
       businessArea,
       level: result?.level,
+      classes: result?.classes || [],
+      classDescriptions: result?.classDescriptions || [],
     }));
     window.scrollTo({ top: 0, behavior: 'instant' });
     navigate('/registro');

@@ -7,7 +7,6 @@ import { CheckoutProgress } from "@/components/cliente/checkout/CheckoutProgress
 import { ViabilityStep } from "@/components/cliente/checkout/ViabilityStep";
 import { PersonalDataStep, type PersonalData } from "@/components/cliente/checkout/PersonalDataStep";
 import { BrandDataStep, type BrandData } from "@/components/cliente/checkout/BrandDataStep";
-import { NclClassSelectionStep } from "@/components/cliente/checkout/NclClassSelectionStep";
 import { PaymentStep } from "@/components/cliente/checkout/PaymentStep";
 import { ContractStep } from "@/components/cliente/checkout/ContractStep";
 import { toast } from "sonner";
@@ -18,8 +17,7 @@ import { Shield, Award, Clock, Star } from "lucide-react";
 const STEP_TITLES = [
   { title: "Consulta de Viabilidade", sub: "Verificando no banco do INPI" },
   { title: "Dados do Titular", sub: "Informações para o contrato" },
-  { title: "Dados da Marca", sub: "Detalhes do registro" },
-  { title: "Classes NCL", sub: "Selecione as classes de proteção" },
+  { title: "Dados da Marca", sub: "Detalhes do registro e classes NCL" },
   { title: "Forma de Pagamento", sub: "Escolha como pagar" },
   { title: "Contrato Digital", sub: "Revise e assine" },
 ];
@@ -44,7 +42,6 @@ export default function RegistrarMarca() {
   const [suggestedClasses, setSuggestedClasses] = useState<number[]>([]);
   const [suggestedClassDescriptions, setSuggestedClassDescriptions] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
-  const [selectedClassDescriptions, setSelectedClassDescriptions] = useState<string[]>([]);
 
   // Pre-fill user data if logged in
   useEffect(() => {
@@ -75,7 +72,6 @@ export default function RegistrarMarca() {
   const handleViabilityNext = (brand: string, area: string, result: ViabilityResult) => {
     setBrandData(prev => ({ ...prev, brandName: brand, businessArea: area }));
     setViabilityResult(result);
-    // Extract classes from viability result
     if (Array.isArray(result.classes) && result.classes.length > 0) {
       setSuggestedClasses(result.classes);
       setSuggestedClassDescriptions(result.classDescriptions || []);
@@ -93,23 +89,24 @@ export default function RegistrarMarca() {
 
   const handleBrandDataNext = (data: BrandData) => {
     setBrandData(data);
-    setStep(4); // NCL class selection
-  };
-
-  const handleNclNext = (classes: number[], descriptions: string[]) => {
-    setSelectedClasses(classes);
-    setSelectedClassDescriptions(descriptions);
-    setStep(5); // Payment
+    setStep(4); // Payment
   };
 
   const handlePaymentNext = (method: string, value: number) => {
     setPaymentMethod(method);
     setPaymentValue(value);
-    setStep(6); // Contract
+    setStep(5); // Contract
   };
 
   const handleSubmit = async (contractHtml: string) => {
     setIsSubmitting(true);
+
+    // Derive selectedClassDescriptions by index from suggestedClasses
+    const selectedClassDescriptions = selectedClasses.map(cls => {
+      const idx = suggestedClasses.indexOf(cls);
+      return idx >= 0 ? suggestedClassDescriptions[idx] : `Classe ${cls}`;
+    });
+
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const userId = sessionData.session?.user?.id || null;
@@ -125,6 +122,7 @@ export default function RegistrarMarca() {
           selectedClasses,
           classDescriptions: selectedClassDescriptions,
           suggestedClasses,
+          suggestedClassDescriptions,
         },
       });
 
@@ -213,7 +211,7 @@ export default function RegistrarMarca() {
           className="flex items-center justify-between mb-4 px-1"
         >
           <div>
-            <p className="text-xs text-muted-foreground">Etapa {step} de 6</p>
+            <p className="text-xs text-muted-foreground">Etapa {step} de 5</p>
             <p className="text-sm font-semibold">{currentStepInfo.title}</p>
           </div>
           <span className="text-xs text-muted-foreground">{currentStepInfo.sub}</span>
@@ -247,42 +245,38 @@ export default function RegistrarMarca() {
                     initialData={brandData}
                     onNext={handleBrandDataNext}
                     onBack={() => setStep(2)}
+                    suggestedClasses={suggestedClasses}
+                    suggestedClassDescriptions={suggestedClassDescriptions}
+                    selectedClasses={selectedClasses}
+                    onSelectedClassesChange={setSelectedClasses}
                   />
                 </motion.div>
               )}
               {step === 4 && (
                 <motion.div key="step4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <NclClassSelectionStep
-                    suggestedClasses={suggestedClasses}
-                    classDescriptions={suggestedClassDescriptions}
-                    brandName={viabilityResult?.title ? brandData.brandName : brandData.brandName}
-                    onNext={handleNclNext}
+                  <PaymentStep
+                    selectedMethod={paymentMethod}
+                    onNext={handlePaymentNext}
                     onBack={() => setStep(3)}
+                    classCount={classCount}
                   />
                 </motion.div>
               )}
               {step === 5 && (
                 <motion.div key="step5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <PaymentStep
-                    selectedMethod={paymentMethod}
-                    onNext={handlePaymentNext}
-                    onBack={() => setStep(4)}
-                    classCount={classCount}
-                  />
-                </motion.div>
-              )}
-              {step === 6 && (
-                <motion.div key="step6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                   <ContractStep
                     personalData={personalData}
                     brandData={brandData}
                     paymentMethod={paymentMethod}
                     paymentValue={paymentValue}
                     onSubmit={(html) => handleSubmit(html)}
-                    onBack={() => setStep(5)}
+                    onBack={() => setStep(4)}
                     isSubmitting={isSubmitting}
                     selectedClasses={selectedClasses}
-                    classDescriptions={selectedClassDescriptions}
+                    classDescriptions={selectedClasses.map(cls => {
+                      const idx = suggestedClasses.indexOf(cls);
+                      return idx >= 0 ? suggestedClassDescriptions[idx] : `Classe ${cls}`;
+                    })}
                   />
                 </motion.div>
               )}
