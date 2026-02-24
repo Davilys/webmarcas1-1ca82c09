@@ -185,17 +185,25 @@ export default function AssinarDocumento() {
   // ========== UPSELL: Available classes ==========
   const availableUpsellClasses = useMemo(() => {
     if (!contract?.suggested_classes || isProcuracao) return [];
-    const suggested = contract.suggested_classes as Array<{ classNumber: number; className: string; selected?: boolean }>;
-    // Filter classes that were NOT selected by the admin (i.e. suggested but not in the contract)
-    return suggested.filter(sc => !sc.selected);
+    const sc = contract.suggested_classes as { classes?: number[]; descriptions?: string[]; selected?: number[] };
+    const allClasses = sc.classes || [];
+    const selected = sc.selected || [];
+    const descriptions = sc.descriptions || [];
+    // Classes suggested but NOT selected by admin
+    return allClasses
+      .filter(cls => !selected.includes(cls))
+      .map(cls => {
+        const idx = allClasses.indexOf(cls);
+        const desc = idx >= 0 && descriptions[idx] ? descriptions[idx] : (NCL_CLASS_DESCRIPTIONS[cls] || `Classe ${cls}`);
+        return { classNumber: cls, className: desc };
+      });
   }, [contract?.suggested_classes, isProcuracao]);
 
   // Count original classes in the contract
   const originalClassCount = useMemo(() => {
     if (!contract?.suggested_classes) return 1;
-    const suggested = contract.suggested_classes as Array<{ classNumber: number; selected?: boolean }>;
-    const selectedCount = suggested.filter(sc => sc.selected).length;
-    return selectedCount || 1;
+    const sc = contract.suggested_classes as { selected?: number[] };
+    return (sc.selected || []).length || 1;
   }, [contract?.suggested_classes]);
 
   // Unit price per class based on payment method
@@ -228,8 +236,8 @@ export default function AssinarDocumento() {
     const brandName = contract.subject || 'Marca';
 
     // Get all selected classes (original + extra)
-    const suggested = (contract.suggested_classes || []) as Array<{ classNumber: number; selected?: boolean }>;
-    const originalClasses = suggested.filter(sc => sc.selected).map(sc => sc.classNumber);
+    const sc = (contract.suggested_classes || {}) as { selected?: number[] };
+    const originalClasses = sc.selected || [];
     const allClasses = [...originalClasses, ...extraSelectedClasses].sort((a, b) => a - b);
 
     // Build numbered list for clause 1.1
