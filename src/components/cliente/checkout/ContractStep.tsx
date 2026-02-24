@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Download, Printer, Check, Shield, FileText, Lock, Sparkles, AlertTriangle, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, Download, Printer, Check, Shield, FileText, Lock, Sparkles, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useContractTemplate, replaceContractVariables } from "@/hooks/useContractTemplate";
@@ -47,6 +47,7 @@ export function ContractStep({
   const [isDownloading, setIsDownloading] = useState(false);
   const { template, isLoading, documentType } = useContractTemplate('Contrato Padrão - Registro de Marca INPI');
   const { pricing } = usePricing();
+  const initialSelectedRef = useRef<number[]>(selectedClasses || []);
 
   // Price per class by payment method
   const getUnitPrice = useCallback(() => {
@@ -219,54 +220,71 @@ export function ContractStep({
         </div>
       </div>
 
-      {/* Upsell: unselected suggested classes — interactive */}
+      {/* Upsell: suggested classes not in initial selection */}
       {(() => {
-        const unselected = (suggestedClasses || []).filter(
-          cls => !(selectedClasses || []).includes(cls)
+        const extraClasses = (suggestedClasses || []).filter(
+          cls => !initialSelectedRef.current.includes(cls)
         );
-        if (unselected.length === 0) return null;
+        if (extraClasses.length === 0) return null;
         const unitPrice = getUnitPrice();
+        const totalSuggested = (suggestedClasses || []).length;
         return (
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 overflow-hidden">
-            <div className="p-4 border-b border-amber-500/20 bg-amber-500/10 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                Proteja sua marca em mais categorias
+          <div className="rounded-2xl border border-primary/30 bg-primary/5 overflow-hidden">
+            <div className="p-4 border-b border-primary/20 bg-primary/10 flex items-center gap-2">
+              <Scale className="w-4 h-4 text-primary" />
+              <p className="text-sm font-semibold text-primary">
+                Orientação Jurídica
               </p>
             </div>
-            <div className="p-4 space-y-2">
-              <p className="text-xs text-muted-foreground mb-3">
-                A IA identificou estas classes como relevantes. Selecione para incluí-las no contrato e proteger sua marca.
+            <div className="p-4 space-y-3">
+              <p className="text-sm font-semibold text-foreground">
+                O ideal é registrar nas {totalSuggested} classes para máxima proteção.
               </p>
-              {unselected.map((cls) => {
-                const idx = (suggestedClasses || []).indexOf(cls);
-                const desc = idx >= 0 && suggestedClassDescriptions?.[idx]
-                  ? suggestedClassDescriptions[idx]
-                  : `Classe ${cls}`;
-                return (
-                  <label
-                    key={cls}
-                    onClick={() => handleToggleClass(cls)}
-                    className="w-full flex items-start gap-3 p-3 rounded-xl bg-background/60 border border-border hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 text-left group cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      readOnly
-                      className="mt-0.5 shrink-0 h-4 w-4 rounded border-border text-primary cursor-pointer"
-                    />
-                    <span className="shrink-0 w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-xs font-bold text-amber-700 dark:text-amber-300 group-hover:bg-primary/15 group-hover:text-primary transition-colors">
-                      {cls}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
-                    </div>
-                    <span className="shrink-0 text-xs font-semibold text-primary">
-                      +{formatCurrency(unitPrice)}
-                    </span>
-                  </label>
-                );
-              })}
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Sem o registro nestas categorias, terceiros podem usar sua marca legalmente nesses segmentos. A proteção parcial deixa sua marca vulnerável.
+              </p>
+              <div className="space-y-2 pt-1">
+                {extraClasses.map((cls) => {
+                  const idx = (suggestedClasses || []).indexOf(cls);
+                  const desc = idx >= 0 && suggestedClassDescriptions?.[idx]
+                    ? suggestedClassDescriptions[idx]
+                    : `Classe ${cls}`;
+                  const isChecked = (selectedClasses || []).includes(cls);
+                  return (
+                    <label
+                      key={cls}
+                      onClick={() => handleToggleClass(cls)}
+                      className={cn(
+                        "w-full flex items-start gap-3 p-3 rounded-xl border transition-all duration-200 cursor-pointer",
+                        isChecked
+                          ? "border-emerald-500/40 bg-emerald-500/10"
+                          : "border-border bg-background/60 hover:border-primary/40 hover:bg-primary/5"
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        readOnly
+                        className="mt-0.5 shrink-0 h-4 w-4 rounded border-border text-primary cursor-pointer"
+                      />
+                      <span className={cn(
+                        "shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-colors",
+                        isChecked
+                          ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        {cls}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+                      </div>
+                      <span className="shrink-0 text-xs font-semibold text-primary">
+                        +{formatCurrency(unitPrice)}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           </div>
         );
