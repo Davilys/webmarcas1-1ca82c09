@@ -1,65 +1,49 @@
 
-# Correcao: Dois paineis abrindo simultaneamente na aba Publicacoes
+
+# Atribuir Cliente no Ficheiro Azul (Publicacoes Orfas)
 
 ## Problema
-Ao clicar num card do Kanban na aba Revista INPI > Publicacoes, duas coisas acontecem ao mesmo tempo:
-1. O painel lateral branco "Detalhes do Processo" aparece no lado direito (dentro da pagina)
-2. O ficheiro azul (ClientDetailSheet) abre por cima como Sheet
-
-Resultado: o painel branco mostra as informacoes corretas (timeline, botoes), mas o ficheiro azul mostra "Detalhes do Processo" vazio/em branco. Sao dois paineis sobrepostos.
+Quando uma publicacao nao tem cliente vinculado, o ficheiro azul abre mostrando "Sem cliente vinculado" na aba Contatos com dados vazios. Nao existe forma de atribuir um cliente real a essa publicacao/processo diretamente pelo ficheiro.
 
 ## Solucao
-Mudar o fluxo para que ao clicar num card do Kanban:
-- Abra APENAS o ficheiro azul (ClientDetailSheet) com `initialShowProcessDetails=true`
-- O painel lateral branco NAO apareca (fechar `selectedId` para o painel lateral ao abrir o sheet)
-- As informacoes do processo (timeline, botoes Editar/Agenda/Upload/Excluir) fiquem DENTRO do ficheiro azul
+Adicionar na aba Contatos do ClientDetailSheet, quando `client.id === ''` (sem cliente vinculado), um campo de busca com autocomplete para pesquisar clientes por nome, email ou CPF/CNPJ e vincular ao processo/publicacao.
+
+---
 
 ## Detalhes Tecnicos
 
-### Arquivo: `src/components/admin/PublicacaoTab.tsx`
-
-**1. No handler do Kanban `onSelect` (linha ~1358-1362):**
-- Ao abrir o ClientDetailSheet, limpar o `selectedId` do painel lateral para que ele nao apareca
-- Guardar o ID selecionado apenas para construir o `selectedClientForSheet`
-- Adicionar `setShowProcessDetailFromSheet(true)` para que o ficheiro azul abra ja com "Detalhes do Processo" visivel
-
-Antes:
-```
-onSelect={id => {
-  setSelectedId(id);
-  setShowClientSheet(true);
-}}
-```
-
-Depois:
-```
-onSelect={id => {
-  setSelectedId(id);
-  setSelectedId(null);  // Fecha painel lateral branco
-  setShowClientSheet(true);
-  setShowProcessDetailFromSheet(true);
-}}
-```
-
-Na pratica, vamos guardar o id num estado separado (ex: `sheetPubId`) para construir o `selectedClientForSheet`, sem ativar o painel lateral. Ou simplesmente limpar `selectedId` apos construir o client, usando um `useEffect`.
-
-**Abordagem mais limpa:** Usar o `selectedId` apenas para o painel lateral (quando NAO abre o sheet). Quando abre o sheet, usar um estado separado `sheetSelectedPubId` para construir o client:
-
-- Criar estado `sheetSelectedPubId`
-- No Kanban onSelect: setar `sheetSelectedPubId`, abrir sheet, NAO setar `selectedId`
-- O `selectedClientForSheet` usa `sheetSelectedPubId` em vez de `selectedId`
-- O painel lateral branco continua usando `selectedId` (que ficara null quando o sheet estiver aberto)
-
-**2. Na lista (view modo lista, linhas ~1395-1440):**
-- Manter o mesmo comportamento: ao clicar numa linha, abrir sheet e nao o painel lateral
-
-**3. No render do painel lateral (linhas ~1470-1660):**
-- Condicionar para NAO renderizar quando `showClientSheet` esta aberto
-
 ### Arquivo: `src/components/admin/clients/ClientDetailSheet.tsx`
-- Nenhuma alteracao necessaria. O `initialShowProcessDetails=true` ja funciona e o `handleQuickAction('processo')` ja busca os dados corretamente.
 
-## Resultado Esperado
-- Clicar no card do Kanban abre APENAS o ficheiro azul (ClientDetailSheet) com Detalhes do Processo preenchido
-- Painel lateral branco nao aparece mais simultaneamente
-- Todas as informacoes e botoes (Editar, Agenda, Upload, Excluir) ficam dentro do ficheiro azul
+**1. Novos estados:**
+- `linkClientSearch`: texto digitado na busca
+- `linkClientResults`: array de resultados da busca (profiles)
+- `linkingClient`: loading state durante vinculacao
+- `debouncedLinkSearch`: debounce de 400ms no texto
+
+**2. Busca com debounce:**
+- Quando `linkClientSearch` tem 2+ caracteres, buscar na tabela `profiles` com `or(full_name.ilike, email.ilike, cpf.ilike, cnpj.ilike)` limitado a 10 resultados
+- Usar `useEffect` com `setTimeout` de 400ms
+
+**3. Funcao `handleLinkClient(profileId)`:**
+- Atualizar `publicacoes_marcas.client_id = profileId` (usando `process_id` do client atual)
+- Atualizar `brand_processes.user_id = profileId` (se houver `process_id`)
+- Chamar `onUpdate()` para recarregar dados
+- Fechar o sheet e reabrir com o cliente correto (ou simplesmente chamar `onUpdate` + `toast.success`)
+
+**4. UI na aba Contatos:**
+- Condicionar: se `client.id === ''`, mostrar um card com:
+  - Icone + titulo "Vincular Cliente"
+  - Input de busca com placeholder "Pesquisar por nome, email ou CPF/CNPJ..."
+  - Lista de resultados abaixo do input com nome, email e botao "Vincular"
+  - Manter o card "Dados Pessoais" existente abaixo (mostrando dados vazios) oculto quando nao ha cliente
+- Se `client.id !== ''`, manter o layout atual
+
+**5. Apos vincular:**
+- Toast de sucesso "Cliente vinculado com sucesso!"
+- Chamar `onUpdate()` para recarregar a lista de publicacoes
+- Fechar o sheet (o usuario pode reabrir e vera os dados do cliente correto)
+
+### Resultado
+- Cards orfaos no Kanban de Publicacoes agora permitem atribuir cliente real pelo ficheiro azul
+- Busca por digitacao com autocomplete (nome, email, CPF/CNPJ)
+- Vinculacao atualiza tanto `publicacoes_marcas.client_id` quanto `brand_processes.user_id`
