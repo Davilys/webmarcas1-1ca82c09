@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { differenceInDays, parseISO } from 'date-fns';
-import { Clock, AlertTriangle, User, Flame } from 'lucide-react';
+import { Clock, AlertTriangle, User, Flame, GripVertical } from 'lucide-react';
 
 type PubStatus = 'depositada' | 'publicada' | 'oposicao' | 'deferida' | 'certificada' | 'indeferida' | 'arquivada' | 'renovacao_pendente';
 
@@ -40,7 +40,10 @@ interface Props {
   onStatusChange: (id: string, newStatus: PubStatus, pub: Publicacao) => void;
 }
 
-export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap, onSelect, selectedId }: Props) {
+export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap, onSelect, selectedId, onStatusChange }: Props) {
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<PubStatus | null>(null);
+
   const columns = useMemo(() => {
     const cols: Record<PubStatus, Publicacao[]> = {
       depositada: [], publicada: [], oposicao: [], deferida: [], certificada: [], indeferida: [], arquivada: [], renovacao_pendente: [],
@@ -51,10 +54,49 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
     return cols;
   }, [publicacoes]);
 
-  // Show ALL columns (full funnel) even when empty
   const allColumns = useMemo(() => {
     return Object.entries(STATUS_CONFIG) as [PubStatus, typeof STATUS_CONFIG[PubStatus]][];
   }, []);
+
+  const handleDragStart = useCallback((e: React.DragEvent, pub: Publicacao) => {
+    setDraggedId(pub.id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', pub.id);
+    // Make drag image semi-transparent
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0.5';
+    }
+  }, []);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    setDraggedId(null);
+    setDragOverStatus(null);
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1';
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, status: PubStatus) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverStatus(status);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverStatus(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetStatus: PubStatus) => {
+    e.preventDefault();
+    setDragOverStatus(null);
+    const pubId = e.dataTransfer.getData('text/plain');
+    if (!pubId) return;
+    
+    const pub = publicacoes.find(p => p.id === pubId);
+    if (!pub || pub.status === targetStatus) return;
+    
+    onStatusChange(pubId, targetStatus, pub);
+  }, [publicacoes, onStatusChange]);
 
   return (
     <div className="flex gap-2.5 overflow-x-auto pb-2 px-1 h-[calc(100vh-350px)]">
@@ -64,11 +106,18 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
           if (!p.proximo_prazo_critico) return false;
           return differenceInDays(parseISO(p.proximo_prazo_critico), new Date()) < 0;
         }).length;
+        const isDragTarget = dragOverStatus === status;
 
         return (
-          <div key={status} className="min-w-[180px] flex-1 flex-shrink-0 flex flex-col">
+          <div 
+            key={status} 
+            className="min-w-[180px] flex-1 flex-shrink-0 flex flex-col"
+            onDragOver={(e) => handleDragOver(e, status)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, status)}
+          >
             {/* Column header */}
-            <div className={cn('rounded-xl px-3 py-2.5 bg-gradient-to-r text-white shadow-md', cfg.accent)}>
+            <div className={cn('rounded-xl px-3 py-2.5 bg-gradient-to-r text-white shadow-md transition-all', cfg.accent, isDragTarget && 'ring-2 ring-white/60 scale-[1.02]')}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm">{cfg.icon}</span>
@@ -88,14 +137,19 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
             </div>
 
             {/* Cards */}
-            <ScrollArea className="flex-1 mt-2">
-              <div className="space-y-1.5 pr-1">
-                {items.length === 0 && (
+            <ScrollArea className={cn('flex-1 mt-2 rounded-lg transition-all', isDragTarget && 'bg-primary/5 ring-2 ring-primary/20 ring-dashed')}>
+              <div className="space-y-1.5 pr-1 min-h-[60px]">
+                {items.length === 0 && !isDragTarget && (
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/50">
                     <div className="w-8 h-8 rounded-full border-2 border-dashed border-muted-foreground/20 flex items-center justify-center mb-2">
                       <span className="text-xs">{cfg.icon}</span>
                     </div>
                     <p className="text-[10px]">Nenhuma publicação</p>
+                  </div>
+                )}
+                {isDragTarget && items.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 text-primary/60">
+                    <p className="text-[10px] font-medium">Solte aqui para mover</p>
                   </div>
                 )}
                 {items.map(pub => {
@@ -107,29 +161,39 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                   const processNumber = proc?.process_number || pub.process_number_rpi || null;
                   const isOverdue = days !== null && days < 0;
                   const isUrgent = days !== null && days >= 0 && days <= 7;
+                  const isDragging = draggedId === pub.id;
 
                   return (
                     <div
                       key={pub.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, pub)}
+                      onDragEnd={handleDragEnd}
                       className={cn(
-                        'group relative rounded-lg p-2.5 cursor-pointer transition-all duration-200',
+                        'group relative rounded-lg p-2.5 cursor-grab active:cursor-grabbing transition-all duration-200',
                         'bg-card border border-border/60 hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5',
                         selectedId === pub.id && 'ring-2 ring-primary border-primary shadow-lg',
                         isOverdue && 'border-l-[3px] border-l-destructive',
-                        isUrgent && !isOverdue && 'border-l-[3px] border-l-amber-500'
+                        isUrgent && !isOverdue && 'border-l-[3px] border-l-amber-500',
+                        isDragging && 'opacity-50 scale-95'
                       )}
                       onClick={() => onSelect(pub.id)}
                     >
-                      <p className="text-xs font-bold truncate text-foreground leading-tight">{brandName}</p>
-                      <p className="text-[10px] truncate mt-0.5 leading-tight">
-                        {client?.full_name
-                          ? <span className="text-muted-foreground">{client.full_name}</span>
-                          : <span className="text-amber-600 dark:text-amber-400 font-medium">Sem cliente</span>
-                        }
-                      </p>
-                      {processNumber && (
-                        <p className="text-[10px] text-muted-foreground/70 font-mono mt-0.5">{processNumber}</p>
-                      )}
+                      <div className="flex items-start gap-1">
+                        <GripVertical className="w-3 h-3 text-muted-foreground/40 mt-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold truncate text-foreground leading-tight">{brandName}</p>
+                          <p className="text-[10px] truncate mt-0.5 leading-tight">
+                            {client?.full_name
+                              ? <span className="text-muted-foreground">{client.full_name}</span>
+                              : <span className="text-amber-600 dark:text-amber-400 font-medium">Sem cliente</span>
+                            }
+                          </p>
+                          {processNumber && (
+                            <p className="text-[10px] text-muted-foreground/70 font-mono mt-0.5">{processNumber}</p>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border/40">
                         {days !== null ? (
                           <div className={cn('flex items-center gap-1 text-[10px] font-semibold',

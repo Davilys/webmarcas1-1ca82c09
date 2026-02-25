@@ -12,7 +12,7 @@ import {
   FileText, Eye, ArrowRight, RotateCcw, Shield, Gavel, Award, RefreshCw,
   ExternalLink, Trash2, Users, Zap, BellRing, Hash, Paperclip,
   ArrowUpDown, ArrowUp, ArrowDown, List, LayoutGrid, FileDown,
-  ChevronLeft,
+  ChevronLeft, Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -551,6 +551,21 @@ export default function PublicacaoTab() {
       if (logEntries.length > 0) {
         await supabase.from('publicacao_logs').insert(logEntries);
       }
+
+      // Auto-notify client on status change
+      if (computed.status && computed.status !== original.status && (changes.client_id || original.client_id)) {
+        const clientId = (changes.client_id || original.client_id) as string;
+        const proc = (changes.process_id || original.process_id) ? processMap.get((changes.process_id || original.process_id) as string) : null;
+        const brandName = proc?.brand_name || (original as any).brand_name_rpi || 'Marca';
+        const statusLabel = STATUS_CONFIG[computed.status as PubStatus]?.label || computed.status;
+        await supabase.from('notifications').insert({
+          user_id: clientId,
+          title: `📋 Atualização: ${brandName}`,
+          message: `O status da publicação da marca "${brandName}" foi alterado para "${statusLabel}".`,
+          type: 'info',
+          link: '/cliente/processos',
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
@@ -832,6 +847,46 @@ export default function PublicacaoTab() {
 
   // ─── Create helpers ────
   const linkedProcessIds = useMemo(() => new Set(publicacoes.map(p => p.process_id)), [publicacoes]);
+  const [isAutoLinking, setIsAutoLinking] = useState(false);
+
+  // ─── Auto-link clients via process_number (#autolink) ────
+  const handleAutoLinkClients = async () => {
+    setIsAutoLinking(true);
+    try {
+      const orphans = publicacoes.filter(p => !p.client_id && p.process_number_rpi);
+      if (orphans.length === 0) {
+        toast.info('Todas as publicações já possuem cliente vinculado');
+        setIsAutoLinking(false);
+        return;
+      }
+
+      const processByNumber = new Map(processes.filter(p => p.process_number).map(p => [p.process_number!, p]));
+      let linked = 0;
+      let notFound = 0;
+
+      for (const pub of orphans) {
+        const proc = processByNumber.get(pub.process_number_rpi!);
+        if (proc && proc.user_id) {
+          const updateData: any = { client_id: proc.user_id, process_id: proc.id };
+          const { error } = await supabase.from('publicacoes_marcas').update(updateData).eq('id', pub.id);
+          if (!error) linked++;
+        } else {
+          notFound++;
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
+      if (linked > 0) toast.success(`✅ ${linked} publicação(ões) vinculadas automaticamente`);
+      if (notFound > 0) toast.info(`${notFound} publicação(ões) sem processo correspondente`);
+    } catch (err) {
+      toast.error('Erro ao vincular clientes');
+    } finally {
+      setIsAutoLinking(false);
+    }
+  };
+
+  // Stats for orphan count
+  const orphanCount = useMemo(() => publicacoes.filter(p => !p.client_id).length, [publicacoes]);
 
   const resetCreateForm = () => {
     setCreateProcessId('');
@@ -946,6 +1001,23 @@ export default function PublicacaoTab() {
         <StatsCard title="Atrasados" value={kpiStats.atrasados} icon={Clock} gradient="from-red-500 to-rose-500" index={2} />
         <StatsCard title="Deferidos este mês" value={kpiStats.deferidosMes} icon={CheckCircle2} gradient="from-emerald-500 to-green-500" index={3} />
       </div>
+
+      {/* ─── AUTO-LINK ORPHAN BANNER ─── */}
+      {orphanCount > 0 && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4 p-3 rounded-xl border border-primary/30 bg-primary/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary" />
+              <p className="text-sm font-medium">
+                <span className="font-bold">{orphanCount}</span> publicação(ões) sem cliente vinculado
+              </p>
+            </div>
+            <Button size="sm" variant="default" className="text-xs gap-1.5" onClick={handleAutoLinkClients} disabled={isAutoLinking}>
+              {isAutoLinking ? <><div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" /> Vinculando...</> : <><Zap className="w-3 h-3" /> Auto-vincular</>}
+            </Button>
+          </div>
+        </motion.div>
+      )}
 
       {/* ─── CHARTS (#2) ─── */}
       <PublicacaoCharts publicacoes={publicacoes} />
@@ -1364,20 +1436,45 @@ export default function PublicacaoTab() {
                       <>
                         <Separator className="my-4" />
                         <div>
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Histórico de Alterações</p>
-                          <div className="space-y-2">
-                            {logs.slice(0, 10).map(log => (
-                              <div key={log.id} className="text-[10px] p-2 rounded-lg bg-muted/50">
-                                <span className="font-medium">{log.admin_email || 'Sistema'}</span>
-                                {' alterou '}
-                                <span className="font-semibold text-primary">{log.campo_alterado}</span>
-                                {log.valor_anterior && <> de <span className="line-through text-muted-foreground">{log.valor_anterior}</span></>}
-                                {log.valor_novo && <> para <span className="font-medium">{log.valor_novo}</span></>}
-                                <p className="text-muted-foreground mt-0.5">
-                                  {format(parseISO(log.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                                </p>
-                              </div>
-                            ))}
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                            <Activity className="w-3 h-3" /> Histórico de Alterações ({logs.length})
+                          </p>
+                          <div className="space-y-0">
+                            {logs.slice(0, 15).map((log, idx) => {
+                              const isStatusChange = log.campo_alterado === 'status';
+                              const isClientChange = log.campo_alterado === 'client_id';
+                              return (
+                                <div key={log.id} className="flex gap-2.5">
+                                  <div className="flex flex-col items-center">
+                                    <div className={cn(
+                                      'w-2 h-2 rounded-full mt-1.5 flex-shrink-0',
+                                      isStatusChange ? 'bg-primary' : isClientChange ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+                                    )} />
+                                    {idx < Math.min(logs.length, 15) - 1 && <div className="w-px flex-1 bg-border" />}
+                                  </div>
+                                  <div className="pb-3 flex-1 min-w-0">
+                                    <div className="text-[10px]">
+                                      {isStatusChange ? (
+                                        <span>
+                                          Status: <span className="line-through text-muted-foreground">{STATUS_CONFIG[log.valor_anterior as PubStatus]?.label || log.valor_anterior}</span>
+                                          {' → '}
+                                          <span className="font-bold text-primary">{STATUS_CONFIG[log.valor_novo as PubStatus]?.label || log.valor_novo}</span>
+                                        </span>
+                                      ) : (
+                                        <span>
+                                          <span className="font-semibold text-primary">{log.campo_alterado}</span>
+                                          {log.valor_anterior && <span className="line-through text-muted-foreground ml-1">{log.valor_anterior?.substring(0, 30)}</span>}
+                                          {log.valor_novo && <span className="font-medium ml-1">→ {log.valor_novo?.substring(0, 30)}</span>}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[9px] text-muted-foreground">
+                                      {log.admin_email?.split('@')[0] || 'Sistema'} · {format(parseISO(log.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       </>
@@ -1520,7 +1617,7 @@ export default function PublicacaoTab() {
                 <Label className="text-xs">Data Certificado</Label>
                 <Input type="date" value={editData.data_certificado || ''} onChange={e => setEditData(d => ({ ...d, data_certificado: e.target.value || null }))} className="h-9" />
                 {editData.data_certificado && (
-                  <p className="text-[10px] text-muted-foreground mt-1">Renovação auto: {format(addYears(parseISO(editData.data_certificado), 10), 'dd/MM/yyyy')}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Renovação ordinária: {format(addYears(parseISO(editData.data_certificado), 9), 'dd/MM/yyyy')} (9 anos + 6m ord. + 6m extra)</p>
                 )}
               </div>
               <div>
