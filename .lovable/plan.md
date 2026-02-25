@@ -1,98 +1,109 @@
 
 
-## Analise e Correcao: Notificacao de link do contrato
+## Diagnostico: Sincronizacao Asaas com Kanban Comercial
 
-### Resultado da Analise
+### Situacao Atual
 
-| Fluxo | Gera link? | Envia notificacao? | Status |
-|-------|-----------|-------------------|--------|
-| Admin "Novo Contrato" com "Enviar link" marcado | Sim | Sim (email + WhatsApp + SMS + CRM) | OK |
-| Admin "Novo Contrato" sem "Enviar link" (template padrao) | Sim | Sim (CRM + SMS + WhatsApp via generate-signature-link) | OK |
-| Site /registrar (formulario do cliente) | NAO | NAO | PROBLEMA |
+| Componente | Status | Detalhe |
+|-----------|--------|---------|
+| Webhook recebe evento do Asaas | OK | Recebe RECEIVED/CONFIRMED/RECEIVED_IN_CASH |
+| Atualiza status da fatura (invoices) | OK | Muda para 'confirmed'/'received' |
+| Envia notificacao email de pagamento | OK | Dispara trigger `payment_received` |
+| Envia notificacao multicanal (SMS/WhatsApp/CRM) | OK | Dispara `pagamento_confirmado` |
+| Atualiza pipeline_stage para `pagamento_ok` | FALTA | Nenhuma funcao atualiza o brand_processes |
 
-### Problema encontrado
+### Problema Principal
 
-Quando o cliente preenche o formulario em `/registrar`, a funcao `create-asaas-payment` cria o contrato, o lead, a fatura e dispara o email `form_completed`, mas **nunca gera o link de assinatura** e portanto **nunca envia a notificacao com o link do contrato**.
+Quando o Asaas confirma um pagamento (PIX, boleto ou cartao), o webhook atualiza a fatura e envia notificacoes, mas **nunca atualiza o `pipeline_stage` do `brand_processes`** de `assinou_contrato` para `pagamento_ok`. O cliente fica parado na coluna "ASSINOU CONTRATO" no Kanban comercial, mesmo apos pagar.
 
-O cliente recebe o email de "formulario preenchido" mas nao recebe o link para assinar o contrato.
+### Onde adicionar a correcao
+
+Existem dois caminhos no webhook onde o pagamento e confirmado:
+
+1. **Caminho 1 (linha 86-166)**: Invoice encontrada diretamente, pagamento confirmado, usuario ja existe. Aqui o webhook atualiza a fatura e envia notificacoes, mas **nao toca no brand_processes**.
+
+2. **Caminho 2 (linha 192-300)**: Contract encontrado pelo `asaas_payment_id`, chama `confirm-payment`. Mas o `confirm-payment` cria o processo com `pipeline_stage: 'protocolado'` (nunca `pagamento_ok`). E quando o contrato ja tem user_id (linha 208-224), apenas atualiza a fatura e retorna.
 
 ### Solucao
 
-Adicionar um **STEP 7.5** na funcao `create-asaas-payment` (entre o step 7 e 8) que:
+Adicionar a atualizacao do `pipeline_stage` para `pagamento_ok` em **dois pontos** do `asaas-webhook`:
 
-1. Chama `generate-signature-link` para gerar o token de assinatura do contrato
-2. A propria funcao `generate-signature-link` ja dispara automaticamente a notificacao multicanal (`link_assinatura_gerado`) via CRM + SMS + WhatsApp
-3. Em seguida chama `send-signature-request` para enviar o email formal com o link
+**Ponto 1**: Apos confirmar pagamento com invoice existente (caminho mais comum para faturas geradas pelo admin). Apos a linha 98, quando o pagamento e confirmado e o `user_id` existe, atualizar o `brand_processes`.
+
+**Ponto 2**: Apos o `confirm-payment` retornar com sucesso (caminho do formulario /registrar). Apos a linha 290, atualizar o `brand_processes` do usuario criado.
 
 ### Arquivo a editar
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `supabase/functions/create-asaas-payment/index.ts` | Adicionar chamada a `generate-signature-link` + `send-signature-request` apos criar o contrato (entre linhas 1085-1086) |
+| `supabase/functions/asaas-webhook/index.ts` | Adicionar update do `pipeline_stage` para `pagamento_ok` nos dois caminhos de confirmacao |
 
 ### Detalhes tecnicos
 
-Apos o bloco do STEP 7 (trigger form_completed), adicionar:
+**Ponto 1 - Apos atualizar invoice (apos linha 98)**
+
+Quando o pagamento e confirmado e a invoice tem `user_id`, atualizar o pipeline:
 
 ```text
-// STEP 7.5: Generate signature link and send notification
-if (contractData?.id) {
-  try {
-    // Generate signature link (also triggers CRM + SMS + WhatsApp notification)
-    const linkRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-signature-link`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({
-        contractId: contractData.id,
-        expiresInDays: 7,
-        baseUrl: 'https://webmarcas.net',
-      }),
-    });
-    const linkData = await linkRes.json();
-    console.log('Generated signature link:', linkData?.data?.url);
+// Apos atualizar a fatura e antes das notificacoes:
+if ((paymentStatus === 'RECEIVED' || paymentStatus === 'CONFIRMED' || paymentStatus === 'RECEIVED_IN_CASH') && invoice.user_id) {
+  // Atualizar pipeline_stage para pagamento_ok (somente se estiver em assinou_contrato)
+  await supabaseAdmin
+    .from('brand_processes')
+    .update({ pipeline_stage: 'pagamento_ok', updated_at: new Date().toISOString() })
+    .eq('user_id', invoice.user_id)
+    .eq('pipeline_stage', 'assinou_contrato');
 
-    // Send formal email with signature link
-    if (linkData?.success) {
-      await fetch(`${SUPABASE_URL}/functions/v1/send-signature-request`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-        body: JSON.stringify({
-          contractId: contractData.id,
-          channels: ['email'],
-          baseUrl: 'https://webmarcas.net',
-          overrideContact: {
-            email: personalData.email,
-            phone: personalData.phone || '',
-            name: personalData.fullName,
-          },
-        }),
-      });
-      console.log('Sent signature request email');
-    }
-  } catch (linkError) {
-    console.error('Error generating/sending signature link:', linkError);
-  }
+  console.log('[webhook] Pipeline stage updated to pagamento_ok for user:', invoice.user_id);
 }
 ```
 
-### Resultado esperado
+A clausula `.eq('pipeline_stage', 'assinou_contrato')` garante que so move clientes que estao na coluna correta, sem afetar processos em outras etapas (ex: protocolado, deferido).
 
-Apos a correcao, o fluxo do formulario `/registrar` ficara:
-1. Cria lead, contrato, fatura (ja funciona)
-2. Envia email `form_completed` (ja funciona)
-3. **NOVO**: Gera link de assinatura e envia notificacao automatica (CRM + SMS + WhatsApp + Email)
+**Ponto 2 - Apos confirm-payment com sucesso (apos linha 290)**
+
+```text
+if (confirmResult.success && confirmResult.userId) {
+  // Move pipeline do processo recem-criado para pagamento_ok
+  await supabaseAdmin
+    .from('brand_processes')
+    .update({ pipeline_stage: 'pagamento_ok', updated_at: new Date().toISOString() })
+    .eq('user_id', confirmResult.userId)
+    .eq('pipeline_stage', 'protocolado');
+
+  console.log('[webhook] Pipeline updated to pagamento_ok for new user:', confirmResult.userId);
+}
+```
+
+**Ponto 3 - Caminho "already processed" (linha 208-224)**
+
+Quando o contrato ja tem user_id mas recebe nova confirmacao do Asaas:
+
+```text
+if (contract.user_id) {
+  // Atualizar pipeline_stage para pagamento_ok
+  await supabaseAdmin
+    .from('brand_processes')
+    .update({ pipeline_stage: 'pagamento_ok', updated_at: new Date().toISOString() })
+    .eq('user_id', contract.user_id)
+    .eq('pipeline_stage', 'assinou_contrato');
+
+  console.log('[webhook] Pipeline updated to pagamento_ok for existing user:', contract.user_id);
+}
+```
 
 ### Seguranca
 
-- Nenhuma tabela alterada
+- Nenhuma tabela alterada ou criada
 - Nenhum schema modificado
-- Nenhum fluxo existente quebrado
-- Apenas adiciona uma chamada extra apos a criacao do contrato
-- Usa funcoes que ja existem e ja foram testadas
+- O filtro `.eq('pipeline_stage', 'assinou_contrato')` (ou `'protocolado'`) impede que processos em etapas avancadas (juridico) sejam afetados
+- Apenas o webhook do Asaas e editado
+- Deploy automatico apos edicao
+
+### Resultado esperado
+
+Apos a correcao, quando o Asaas confirmar qualquer pagamento (PIX, Boleto, Cartao), o sistema:
+1. Atualiza a fatura para "confirmado" (ja funciona)
+2. Envia notificacoes multicanal (ja funciona)
+3. **NOVO**: Move automaticamente o cliente de "ASSINOU CONTRATO" para "PAGAMENTO OKAY" no Kanban comercial
 
