@@ -409,6 +409,8 @@ export type Database = {
           completed: boolean | null
           created_at: string | null
           description: string | null
+          google_event_id: string | null
+          google_meet_link: string | null
           id: string
           scheduled_at: string
           title: string
@@ -419,6 +421,8 @@ export type Database = {
           completed?: boolean | null
           created_at?: string | null
           description?: string | null
+          google_event_id?: string | null
+          google_meet_link?: string | null
           id?: string
           scheduled_at: string
           title: string
@@ -429,6 +433,8 @@ export type Database = {
           completed?: boolean | null
           created_at?: string | null
           description?: string | null
+          google_event_id?: string | null
+          google_meet_link?: string | null
           id?: string
           scheduled_at?: string
           title?: string
@@ -1836,6 +1842,8 @@ export type Database = {
           created_by: string | null
           description: string | null
           duration_minutes: number | null
+          google_event_id: string | null
+          google_meet_link: string | null
           id: string
           meeting_type: string
           scheduled_at: string
@@ -1849,6 +1857,8 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           duration_minutes?: number | null
+          google_event_id?: string | null
+          google_meet_link?: string | null
           id?: string
           meeting_type?: string
           scheduled_at: string
@@ -1862,6 +1872,8 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           duration_minutes?: number | null
+          google_event_id?: string | null
+          google_meet_link?: string | null
           id?: string
           meeting_type?: string
           scheduled_at?: string
