@@ -99,6 +99,17 @@ serve(async (req) => {
       
       console.log(`Updated invoice ${invoice.id} to status ${invoiceStatus}`);
 
+      // PONTO 1: Atualizar pipeline_stage para pagamento_ok (invoice com user_id)
+      if ((paymentStatus === 'RECEIVED' || paymentStatus === 'CONFIRMED' || paymentStatus === 'RECEIVED_IN_CASH') && invoice.user_id) {
+        await supabaseAdmin
+          .from('brand_processes')
+          .update({ pipeline_stage: 'pagamento_ok', updated_at: new Date().toISOString() })
+          .eq('user_id', invoice.user_id)
+          .eq('pipeline_stage', 'assinou_contrato');
+
+        console.log('[webhook] Pipeline stage updated to pagamento_ok for user:', invoice.user_id);
+      }
+
       // If payment is confirmed → send email + multichannel notification
       if ((paymentStatus === 'RECEIVED' || paymentStatus === 'CONFIRMED' || paymentStatus === 'RECEIVED_IN_CASH') && invoice.user_id) {
         try {
@@ -207,6 +218,15 @@ serve(async (req) => {
       // Check if already processed (user already created)
       if (contract.user_id) {
         console.log('Contract already has a user, updating status only');
+
+        // PONTO 3: Atualizar pipeline para pagamento_ok (already processed)
+        await supabaseAdmin
+          .from('brand_processes')
+          .update({ pipeline_stage: 'pagamento_ok', updated_at: new Date().toISOString() })
+          .eq('user_id', contract.user_id)
+          .eq('pipeline_stage', 'assinou_contrato');
+
+        console.log('[webhook] Pipeline updated to pagamento_ok for existing user:', contract.user_id);
         
         // Update invoice status
         await supabaseAdmin
@@ -288,6 +308,17 @@ serve(async (req) => {
             updated_at: new Date().toISOString(),
           })
           .eq('asaas_invoice_id', paymentId);
+
+        // PONTO 2: Atualizar pipeline para pagamento_ok (novo usuario via confirm-payment)
+        if (confirmResult.userId) {
+          await supabaseAdmin
+            .from('brand_processes')
+            .update({ pipeline_stage: 'pagamento_ok', updated_at: new Date().toISOString() })
+            .eq('user_id', confirmResult.userId)
+            .in('pipeline_stage', ['protocolado', 'assinou_contrato']);
+
+          console.log('[webhook] Pipeline updated to pagamento_ok for new user:', confirmResult.userId);
+        }
 
         console.log('Payment fully processed!');
 
