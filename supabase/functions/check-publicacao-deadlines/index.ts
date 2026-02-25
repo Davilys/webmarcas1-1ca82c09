@@ -17,6 +17,18 @@ const STATUS_LABELS: Record<string, string> = {
   renovacao_pendente: "Renovação Pendente",
 };
 
+// Map pub status → process pipeline_stage for reverse sync
+const STAGE_MAP: Record<string, string> = {
+  depositada: "protocolado",
+  publicada: "protocolado",
+  oposicao: "oposicao",
+  deferida: "deferimento",
+  certificada: "certificados",
+  indeferida: "indeferimento",
+  arquivada: "distrato",
+  renovacao_pendente: "renovacao",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -59,11 +71,77 @@ serve(async (req) => {
 
     let notified = 0;
     let skipped = 0;
+    let autoArchived = 0;
     const alertDays = [30, 15, 7, 3, 1, 0]; // Days before deadline to alert
 
     for (const pub of pubs || []) {
       const deadline = new Date(pub.proximo_prazo_critico);
       const daysLeft = Math.round((deadline.getTime() - now.getTime()) / oneDayMs);
+
+      // ─── AUTO-ARCHIVE: prazo vencido → arquivada ───
+      if (daysLeft < 0 && pub.status !== "arquivada") {
+        const { error: archiveErr } = await supabase
+          .from("publicacoes_marcas")
+          .update({
+            status: "arquivada",
+            updated_at: now.toISOString(),
+          })
+          .eq("id", pub.id);
+
+        if (!archiveErr) {
+          autoArchived++;
+
+          // Reverse sync: update brand_processes pipeline_stage → distrato
+          if (pub.process_id) {
+            await supabase
+              .from("brand_processes")
+              .update({
+                pipeline_stage: "distrato",
+                updated_at: now.toISOString(),
+              })
+              .eq("id", pub.process_id);
+          }
+
+          // Log the auto-archive
+          await supabase.from("publicacao_logs").insert({
+            publicacao_id: pub.id,
+            admin_email: "sistema",
+            campo_alterado: "status",
+            valor_anterior: pub.status,
+            valor_novo: "arquivada",
+          });
+
+          // Notify admin about auto-archive
+          const proc = pub.process_id ? processMap.get(pub.process_id) : null;
+          const brandName = proc?.brand_name || pub.brand_name_rpi || "Marca";
+          const processNumber = proc?.process_number || pub.process_number_rpi || "";
+
+          const archiveNotifs: any[] = [];
+          const targetAdmins = pub.admin_id ? [pub.admin_id] : adminIds;
+          for (const adminId of targetAdmins) {
+            archiveNotifs.push({
+              user_id: adminId,
+              title: `📦 Arquivado automaticamente: ${brandName}`,
+              message: `A publicação "${brandName}" (${processNumber}) foi arquivada automaticamente por prazo vencido em ${deadline.toLocaleDateString("pt-BR")}. Caso uma nova publicação RPI saia, o status será revertido.`,
+              type: "warning",
+              link: "/admin/publicacao",
+            });
+          }
+          if (pub.client_id) {
+            archiveNotifs.push({
+              user_id: pub.client_id,
+              title: `📦 Processo arquivado: ${brandName}`,
+              message: `O processo "${brandName}" foi arquivado por expiração de prazo. Acompanhe pelo portal.`,
+              type: "warning",
+              link: "/cliente/processos",
+            });
+          }
+          if (archiveNotifs.length > 0) {
+            await supabase.from("notifications").insert(archiveNotifs);
+          }
+        }
+        continue; // Skip normal notification flow for auto-archived
+      }
 
       // Only alert at specific day thresholds (30, 15, 7, 3, 1, 0) or if overdue
       const isAlertDay = alertDays.includes(daysLeft) || daysLeft < 0;
@@ -193,15 +271,14 @@ serve(async (req) => {
           }
         } catch (emailErr) {
           console.error(`Email send failed for pub ${pub.id}:`, emailErr);
-          // Don't fail the whole function for email errors
         }
       }
     }
 
-    console.log(`Deadline check complete: ${notified} notified, ${skipped} skipped`);
+    console.log(`Deadline check complete: ${notified} notified, ${skipped} skipped, ${autoArchived} auto-archived`);
 
     return new Response(
-      JSON.stringify({ success: true, notified, skipped, total: (pubs || []).length }),
+      JSON.stringify({ success: true, notified, skipped, autoArchived, total: (pubs || []).length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

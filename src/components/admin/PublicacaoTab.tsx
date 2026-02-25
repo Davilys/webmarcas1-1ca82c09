@@ -493,11 +493,25 @@ export default function PublicacaoTab() {
         }
       }
 
-      // Process updates
+      // Process updates (with reverse sync for reactivated publications)
       let updated = 0;
+      const stageMap: Record<string, string> = {
+        depositada: 'protocolado', publicada: 'protocolado', oposicao: 'oposicao',
+        deferida: 'deferimento', certificada: 'certificados', indeferida: 'indeferimento',
+        arquivada: 'distrato', renovacao_pendente: 'renovacao',
+      };
       for (const { id, data } of toUpdate) {
         const { error } = await supabase.from('publicacoes_marcas').update(data).eq('id', id);
-        if (!error) updated++;
+        if (!error) {
+          updated++;
+          // Reverse sync: if pub was archived and new RPI reactivated it, update process pipeline_stage
+          if (data.status && data.process_id && stageMap[data.status]) {
+            await supabase.from('brand_processes').update({
+              pipeline_stage: stageMap[data.status],
+              updated_at: new Date().toISOString(),
+            }).eq('id', data.process_id);
+          }
+        }
       }
 
       if (toInsert.length > 0) {
