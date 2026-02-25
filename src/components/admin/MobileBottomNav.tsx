@@ -18,6 +18,7 @@ import {
   FileStack,
   X,
   LogOut,
+  Newspaper,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -95,6 +96,7 @@ const moreItems: MoreItem[] = [
   { icon: Scale, label: 'Rec. INPI', href: '/admin/recursos-inpi', color: 'text-purple-500', permissionKey: 'inpi_resources' },
   { icon: Trophy, label: 'Premiação', href: '/admin/premiacao', color: 'text-amber-500', permissionKey: 'awards' },
   { icon: Settings, label: 'Config.', href: '/admin/configuracoes', color: 'text-zinc-500', permissionKey: 'settings' },
+  { icon: Newspaper, label: 'Publicação', href: '/admin/publicacao', color: 'text-rose-500', permissionKey: 'publications' },
 ];
 
 function NavButton({ item, isActive, onClick }: {
