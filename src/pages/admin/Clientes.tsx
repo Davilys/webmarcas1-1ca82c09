@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, lazy, Suspense, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils';
 
 import { ClientKanbanBoard, type ClientWithProcess, type KanbanFilters, type FunnelType } from '@/components/admin/clients/ClientKanbanBoard';
 import { ClientListView } from '@/components/admin/clients/ClientListView';
-import { ClientDetailSheet } from '@/components/admin/clients/ClientDetailSheet';
 import { ClientImportExportDialog } from '@/components/admin/clients/ClientImportExportDialog';
 import { DuplicateClientsDialog } from '@/components/admin/clients/DuplicateClientsDialog';
 import { CreateClientDialog } from '@/components/admin/clients/CreateClientDialog';
@@ -22,6 +21,9 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DatePeriodFilter, type DateFilterType } from '@/components/admin/clients/DatePeriodFilter';
 import { startOfDay, startOfWeek, startOfMonth, endOfMonth, endOfDay, isWithinInterval, parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+// Lazy load the heavy ClientDetailSheet (123KB) — only loaded when a client is clicked
+const ClientDetailSheet = lazy(() => import('@/components/admin/clients/ClientDetailSheet').then(m => ({ default: m.ClientDetailSheet })));
 
 type ViewMode = 'kanban' | 'list';
 
@@ -169,7 +171,7 @@ export default function AdminClientes() {
     return allData;
   };
 
-  const fetchClients = async (retryCount = 0) => {
+  const fetchClients = useCallback(async (retryCount = 0) => {
     setLoading(true);
     try {
       // Ensure session is active before querying
@@ -183,11 +185,11 @@ export default function AdminClientes() {
         return;
       }
 
-      // ── Parallelizar as 3 queries principais ──────────────────────────
+      // ── Parallelizar as 3 queries principais — SELECT only needed columns ──
       const [profiles, processes, contracts] = await Promise.all([
         fetchAllRows<any>(
           'profiles',
-          '*, client_funnel_type, created_by, assigned_to',
+          'id, full_name, email, phone, cpf_cnpj, company_name, priority, origin, contract_value, created_at, last_contact, client_funnel_type, created_by, assigned_to',
           (q) => q.order('created_at', { ascending: false })
         ),
         fetchAllRows<any>('brand_processes', 'id, user_id, brand_name, business_area, pipeline_stage, status, process_number'),
@@ -205,24 +207,10 @@ export default function AdminClientes() {
         return;
       }
 
-      // Resolve admin names (deduplicated, single query)
-      const adminIds = new Set<string>();
+      // Resolve admin names from already-fetched profiles (no extra query needed)
+      const adminNameMap: Record<string, string> = {};
       for (const p of profiles) {
-        if (p.created_by) adminIds.add(p.created_by);
-        if (p.assigned_to) adminIds.add(p.assigned_to);
-      }
-
-      let adminNameMap: Record<string, string> = {};
-      if (adminIds.size > 0) {
-        const { data: adminProfiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, email')
-          .in('id', Array.from(adminIds));
-        if (adminProfiles) {
-          adminProfiles.forEach(a => {
-            adminNameMap[a.id] = a.full_name || a.email;
-          });
-        }
+        adminNameMap[p.id] = p.full_name || p.email;
       }
 
       // Build contract value map (latest contract per user)
@@ -310,7 +298,7 @@ export default function AdminClientes() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Wrapper without args — safe to pass directly to onClick handlers and callbacks
   const refreshClients = () => fetchClients(0);
@@ -368,16 +356,20 @@ export default function AdminClientes() {
     );
   }, [ownFilteredClients, funnelType]);
 
-  // Filter by search (name, email, cpf/cnpj, phone, brand, company)
-  const filteredClients = funnelFilteredClients.filter(client =>
-    client.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-    client.email.toLowerCase().includes(search.toLowerCase()) ||
-    client.company_name?.toLowerCase().includes(search.toLowerCase()) ||
-    client.brand_name?.toLowerCase().includes(search.toLowerCase()) ||
-    client.brands?.some(b => b.brand_name.toLowerCase().includes(search.toLowerCase())) ||
-    client.phone?.includes(search) ||
-    client.cpf_cnpj?.includes(search)
-  );
+  // Filter by search (name, email, cpf/cnpj, phone, brand, company) — memoized
+  const filteredClients = useMemo(() => {
+    if (!search.trim()) return funnelFilteredClients;
+    const s = search.toLowerCase();
+    return funnelFilteredClients.filter(client =>
+      client.full_name?.toLowerCase().includes(s) ||
+      client.email.toLowerCase().includes(s) ||
+      client.company_name?.toLowerCase().includes(s) ||
+      client.brand_name?.toLowerCase().includes(s) ||
+      client.brands?.some(b => b.brand_name.toLowerCase().includes(s)) ||
+      client.phone?.includes(search) ||
+      client.cpf_cnpj?.includes(search)
+    );
+  }, [funnelFilteredClients, search]);
 
   // ── Derived stats ────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -696,13 +688,17 @@ export default function AdminClientes() {
           />
         )}
 
-        {/* Client Detail Sheet */}
-        <ClientDetailSheet
-          client={selectedClient}
-          open={detailOpen}
-          onOpenChange={setDetailOpen}
-          onUpdate={refreshClients}
-        />
+        {/* Client Detail Sheet - lazy loaded */}
+        {detailOpen && (
+          <Suspense fallback={null}>
+            <ClientDetailSheet
+              client={selectedClient}
+              open={detailOpen}
+              onOpenChange={setDetailOpen}
+              onUpdate={refreshClients}
+            />
+          </Suspense>
+        )}
 
         {/* Import/Export Dialog */}
         <ClientImportExportDialog
