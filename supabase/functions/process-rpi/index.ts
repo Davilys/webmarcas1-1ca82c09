@@ -9,8 +9,7 @@ const corsHeaders = {
 };
 
 const ATTORNEY_NAME = "Davilys Danques Oliveira Cunha";
-// Busca simplificada apenas por "davilys" para capturar mais processos
-const ATTORNEY_SEARCH_TERM = "davilys";
+const ATTORNEY_SEARCH_TERMS = ["davilys", "danques"];
 
 function normalizeText(str: string): string {
   return str
@@ -24,8 +23,7 @@ function normalizeText(str: string): string {
 
 function containsAttorney(text: string): boolean {
   const normalized = normalizeText(text);
-  // Busca simplificada apenas por "davilys"
-  return normalized.includes(ATTORNEY_SEARCH_TERM);
+  return ATTORNEY_SEARCH_TERMS.some(term => normalized.includes(term));
 }
 
 function guessExtFromUrl(url: string): string | null {
@@ -64,10 +62,8 @@ async function extractTextFromExcel(bytes: Uint8Array): Promise<string> {
 }
 
 async function extractTextFromPdf(bytes: Uint8Array): Promise<{ text: string; pages: number }> {
-  // pdfjs-dist em Edge precisa do workerSrc configurado. No esm.sh o worker está em build/.
   (pdfjsLib as any).GlobalWorkerOptions.workerSrc =
     "https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.mjs";
-
 
   const loadingTask = (pdfjsLib as any).getDocument({ data: bytes, disableWorker: true } as any);
   const pdf = await loadingTask.promise;
@@ -86,29 +82,33 @@ async function extractTextFromPdf(bytes: Uint8Array): Promise<{ text: string; pa
 }
 
 function extractAttorneyBlocks(text: string): string[] {
-  const blocks: string[] = [];
-  // FIX: buscar no lowercase do texto original (mesmo comprimento), não no normalizado
+  const blocks: { start: number; end: number; text: string }[] = [];
   const lower = text.toLowerCase();
-  let idx = 0;
 
-  while ((idx = lower.indexOf(ATTORNEY_SEARCH_TERM, idx)) !== -1) {
-    const start = Math.max(0, idx - 5000);
-    const end = Math.min(text.length, idx + ATTORNEY_SEARCH_TERM.length + 5000);
-    const block = text.slice(start, end);
+  for (const term of ATTORNEY_SEARCH_TERMS) {
+    let idx = 0;
+    while ((idx = lower.indexOf(term, idx)) !== -1) {
+      const start = Math.max(0, idx - 8000);
+      const end = Math.min(text.length, idx + term.length + 8000);
 
-    // Deduplicação melhorada: verificar se o centro do bloco já está coberto
-    const isDuplicate = blocks.some((b) => {
-      const overlap = block.substring(4900, 5100);
-      return overlap.length > 50 && b.includes(overlap);
-    });
+      // Verificar sobreposição com blocos existentes
+      const overlapping = blocks.find(b =>
+        (start <= b.end && end >= b.start)
+      );
 
-    if (!isDuplicate) {
-      blocks.push(block);
+      if (!overlapping) {
+        blocks.push({ start, end, text: text.slice(start, end) });
+      } else {
+        // Expandir bloco existente para cobrir ambos
+        overlapping.start = Math.min(overlapping.start, start);
+        overlapping.end = Math.max(overlapping.end, end);
+        overlapping.text = text.slice(overlapping.start, overlapping.end);
+      }
+      idx += term.length;
     }
-    idx += ATTORNEY_SEARCH_TERM.length;
   }
 
-  return blocks;
+  return blocks.map(b => b.text);
 }
 
 type AttorneyProcess = {
@@ -142,11 +142,47 @@ async function aiExtractFromBlocks(args: {
       messages: [
         {
           role: "system",
-          content: `Você é especialista em RPI (Revista da Propriedade Industrial do INPI). Extraia APENAS processos de MARCAS cujo procurador seja "${ATTORNEY_NAME}" (ou variações diretas como nome parcial "Davilys").\n\nRegras OBRIGATÓRIAS:\n1. NUNCA retorne process_number vazio - busque o número do processo (ex: 123456789) no contexto próximo ao nome do procurador\n2. NUNCA retorne brand_name vazio se houver qualquer indicação de marca no bloco\n3. ncl_classes deve conter as classes NCL mencionadas (ex: ["25","35"])\n4. holder_name é o titular/requerente da marca, NÃO o procurador\n5. Não retorne patentes/desenhos/IG. Retorne apenas JSON válido.\n6. Se um campo não for encontrado, use "NI" (não identificado) em vez de string vazia`,
+          content: `Você é especialista em RPI (Revista da Propriedade Industrial do INPI). Extraia APENAS processos de MARCAS cujo procurador seja "${ATTORNEY_NAME}" (ou variações como "Davilys", "Danques", "DAVILYS DANQUES OLIVEIRA CUNHA").
+
+Regras OBRIGATÓRIAS:
+1. NUNCA retorne process_number vazio - busque o número do processo (ex: 123456789) no contexto próximo ao nome do procurador
+2. NUNCA retorne brand_name vazio se houver qualquer indicação de marca no bloco
+3. ncl_classes deve conter as classes NCL mencionadas (ex: ["25","35"])
+4. holder_name é o titular/requerente da marca, NÃO o procurador
+5. Não retorne patentes/desenhos/IG. Retorne apenas JSON válido.
+6. Se um campo não for encontrado, use "NI" (não identificado) em vez de string vazia
+
+IMPORTANTE para XML da RPI:
+- Em XML, os dados aparecem em tags como <processo>, <numero>, <marca>, <nome>, <titular>, <procurador>, <classe-nice>, <despacho>, <codigo>
+- O número do processo geralmente tem 9 dígitos e aparece em tags como <numero> ou <processo>
+- Procure também por "Classe de Nice" ou "NCL" seguido de números
+- O titular pode aparecer como "Titular:", "Requerente:", ou dentro de tags XML como <titular> ou <nome>
+- O código do despacho aparece em tags como <codigo> ou "IPAS XXX"
+- Se houver múltiplos processos num bloco, extraia TODOS eles`,
         },
         {
           role: "user",
-          content: `A seguir há blocos de texto da RPI onde o nome do procurador aparece.\n\nPara cada processo de MARCA identificado, extraia TODOS os campos abaixo com máximo esforço:\n- process_number (OBRIGATÓRIO - apenas dígitos, geralmente 9 dígitos)\n- brand_name (OBRIGATÓRIO - nome da marca registrada)\n- ncl_classes (lista de classes NCL, ex: ["25"])\n- dispatch_code (código do despacho, ex: "IPAS 159")\n- dispatch_type (tipo: deferimento, indeferimento, exigência, etc.)\n- dispatch_text (texto resumido do despacho)\n- holder_name (OBRIGATÓRIO - titular/requerente, NÃO o procurador)\n- publication_date (YYYY-MM-DD, se disponível)\n\nIMPORTANTE: Analise cuidadosamente cada bloco. O número do processo geralmente aparece antes ou logo após a marca. O titular aparece como "Titular:" ou "Requerente:". As classes NCL aparecem como "NCL(X)" ou "Classe X".\n\nFormato obrigatório (somente JSON):\n{"attorney_processes":[{"process_number":"...","brand_name":"...","ncl_classes":["35"],"dispatch_code":"...","dispatch_type":"...","dispatch_text":"...","holder_name":"...","publication_date":"YYYY-MM-DD"}]}\n\nSe não houver processos de marca, retorne: {"attorney_processes":[]}\n\nBLOCOS:\n${combinedText}`,
+          content: `A seguir há blocos de texto da RPI onde o nome do procurador aparece.
+
+Para cada processo de MARCA identificado, extraia TODOS os campos abaixo com máximo esforço:
+- process_number (OBRIGATÓRIO - apenas dígitos, geralmente 9 dígitos)
+- brand_name (OBRIGATÓRIO - nome da marca registrada)
+- ncl_classes (lista de classes NCL, ex: ["25"])
+- dispatch_code (código do despacho, ex: "IPAS 159")
+- dispatch_type (tipo: deferimento, indeferimento, exigência, etc.)
+- dispatch_text (texto resumido do despacho)
+- holder_name (OBRIGATÓRIO - titular/requerente, NÃO o procurador)
+- publication_date (YYYY-MM-DD, se disponível)
+
+IMPORTANTE: Analise cuidadosamente cada bloco. O número do processo geralmente aparece antes ou logo após a marca. O titular aparece como "Titular:" ou "Requerente:". As classes NCL aparecem como "NCL(X)" ou "Classe X".
+
+Formato obrigatório (somente JSON):
+{"attorney_processes":[{"process_number":"...","brand_name":"...","ncl_classes":["35"],"dispatch_code":"...","dispatch_type":"...","dispatch_text":"...","holder_name":"...","publication_date":"YYYY-MM-DD"}]}
+
+Se não houver processos de marca, retorne: {"attorney_processes":[]}
+
+BLOCOS:
+${combinedText}`,
         },
       ],
       max_tokens: 16000,
@@ -311,6 +347,7 @@ serve(async (req) => {
 
     const blocks = extractAttorneyBlocks(fullText);
     processingDetails.blocksFound = blocks.length;
+    console.log(`Found ${blocks.length} blocks for attorney terms: ${ATTORNEY_SEARCH_TERMS.join(", ")}`);
 
     // Processar em lotes para não estourar contexto
     const batchSize = 5;
@@ -348,12 +385,15 @@ serve(async (req) => {
       }
     }
 
-    // Deduplicar por número do processo
+    // Deduplicar por número do processo, mantendo processos sem número
     const byProcess = new Map<string, AttorneyProcess>();
+    let unknownCounter = 0;
     for (const p of collected) {
       const clean = (p.process_number || "").toString().replace(/\D/g, "");
-      if (!clean) continue;
-      if (!byProcess.has(clean)) byProcess.set(clean, { ...p, process_number: clean });
+      const key = clean || `unknown_${unknownCounter++}`;
+      // Dedup apenas se tem número real
+      if (clean && byProcess.has(clean)) continue;
+      byProcess.set(key, { ...p, process_number: clean || p.process_number || "NI" });
     }
 
     const attorneyProcesses = Array.from(byProcess.values());
@@ -377,7 +417,7 @@ serve(async (req) => {
         }
       }
 
-      if (!matchedClientId && entry.brand_name && existingProcesses) {
+      if (!matchedClientId && entry.brand_name && entry.brand_name !== "NI" && existingProcesses) {
         const brandMatch = existingProcesses.find(
           (p) => normalizeText(p.brand_name) === normalizeText(entry.brand_name || "")
         );
@@ -389,7 +429,7 @@ serve(async (req) => {
 
       return {
         rpi_upload_id: rpiUploadId,
-        process_number: cleanProcessNumber || "",
+        process_number: cleanProcessNumber || entry.process_number || "",
         brand_name: entry.brand_name || "",
         ncl_classes: entry.ncl_classes || [],
         dispatch_type: entry.dispatch_type || "",
