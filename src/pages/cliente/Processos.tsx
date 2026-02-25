@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ClientLayout } from '@/components/cliente/ClientLayout';
 import { ProcessList } from '@/components/cliente/ProcessList';
 import { ClientProcessKanban } from '@/components/cliente/ClientProcessKanban';
+import { PublicacoesCliente } from '@/components/cliente/PublicacoesCliente';
 import { Button } from '@/components/ui/button';
 import { List, LayoutGrid } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
@@ -72,6 +73,9 @@ export default function Processos() {
         ) : (
           <ClientProcessKanban userId={user?.id} />
         )}
+
+        {/* Publicações de Marcas - somente leitura */}
+        <PublicacoesCliente userId={user?.id} />
       </div>
     </ClientLayout>
   );
