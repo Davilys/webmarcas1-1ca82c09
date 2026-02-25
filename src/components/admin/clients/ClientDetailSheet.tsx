@@ -40,6 +40,7 @@ interface ClientDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: () => void;
+  extraActions?: React.ReactNode;
 }
 
 interface ClientNote { id: string; content: string; created_at: string; }
@@ -148,7 +149,7 @@ function fmtBytes(b?: number | null) {
   return `${(b/1048576).toFixed(1)}MB`;
 }
 
-export function ClientDetailSheet({ client, open, onOpenChange, onUpdate }: ClientDetailSheetProps) {
+export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraActions }: ClientDetailSheetProps) {
   const SERVICE_PRICING_OPTIONS = useServicePricingOptions();
 
   // Data
@@ -706,6 +707,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate }: Clie
                       {action.label}
                     </motion.button>
                   ))}
+                  {extraActions}
                 </div>
               </div>
             </SheetHeader>

@@ -1324,11 +1324,15 @@ export default function PublicacaoTab() {
               clientMap={clientMap}
               adminMap={adminMap}
               onSelect={id => {
-                setSelectedId(selectedId === id ? null : id);
-                // Open ClientDetailSheet if the pub has a client
                 const pub = publicacoes.find(p => p.id === id);
+                setSelectedId(id);
                 if (pub?.client_id) {
+                  // Has client → open ClientDetailSheet
                   setShowClientSheet(true);
+                } else {
+                  // No client → open process details directly
+                  setShowClientSheet(false);
+                  setShowProcessDetailFromSheet(true);
                 }
               }}
               selectedId={selectedId}
@@ -1864,27 +1868,25 @@ export default function PublicacaoTab() {
       </AlertDialog>
       {/* ─── CLIENT DETAIL SHEET (from Kanban click) ─── */}
       {showClientSheet && selectedClientForSheet && (
-        <>
-          <ClientDetailSheet
-            client={selectedClientForSheet}
-            open={showClientSheet}
-            onOpenChange={(open) => { setShowClientSheet(open); if (!open) setShowProcessDetailFromSheet(false); }}
-            onUpdate={() => queryClient.invalidateQueries({ queryKey: ['profiles-pub'] })}
-          />
-          {/* Floating "Detalhes do Processo" button */}
-          {selected && (
-            <div className="fixed bottom-6 right-6 z-[60]">
-              <Button
-                size="lg"
-                className="gap-2 shadow-xl rounded-full px-6"
+        <ClientDetailSheet
+          client={selectedClientForSheet}
+          open={showClientSheet}
+          onOpenChange={(open) => { setShowClientSheet(open); if (!open) setShowProcessDetailFromSheet(false); }}
+          onUpdate={() => queryClient.invalidateQueries({ queryKey: ['profiles-pub'] })}
+          extraActions={
+            selected ? (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/60"
                 onClick={() => setShowProcessDetailFromSheet(true)}
               >
-                <FileText className="w-4 h-4" />
+                <FileText className="h-3.5 w-3.5" />
                 Detalhes do Processo
-              </Button>
-            </div>
-          )}
-        </>
+              </motion.button>
+            ) : undefined
+          }
+        />
       )}
 
       {/* ─── PROCESS DETAIL DIALOG (from ClientDetailSheet) ─── */}
