@@ -1,58 +1,66 @@
 
 
-## Plano: Adicionar Etapa "Certificado" ao Funil + Logica de Renovacao Correta
+## Plano: Sincronizar Publicacoes e Documentos com a Area do Cliente
 
-### Problema Atual
-1. O funil do Kanban pula de "Deferida" direto para "Renovacao" -- falta a etapa **Certificado**
-2. A renovacao esta calculada como 10 anos apos o certificado, mas a regra correta do INPI e: **9 anos** para inicio do prazo ordinario + **6 meses** ordinario + **6 meses** extraordinario
+### Contexto
+Atualmente, quando o admin atribui um `client_id` a uma publicacao na aba Publicacoes, ela ja aparece no componente `PublicacoesCliente` (que filtra por `client_id = userId`). Porem:
 
-### Mudancas
+1. Os **documentos anexados** (`documento_rpi_url`) na publicacao nao aparecem na aba Documentos do processo do cliente
+2. A aba **Publicacoes RPI** no detalhe do processo do cliente (`ProcessoDetalhe.tsx`) busca apenas da tabela `rpi_entries` e ignora os dados da `publicacoes_marcas`
+3. O **status/fase** da publicacao nao e refletido na area do cliente de forma completa
 
-#### 1. Novo Status "certificada" no Funil
+### Mudancas Planejadas
 
-Adicionar o status `certificada` entre `deferida` e `indeferida` no Kanban e no PublicacaoTab:
+#### 1. Sincronizar documentos da publicacao para a area do cliente
 
-```text
-Depositada -> Publicada -> Oposicao -> Deferida -> Certificada -> Indeferida -> Arquivada -> Renovacao
-```
+**Arquivo:** `src/pages/cliente/ProcessoDetalhe.tsx`
 
-**Arquivos afetados:**
-- `PublicacaoKanban.tsx` -- adicionar `certificada` no type `PubStatus` e no `STATUS_CONFIG` (icone: diploma/selo, cor: from-purple-500 to-purple-600)
-- `PublicacaoTab.tsx` -- adicionar `certificada` no type `PubStatus`, nos selects de status e em toda logica de filtro
+Na funcao `fetchProcessData`, alem de buscar documentos da tabela `documents`, tambem buscar documentos anexados nas `publicacoes_marcas` (campo `documento_rpi_url`) vinculadas ao processo. Esses documentos serao mesclados na lista de documentos exibida na aba "Documentos".
 
-#### 2. Logica de Renovacao Correta (9 anos + prazos)
+- Buscar `publicacoes_marcas` onde `process_id = id` AND `client_id = user.id`
+- Para cada publicacao com `documento_rpi_url` preenchido, criar um item virtual de documento para exibicao
+- Mesclar com os documentos existentes, sem duplicatas
 
-Alterar `calcAutoFields` e `calcDeadlineFromDispatch`:
+#### 2. Sincronizar publicacoes da tabela `publicacoes_marcas` na aba "Publicacoes RPI"
 
-- Quando sai o **certificado de registro** na revista:
-  - `data_certificado` = data da publicacao
-  - `data_renovacao` = data_certificado + **9 anos** (inicio do prazo ordinario)
-  - `proximo_prazo_critico` = data_certificado + 9 anos (para lembrar que precisa renovar)
-  - `descricao_prazo` = "Renovacao ordinaria - 9 anos (+ 6m ord. + 6m extra)"
-  - Status automatico = `certificada`
+**Arquivo:** `src/pages/cliente/ProcessoDetalhe.tsx`
 
-- Na `calcDeadlineFromDispatch`, adicionar regra:
-  - Se dispatch_text contem "certificado de registro", "concessao", "registro concedido":
-    - `days` = 3285 (9 anos = 365 * 9)
-    - `desc` = "Prazo para renovacao ordinaria"
-    - Status = `certificada`
+A aba "Publicacoes RPI" atualmente so mostra dados de `rpi_entries`. Vamos adicionar uma secao que mostra os dados de `publicacoes_marcas` vinculadas ao processo, incluindo:
 
-- Na `calcAutoFields`, corrigir:
-  - `data_renovacao` = data_certificado + **9 anos** (nao 10)
+- Status atual da publicacao (depositada, publicada, oposicao, deferida, certificada, etc.)
+- Timeline visual (mini timeline igual ao `PublicacoesCliente`)
+- Prazos criticos
+- Numero RPI e link oficial
+- Documento RPI anexado (com botao de download)
 
-#### 3. Detalhes dos Prazos de Renovacao
+Isso sera exibido acima da tabela de `rpi_entries`, como um card de resumo da situacao atual.
 
-Para referencia visual no card/dialog de edicao:
-- **Prazo ordinario**: de 9 anos ate 9 anos e 6 meses apos o certificado
-- **Prazo extraordinario**: de 9 anos e 6 meses ate 10 anos apos o certificado (com taxa extra)
-- Apos 10 anos sem renovacao: arquivamento
+#### 3. Atualizar `PublicacoesCliente` com status "certificada"
+
+**Arquivo:** `src/components/cliente/PublicacoesCliente.tsx`
+
+Adicionar o status `certificada` que foi adicionado no admin mas ainda nao existe no componente do cliente.
+
+#### 4. Garantir que a fase do processo no Kanban do cliente reflita a publicacao
+
+**Arquivo:** `src/components/cliente/ClientProcessKanban.tsx`
+
+O Kanban do cliente usa o campo `status` de `brand_processes`. Nenhuma mudanca estrutural necessaria aqui -- o status do processo ja e independente. A sincronizacao visual sera feita pela presenca dos dados de `publicacoes_marcas` nas telas de detalhe.
 
 ### Detalhes Tecnicos
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `src/components/admin/publicacao/PublicacaoKanban.tsx` | Adicionar `certificada` ao type e STATUS_CONFIG, reordenar colunas |
-| `src/components/admin/PublicacaoTab.tsx` | Adicionar `certificada` ao type, corrigir calcAutoFields (9 anos), adicionar regra de certificado no calcDeadlineFromDispatch, atualizar selects de status |
+| `src/pages/cliente/ProcessoDetalhe.tsx` | Buscar `publicacoes_marcas` por `process_id` + `client_id`, mesclar documentos anexados na aba Documentos, exibir resumo de publicacao na aba Publicacoes RPI |
+| `src/components/cliente/PublicacoesCliente.tsx` | Adicionar status `certificada` ao `STATUS_CONFIG` |
+| `src/pages/cliente/Processos.tsx` | Sem mudanca (ja usa `PublicacoesCliente` que filtra por `client_id`) |
 
-Nenhuma migracao SQL necessaria -- o campo `status` e do tipo `text` e aceita qualquer valor.
+### Fluxo Resultante
+
+1. Admin cria/edita publicacao e atribui `client_id` -> aparece em "Publicacoes de Marcas" na pagina Processos do cliente
+2. Admin anexa documento RPI na publicacao -> documento aparece na aba Documentos do detalhe do processo do cliente
+3. Admin altera status da publicacao (ex: publicada -> deferida -> certificada) -> refletido na aba Publicacoes RPI do detalhe do processo e no card de PublicacoesCliente
+4. Prazos criticos sao exibidos para o cliente com indicadores visuais de urgencia
+
+Nenhuma migracao SQL necessaria -- todos os dados ja existem na tabela `publicacoes_marcas` e a RLS ja permite leitura pelo cliente (`client_id = auth.uid()`).
 
