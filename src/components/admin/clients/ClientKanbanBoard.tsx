@@ -18,6 +18,13 @@ import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+export interface ClientBrand {
+  id: string;
+  brand_name: string;
+  pipeline_stage: string;
+  process_number?: string;
+}
+
 export interface ClientWithProcess {
   id: string;
   full_name: string | null;
@@ -41,6 +48,7 @@ export interface ClientWithProcess {
   assigned_to?: string | null;
   created_by_name?: string | null;
   assigned_to_name?: string | null;
+  brands?: ClientBrand[];
 }
 
 export interface KanbanFilters {
@@ -478,7 +486,32 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
                                     <p className="font-bold text-sm mb-0.5 line-clamp-1">
                                       {client.full_name || 'Sem nome'}
                                     </p>
-                                    {client.brand_name ? (
+                                    {client.brands && client.brands.length > 1 ? (
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <p className="font-bold text-sm text-primary line-clamp-1">
+                                          {client.brands[0].brand_name}
+                                        </p>
+                                        <Tooltip>
+                                          <TooltipTrigger>
+                                            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20 hover:bg-primary/20">
+                                              +{client.brands.length - 1} marca{client.brands.length > 2 ? 's' : ''}
+                                            </Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="bottom" className="max-w-[250px]">
+                                            <p className="font-semibold text-xs mb-1">Marcas registradas:</p>
+                                            <ul className="text-xs space-y-0.5">
+                                              {client.brands.map(b => (
+                                                <li key={b.id} className="flex items-center gap-1">
+                                                  <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                                                  {b.brand_name}
+                                                  {b.process_number && <span className="text-muted-foreground font-mono">#{b.process_number}</span>}
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </div>
+                                    ) : client.brand_name ? (
                                       <div className="flex items-center gap-1.5 flex-wrap">
                                         <p className="font-bold text-sm text-primary line-clamp-1">
                                           {client.brand_name}
