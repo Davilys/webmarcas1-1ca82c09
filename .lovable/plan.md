@@ -1,71 +1,93 @@
 
-## Remover "Cliente / Processo" do Email no Ficheiro
 
-### Problema
-Quando o EmailCompose abre dentro do ficheiro do cliente, ele mostra o campo "Cliente / Processo" com busca de clientes. Isso nao faz sentido porque o cliente ja esta selecionado no ficheiro. O tipo de publicacao/fase deve permanecer pois se aplica ao processo do cliente.
+## Edicao de Dados do Processo + Notificacoes Recorrentes a Cada 5 Dias
 
-### Solucao
-Adicionar uma prop `hideClientSearch` ao componente `EmailCompose`. Quando `true`, o modo processual mostra apenas o dropdown de "Tipo de Publicacao / Fase" (sem o campo de busca de cliente), e o cliente e automaticamente preenchido com os dados vindos do ficheiro.
+### Contexto
 
-### Alteracoes
+Na aba Revista INPI, quando o painel de detalhes de um processo e expandido, os campos (Marca, N. Processo, Classe NCL, Titular) sao exibidos como texto estatico. Quando a IA nao identifica corretamente (ex: "Marca nao identificada"), o admin nao consegue corrigir. Alem disso, ao vincular um cliente, nao existe lembrete recorrente ate a publicacao ser resolvida.
 
-#### 1. `src/components/admin/email/EmailCompose.tsx`
+### Funcionalidade 1: Campos Editaveis no Painel Expandido
 
-**Adicionar props novas a interface:**
+**O que muda visualmente:**
+- Na coluna "Dados do Processo" do painel expandido, os campos Marca, N. Processo, Classe NCL e Titular passam a ter um botao de edicao (icone de lapis)
+- Ao clicar, o campo vira um input editavel inline
+- Botoes "Salvar" e "Cancelar" aparecem abaixo dos campos
+- Ao salvar, os dados sao atualizados diretamente na tabela `rpi_entries`
 
+**Arquivo:** `src/pages/admin/RevistaINPI.tsx`
+
+Alteracoes:
+1. Adicionar estados para controlar o modo de edicao:
+   - `editingEntryId` (string | null) - qual entrada esta em edicao
+   - `editForm` (objeto com brand_name, process_number, ncl_classes, holder_name)
+
+2. Criar funcao `handleSaveEntryEdit` que faz UPDATE na tabela `rpi_entries` com os campos editados
+
+3. Na secao "Dados do Processo" (linhas 811-825), substituir os `DetailRow` estaticos por campos condicionais:
+   - Se `editingEntryId === entry.id`: renderiza Inputs editaveis
+   - Senao: mantem o DetailRow atual com um botao de editar
+
+4. Adicionar botao "Editar" (icone Pencil) no cabecalho da coluna "Dados do Processo"
+
+### Funcionalidade 2: Notificacoes Recorrentes a Cada 5 Dias
+
+**Logica:**
+- Quando um processo e vinculado a um cliente (handleAssignClient), salvar a data de vinculacao como referencia
+- Uma funcao agendada (cron job) roda diariamente verificando entradas com `matched_client_id` preenchido e `tag` diferente de `resolvido`
+- A cada 5 dias desde a vinculacao (ou ultima notificacao), envia notificacao para o cliente E para o admin
+
+**Alteracoes:**
+
+1. **Nova coluna na tabela `rpi_entries`:**
+   - `last_reminder_sent_at` (timestamp) - quando o ultimo lembrete foi enviado
+   - `linked_at` (timestamp) - quando foi vinculado ao cliente
+
+2. **Atualizar `handleAssignClient`** para salvar `linked_at` ao vincular
+
+3. **Nova Edge Function: `check-rpi-reminders/index.ts`**
+   - Consulta `rpi_entries` onde:
+     - `matched_client_id IS NOT NULL`
+     - `tag NOT IN ('resolvido', 'arquivado', 'prazo_encerrado')`
+     - `last_reminder_sent_at IS NULL OR last_reminder_sent_at < now() - interval '5 days'`
+   - Para cada entrada encontrada:
+     - Insere notificacao para o cliente: "Lembrete: A publicacao do processo X ainda aguarda regularizacao. Prazo em andamento."
+     - Insere notificacao para os admins: "Lembrete: Publicacao RPI do processo X vinculada ao cliente Y ainda nao foi resolvida."
+     - Atualiza `last_reminder_sent_at = now()`
+
+4. **Cron job** agendado para rodar diariamente chamando a Edge Function
+
+### Detalhes Tecnicos
+
+**Migracao SQL:**
 ```text
-interface EmailComposeProps {
-  // ... props existentes
-  hideClientSearch?: boolean;       // Esconder busca de cliente (usado no ficheiro)
-  initialClientData?: {             // Dados do cliente pre-selecionado
-    id: string;
-    full_name: string;
-    email: string;
-    brand_name?: string;
-    process_number?: string;
-  };
-}
+ALTER TABLE rpi_entries
+  ADD COLUMN IF NOT EXISTS last_reminder_sent_at timestamptz,
+  ADD COLUMN IF NOT EXISTS linked_at timestamptz;
 ```
 
-**No modo processual (linhas 469-541):**
-- Quando `hideClientSearch` e `true`, renderizar apenas a coluna "Tipo de Publicacao / Fase" em largura completa
-- O campo "Cliente / Processo" nao aparece
-- O `selectedClient` e inicializado automaticamente com `initialClientData`
+**Edge Function `check-rpi-reminders`:**
+- Busca entries pendentes com intervalo > 5 dias
+- Insere em `notifications` para cliente e admin
+- Atualiza `last_reminder_sent_at`
 
-**No useEffect inicial:**
-- Se `initialClientData` existir, fazer `setSelectedClient(initialClientData)` automaticamente
+**Cron job (via pg_cron):**
+- Executa diariamente as 09:00 (horario de Brasilia)
+- Chama `check-rpi-reminders` via HTTP POST
 
-#### 2. `src/components/admin/clients/ClientDetailSheet.tsx`
+### Arquivos a Criar/Editar
 
-**Passar as novas props ao EmailCompose (linhas 699-705):**
+| Arquivo | Tipo | Alteracao |
+|---------|------|-----------|
+| `src/pages/admin/RevistaINPI.tsx` | Editar | Adicionar edicao inline dos campos do processo |
+| `supabase/functions/check-rpi-reminders/index.ts` | Criar | Edge Function para verificar e enviar lembretes |
+| Migracao SQL | Criar | Adicionar colunas `last_reminder_sent_at` e `linked_at` |
+| Cron job SQL | Inserir | Agendar execucao diaria |
 
-```text
-<EmailCompose
-  onClose={() => setShowEmailCompose(false)}
-  initialTo={client.email}
-  initialName={client.full_name || ''}
-  accountId={adminEmailAccount?.id || null}
-  accountEmail={adminEmailAccount?.email_address}
-  hideClientSearch={true}
-  initialClientData={{
-    id: client.id,
-    full_name: client.full_name || '',
-    email: client.email || '',
-    brand_name: client.brand_name,
-    process_number: client.process_number,
-  }}
-/>
-```
+### Seguranca
 
-### Resultado
+- Nenhuma tabela existente e alterada estruturalmente (apenas 2 colunas novas nullable adicionadas)
+- RLS existente da `rpi_entries` continua intacta (apenas admins podem editar)
+- Notificacoes usam a tabela `notifications` existente
+- Nenhum fluxo existente e quebrado
+- A edicao so funciona para admins autenticados (mesma permissao do update de TAG)
 
-- No ficheiro: modo processual mostra apenas "Tipo de Publicacao / Fase" (o cliente ja e o do ficheiro)
-- Na pagina de Emails normal: tudo continua igual (campo de busca de cliente + tipo de publicacao)
-- Templates processuais continuam funcionando com as variaveis do cliente preenchidas automaticamente
-
-### Arquivos a editar
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/components/admin/email/EmailCompose.tsx` | Adicionar props `hideClientSearch` e `initialClientData`, condicionar renderizacao |
-| `src/components/admin/clients/ClientDetailSheet.tsx` | Passar as novas props ao EmailCompose |
