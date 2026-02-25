@@ -1,38 +1,98 @@
 
 
-## Correção: Link "Continuar Registro" no email abrindo no Lovable em vez de webmarcas.net
+## Analise e Correcao: Notificacao de link do contrato
 
-### Problema
+### Resultado da Analise
 
-Na linha 107 do arquivo `src/components/sections/RegistrationFormSection.tsx`, o campo `base_url` é enviado como `window.location.origin`. Quando o formulário é preenchido no ambiente de preview do Lovable, o link no email aponta para `https://...lovable.app/registro` em vez de `https://webmarcas.net/registro`.
+| Fluxo | Gera link? | Envia notificacao? | Status |
+|-------|-----------|-------------------|--------|
+| Admin "Novo Contrato" com "Enviar link" marcado | Sim | Sim (email + WhatsApp + SMS + CRM) | OK |
+| Admin "Novo Contrato" sem "Enviar link" (template padrao) | Sim | Sim (CRM + SMS + WhatsApp via generate-signature-link) | OK |
+| Site /registrar (formulario do cliente) | NAO | NAO | PROBLEMA |
 
-O mesmo padrão ruim pode afetar SMS e WhatsApp, pois o link repassado ao multicanal herda o mesmo domínio.
+### Problema encontrado
 
-### Solução
+Quando o cliente preenche o formulario em `/registrar`, a funcao `create-asaas-payment` cria o contrato, o lead, a fatura e dispara o email `form_completed`, mas **nunca gera o link de assinatura** e portanto **nunca envia a notificacao com o link do contrato**.
 
-Trocar `window.location.origin` por uma lógica que prioriza o domínio de produção, seguindo o mesmo padrão já usado em todas as Edge Functions:
+O cliente recebe o email de "formulario preenchido" mas nao recebe o link para assinar o contrato.
 
-**Arquivo: `src/components/sections/RegistrationFormSection.tsx` (linha 107)**
+### Solucao
 
+Adicionar um **STEP 7.5** na funcao `create-asaas-payment` (entre o step 7 e 8) que:
+
+1. Chama `generate-signature-link` para gerar o token de assinatura do contrato
+2. A propria funcao `generate-signature-link` ja dispara automaticamente a notificacao multicanal (`link_assinatura_gerado`) via CRM + SMS + WhatsApp
+3. Em seguida chama `send-signature-request` para enviar o email formal com o link
+
+### Arquivo a editar
+
+| Arquivo | Alteracao |
+|---------|-----------|
+| `supabase/functions/create-asaas-payment/index.ts` | Adicionar chamada a `generate-signature-link` + `send-signature-request` apos criar o contrato (entre linhas 1085-1086) |
+
+### Detalhes tecnicos
+
+Apos o bloco do STEP 7 (trigger form_completed), adicionar:
+
+```text
+// STEP 7.5: Generate signature link and send notification
+if (contractData?.id) {
+  try {
+    // Generate signature link (also triggers CRM + SMS + WhatsApp notification)
+    const linkRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-signature-link`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        contractId: contractData.id,
+        expiresInDays: 7,
+        baseUrl: 'https://webmarcas.net',
+      }),
+    });
+    const linkData = await linkRes.json();
+    console.log('Generated signature link:', linkData?.data?.url);
+
+    // Send formal email with signature link
+    if (linkData?.success) {
+      await fetch(`${SUPABASE_URL}/functions/v1/send-signature-request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          contractId: contractData.id,
+          channels: ['email'],
+          baseUrl: 'https://webmarcas.net',
+          overrideContact: {
+            email: personalData.email,
+            phone: personalData.phone || '',
+            name: personalData.fullName,
+          },
+        }),
+      });
+      console.log('Sent signature request email');
+    }
+  } catch (linkError) {
+    console.error('Error generating/sending signature link:', linkError);
+  }
+}
 ```
-Antes:
-  base_url: window.location.origin,
 
-Depois:
-  base_url: 'https://webmarcas.net',
-```
+### Resultado esperado
 
-Usar o domínio fixo de produção garante que o email, SMS e WhatsApp sempre apontem para o domínio correto, independente de onde o formulário foi preenchido (preview Lovable, localhost ou produção).
+Apos a correcao, o fluxo do formulario `/registrar` ficara:
+1. Cria lead, contrato, fatura (ja funciona)
+2. Envia email `form_completed` (ja funciona)
+3. **NOVO**: Gera link de assinatura e envia notificacao automatica (CRM + SMS + WhatsApp + Email)
 
-### Verificação adicional
-
-O template do email `form_started` no banco de dados já usa `{{app_url}}/registro` corretamente. A Edge Function `trigger-email-automation` já tem proteção anti-preview (linhas 58-64), mas como `data.base_url` é preenchido com `window.location.origin` ANTES da proteção ser aplicada, o domínio do preview acaba passando. Fixando no frontend resolve de forma definitiva.
-
-### Impacto
+### Seguranca
 
 - Nenhuma tabela alterada
 - Nenhum schema modificado
-- Apenas 1 linha alterada no frontend
-- Nenhuma Edge Function precisa ser editada (a proteção anti-preview na trigger-email já existe, mas o frontend estava enviando o domínio errado antes dela ser verificada)
-- SMS e WhatsApp herdam a correção automaticamente
+- Nenhum fluxo existente quebrado
+- Apenas adiciona uma chamada extra apos a criacao do contrato
+- Usa funcoes que ja existem e ja foram testadas
 
