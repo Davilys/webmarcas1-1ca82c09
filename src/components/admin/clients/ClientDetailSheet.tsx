@@ -192,6 +192,9 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
   const [showNewInvoiceDialog, setShowNewInvoiceDialog] = useState(false);
   const [processPublicacoes, setProcessPublicacoes] = useState<any[]>([]);
   const [processLogs, setProcessLogs] = useState<any[]>([]);
+  const [processContracts, setProcessContracts] = useState<any[]>([]);
+  const [processInvoices, setProcessInvoices] = useState<any[]>([]);
+  const [processEvents, setProcessEvents] = useState<any[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -554,10 +557,22 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
       case 'excluir': setShowDeleteConfirm(true); break;
       case 'processo':
         if (client) {
-          const { data: pubs } = await supabase.from('publicacoes_marcas').select('*').eq('client_id', client.id).order('proximo_prazo_critico', { ascending: true, nullsFirst: false });
-          setProcessPublicacoes(pubs || []);
-          if (pubs && pubs.length > 0) {
-            const { data: logs } = await supabase.from('publicacao_logs').select('*').eq('publicacao_id', pubs[0].id).order('created_at', { ascending: false });
+          // Fetch all lifecycle data in parallel
+          const [pubsRes, contractsRes, invoicesRes2, eventsRes] = await Promise.all([
+            supabase.from('publicacoes_marcas').select('*').eq('client_id', client.id).order('proximo_prazo_critico', { ascending: true, nullsFirst: false }),
+            supabase.from('contracts').select('id, subject, signature_status, signed_at, created_at, contract_value, payment_method, blockchain_hash, signatory_name').eq('user_id', client.id).order('created_at', { ascending: false }),
+            supabase.from('invoices').select('id, description, amount, status, due_date, payment_date, payment_method, created_at').eq('user_id', client.id).order('created_at', { ascending: false }),
+            client.process_id
+              ? supabase.from('process_events').select('*').eq('process_id', client.process_id).order('event_date', { ascending: false })
+              : Promise.resolve({ data: [] as any[] }),
+          ]);
+          setProcessPublicacoes(pubsRes.data || []);
+          setProcessContracts(contractsRes.data || []);
+          setProcessInvoices(invoicesRes2.data || []);
+          setProcessEvents(eventsRes.data || []);
+          // Also fetch logs for first publication if exists
+          if (pubsRes.data && pubsRes.data.length > 0) {
+            const { data: logs } = await supabase.from('publicacao_logs').select('*').eq('publicacao_id', pubsRes.data[0].id).order('created_at', { ascending: false });
             setProcessLogs(logs || []);
           } else {
             setProcessLogs([]);
@@ -754,172 +769,289 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                 <Button variant="ghost" size="sm" onClick={() => setShowProcessDetails(false)} className="gap-1.5">
                   <X className="h-4 w-4" /> Voltar ao ficheiro
                 </Button>
-                <span className="text-sm text-muted-foreground">Detalhes do Processo — <strong>{client.full_name}</strong></span>
+                <span className="text-sm text-muted-foreground">Ciclo Completo — <strong>{client.full_name}</strong></span>
               </div>
               <ScrollArea className="flex-1">
-                <div className="p-5 space-y-5">
-                  {processPublicacoes.length === 0 ? (
-                    <EmptyState icon={FileText} title="Nenhuma publicação" description="Este cliente não possui publicações vinculadas." />
-                  ) : processPublicacoes.map((pub: any) => {
-                    const brandName = pub.brand_name_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.brand_name || '—';
-                    const processNumber = pub.process_number_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.process_number || 'Sem número';
-                    const TIMELINE_STEPS_INLINE = [
-                      { key: 'data_deposito', label: 'Depósito', icon: FileText, description: 'Pedido protocolado no INPI' },
-                      { key: 'data_publicacao_rpi', label: 'Publicação RPI', icon: Newspaper, description: 'Publicado na Revista da PI' },
-                      { key: 'prazo_oposicao', label: 'Prazo Oposição (60d)', icon: Gavel, description: 'Período para manifestações' },
-                      { key: 'data_decisao', label: 'Decisão', icon: Shield, description: 'Deferimento ou indeferimento' },
-                      { key: 'data_certificado', label: 'Certificado', icon: Award, description: 'Emissão do certificado' },
-                      { key: 'data_renovacao', label: 'Renovação (9 anos)', icon: RefreshCw, description: 'Prazo ordinário + 6m ord. + 6m extra' },
-                    ] as const;
-                    const STATUS_CONFIG_INLINE: Record<string, { label: string; color: string; bg: string }> = {
-                      depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
-                      publicada: { label: 'Publicada', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
-                      oposicao: { label: 'Oposição', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
-                      deferida: { label: 'Deferida', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
-                      certificada: { label: 'Certificada', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40' },
-                      indeferida: { label: 'Indeferida', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
-                      arquivada: { label: 'Arquivada', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
-                      renovacao_pendente: { label: 'Renovação Pendente', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
-                    };
-                    const statusCfg = STATUS_CONFIG_INLINE[pub.status] || STATUS_CONFIG_INLINE.depositada;
-                    const getDaysLeft = (dateStr: string | null): number | null => {
-                      if (!dateStr) return null;
-                      const d = new Date(dateStr);
-                      return Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                    };
-                    const getScheduledAlerts = (prazoCritico: string | null): { label: string; date: Date; days: number }[] => {
-                      if (!prazoCritico) return [];
-                      const prazoDate = new Date(prazoCritico);
-                      return [30, 15, 7].map(d => {
-                        const alertDate = new Date(prazoDate.getTime() - d * 86400000);
-                        const daysLeft = Math.ceil((alertDate.getTime() - new Date().getTime()) / 86400000);
-                        return { label: `${d} dias antes`, date: alertDate, days: daysLeft };
-                      }).filter(a => a.days >= 0);
-                    };
-                    return (
-                      <div key={pub.id} className="space-y-4 border border-border rounded-xl p-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-bold text-base">{brandName}</p>
-                            <Badge className={cn('text-[10px]', statusCfg.bg, statusCfg.color)}>{statusCfg.label}</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">{processNumber}</p>
-                          {pub.descricao_prazo && <p className="text-xs text-primary font-medium mt-1">{pub.descricao_prazo}</p>}
-                        </div>
+                <div className="p-5 space-y-6">
 
-                        {(pub.rpi_number || pub.documento_rpi_url) && (
-                          <div className="p-2 rounded-lg bg-muted/50 space-y-1">
-                            {pub.rpi_number && <p className="text-xs flex items-center gap-1.5"><Hash className="w-3 h-3 text-primary" /><span className="font-medium">RPI N°:</span> {pub.rpi_number}</p>}
-                            {pub.documento_rpi_url && (
-                              <a href={pub.documento_rpi_url} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-primary hover:underline">
-                                <Paperclip className="w-3 h-3" /> Documento RPI
-                              </a>
-                            )}
-                          </div>
-                        )}
+                  {/* ── SECTION 1: LIFECYCLE TIMELINE ── */}
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                      <Activity className="w-3.5 h-3.5" /> Ciclo de Vida do Processo
+                    </p>
+                    {(() => {
+                      // Build unified lifecycle events
+                      const lifecycleEvents: { date: string; label: string; description: string; icon: any; status: 'completed' | 'pending'; category: string }[] = [];
 
-                        <div>
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Timeline</p>
-                          {TIMELINE_STEPS_INLINE.map(step => {
-                            const date = pub[step.key] as string | null;
-                            const isCompleted = !!date && new Date(date) < new Date();
-                            const isOverdue = !!date && new Date(date) < new Date() && step.key !== 'data_deposito' && (getDaysLeft(date) ?? 0) < 0;
-                            const StepIcon = step.icon;
+                      // Contract events
+                      processContracts.forEach((c: any) => {
+                        lifecycleEvents.push({
+                          date: c.created_at, label: 'Contrato Gerado',
+                          description: c.subject || `Valor: R$ ${Number(c.contract_value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                          icon: FileText, status: 'completed', category: 'contrato',
+                        });
+                        if (c.signature_status === 'signed' && c.signed_at) {
+                          lifecycleEvents.push({
+                            date: c.signed_at, label: 'Contrato Assinado',
+                            description: `Assinado por ${c.signatory_name || client.full_name}${c.blockchain_hash ? ' · Registrado em blockchain' : ''}`,
+                            icon: CheckCircle, status: 'completed', category: 'contrato',
+                          });
+                        }
+                      });
+
+                      // Invoice/payment events
+                      processInvoices.forEach((inv: any) => {
+                        const methodLabel = inv.payment_method === 'pix' ? 'PIX' : inv.payment_method === 'credit_card' ? 'Cartão' : inv.payment_method === 'boleto' ? 'Boleto' : inv.payment_method || '—';
+                        lifecycleEvents.push({
+                          date: inv.created_at, label: 'Fatura Criada',
+                          description: `${inv.description} · R$ ${Number(inv.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · ${methodLabel}`,
+                          icon: Receipt, status: 'completed', category: 'financeiro',
+                        });
+                        if (inv.status === 'paid' && inv.payment_date) {
+                          lifecycleEvents.push({
+                            date: inv.payment_date, label: 'Pagamento Confirmado',
+                            description: `R$ ${Number(inv.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} via ${methodLabel}`,
+                            icon: DollarSign, status: 'completed', category: 'financeiro',
+                          });
+                        }
+                      });
+
+                      // Process events (from process_events table)
+                      processEvents.forEach((ev: any) => {
+                        lifecycleEvents.push({
+                          date: ev.event_date || ev.created_at, label: ev.title,
+                          description: ev.description || '', icon: Activity, status: 'completed', category: 'processo',
+                        });
+                      });
+
+                      // Brand process protocol
+                      clientBrands.forEach((bp: any) => {
+                        if (bp.created_at) {
+                          lifecycleEvents.push({
+                            date: bp.created_at, label: 'Processo Protocolado',
+                            description: `Marca: ${bp.brand_name}${bp.process_number ? ` · Nº ${bp.process_number}` : ''}`,
+                            icon: FileCheck, status: 'completed', category: 'processo',
+                          });
+                        }
+                      });
+
+                      // Sort by date ascending
+                      lifecycleEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+                      if (lifecycleEvents.length === 0) {
+                        return <EmptyState icon={Activity} title="Sem eventos" description="Nenhum evento registrado para este cliente." />;
+                      }
+
+                      const categoryColors: Record<string, string> = {
+                        contrato: 'bg-blue-500',
+                        financeiro: 'bg-emerald-500',
+                        processo: 'bg-purple-500',
+                      };
+
+                      return (
+                        <div className="space-y-0">
+                          {lifecycleEvents.map((ev, idx) => {
+                            const EvIcon = ev.icon;
                             return (
-                              <div key={step.key} className="flex gap-3 relative">
+                              <div key={idx} className="flex gap-3 relative">
                                 <div className="flex flex-col items-center">
                                   <div className={cn(
                                     'w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all',
-                                    isCompleted ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                                      : isOverdue ? 'bg-red-100 dark:bg-red-900/40 border-red-500 text-red-600 dark:text-red-400 animate-pulse'
-                                      : 'bg-muted border-border text-muted-foreground'
+                                    'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-500 text-emerald-600 dark:text-emerald-400'
                                   )}>
-                                    {isCompleted ? <CheckCircle className="w-4 h-4" /> : <StepIcon className="w-4 h-4" />}
+                                    <EvIcon className="w-4 h-4" />
                                   </div>
-                                  <div className="w-0.5 flex-1 bg-border min-h-[24px]" />
+                                  {idx < lifecycleEvents.length - 1 && <div className="w-0.5 flex-1 bg-border min-h-[16px]" />}
                                 </div>
-                                <div className="pb-6 flex-1">
-                                  <p className={cn('text-sm font-semibold', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>{step.label}</p>
-                                  <p className="text-xs text-muted-foreground">{step.description}</p>
-                                  {date && (
-                                    <p className={cn('text-xs mt-1 font-medium', isOverdue ? 'text-red-600 dark:text-red-400' : 'text-primary')}>
-                                      {format(new Date(date), "dd/MM/yyyy", { locale: ptBR })}
-                                      {!isCompleted && getDaysLeft(date) !== null && (
-                                        <span className="ml-1 text-muted-foreground">
-                                          ({getDaysLeft(date)! < 0 ? `${Math.abs(getDaysLeft(date)!)}d atrasado` : `em ${getDaysLeft(date)}d`})
-                                        </span>
-                                      )}
-                                    </p>
-                                  )}
+                                <div className="pb-4 flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-semibold">{ev.label}</p>
+                                    <div className={cn('w-2 h-2 rounded-full', categoryColors[ev.category] || 'bg-muted-foreground')} title={ev.category} />
+                                  </div>
+                                  {ev.description && <p className="text-xs text-muted-foreground mt-0.5">{ev.description}</p>}
+                                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                                    {format(new Date(ev.date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                  </p>
                                 </div>
                               </div>
                             );
                           })}
                         </div>
+                      );
+                    })()}
+                  </div>
 
-                        {pub.proximo_prazo_critico && getScheduledAlerts(pub.proximo_prazo_critico).length > 0 && (
-                          <>
-                            <Separator />
-                            <div>
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
-                                <BellRing className="w-3 h-3" /> Alertas Programados
-                              </p>
-                              <div className="space-y-1">
-                                {getScheduledAlerts(pub.proximo_prazo_critico).map((alert, i) => (
-                                  <div key={i} className="text-[10px] flex items-center gap-2 p-1.5 rounded bg-muted/50">
-                                    <Bell className="w-3 h-3 text-amber-500" />
-                                    <span>{alert.label}</span>
-                                    <span className="text-muted-foreground ml-auto">{format(alert.date, 'dd/MM/yyyy')}</span>
-                                    <span className="text-muted-foreground">(em {alert.days}d)</span>
-                                  </div>
-                                ))}
-                              </div>
+                  <Separator />
+
+                  {/* ── SECTION 2: PUBLICAÇÕES / REVISTA INPI ── */}
+                  <div className="space-y-4">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Newspaper className="w-3.5 h-3.5" /> Publicações na Revista INPI ({processPublicacoes.length})
+                    </p>
+                    {processPublicacoes.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhuma publicação vinculada.</p>
+                    ) : processPublicacoes.map((pub: any) => {
+                      const brandName = pub.brand_name_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.brand_name || '—';
+                      const processNumber = pub.process_number_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.process_number || 'Sem número';
+                      const TIMELINE_STEPS_INLINE = [
+                        { key: 'data_deposito', label: 'Depósito', icon: FileText, description: 'Pedido protocolado no INPI' },
+                        { key: 'data_publicacao_rpi', label: 'Publicação RPI', icon: Newspaper, description: 'Publicado na Revista da PI' },
+                        { key: 'prazo_oposicao', label: 'Prazo Oposição (60d)', icon: Gavel, description: 'Período para manifestações' },
+                        { key: 'data_decisao', label: 'Decisão', icon: Shield, description: 'Deferimento ou indeferimento' },
+                        { key: 'data_certificado', label: 'Certificado', icon: Award, description: 'Emissão do certificado' },
+                        { key: 'data_renovacao', label: 'Renovação (9 anos)', icon: RefreshCw, description: 'Prazo ordinário + 6m ord. + 6m extra' },
+                      ] as const;
+                      const STATUS_CONFIG_INLINE: Record<string, { label: string; color: string; bg: string }> = {
+                        depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
+                        publicada: { label: 'Publicada', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
+                        oposicao: { label: 'Oposição', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
+                        deferida: { label: 'Deferida', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+                        certificada: { label: 'Certificada', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40' },
+                        indeferida: { label: 'Indeferida', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
+                        arquivada: { label: 'Arquivada', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
+                        renovacao_pendente: { label: 'Renovação Pendente', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+                      };
+                      const statusCfg = STATUS_CONFIG_INLINE[pub.status] || STATUS_CONFIG_INLINE.depositada;
+                      const getDaysLeft = (dateStr: string | null): number | null => {
+                        if (!dateStr) return null;
+                        const d = new Date(dateStr);
+                        return Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                      };
+                      const getScheduledAlerts = (prazoCritico: string | null): { label: string; date: Date; days: number }[] => {
+                        if (!prazoCritico) return [];
+                        const prazoDate = new Date(prazoCritico);
+                        return [30, 15, 7].map(d => {
+                          const alertDate = new Date(prazoDate.getTime() - d * 86400000);
+                          const daysLeft = Math.ceil((alertDate.getTime() - new Date().getTime()) / 86400000);
+                          return { label: `${d} dias antes`, date: alertDate, days: daysLeft };
+                        }).filter(a => a.days >= 0);
+                      };
+                      return (
+                        <div key={pub.id} className="space-y-4 border border-border rounded-xl p-4">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-bold text-base">{brandName}</p>
+                              <Badge className={cn('text-[10px]', statusCfg.bg, statusCfg.color)}>{statusCfg.label}</Badge>
                             </div>
-                          </>
-                        )}
+                            <p className="text-xs text-muted-foreground">{processNumber}</p>
+                            {pub.descricao_prazo && <p className="text-xs text-primary font-medium mt-1">{pub.descricao_prazo}</p>}
+                          </div>
 
-                        {pub.comentarios_internos && (
-                          <>
-                            <Separator />
-                            <div>
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Comentários</p>
-                              <p className="text-xs text-foreground whitespace-pre-wrap">{pub.comentarios_internos}</p>
+                          {(pub.rpi_number || pub.documento_rpi_url) && (
+                            <div className="p-2 rounded-lg bg-muted/50 space-y-1">
+                              {pub.rpi_number && <p className="text-xs flex items-center gap-1.5"><Hash className="w-3 h-3 text-primary" /><span className="font-medium">RPI N°:</span> {pub.rpi_number}</p>}
+                              {pub.documento_rpi_url && (
+                                <a href={pub.documento_rpi_url} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-primary hover:underline">
+                                  <Paperclip className="w-3 h-3" /> Documento RPI
+                                </a>
+                              )}
                             </div>
-                          </>
-                        )}
+                          )}
 
-                        {processLogs.length > 0 && (
-                          <>
-                            <Separator />
-                            <div>
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                <ActivityIcon className="w-3 h-3" /> Histórico ({processLogs.length})
-                              </p>
-                              <div className="space-y-0">
-                                {processLogs.slice(0, 10).map((log: any, idx: number) => (
-                                  <div key={log.id} className="flex gap-2.5">
-                                    <div className="flex flex-col items-center">
-                                      <div className={cn('w-2 h-2 rounded-full mt-1.5 flex-shrink-0', log.campo_alterado === 'status' ? 'bg-primary' : 'bg-muted-foreground/40')} />
-                                      {idx < Math.min(processLogs.length, 10) - 1 && <div className="w-px flex-1 bg-border" />}
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Timeline</p>
+                            {TIMELINE_STEPS_INLINE.map(step => {
+                              const date = pub[step.key] as string | null;
+                              const isCompleted = !!date && new Date(date) < new Date();
+                              const isOverdue = !!date && new Date(date) < new Date() && step.key !== 'data_deposito' && (getDaysLeft(date) ?? 0) < 0;
+                              const StepIcon = step.icon;
+                              return (
+                                <div key={step.key} className="flex gap-3 relative">
+                                  <div className="flex flex-col items-center">
+                                    <div className={cn(
+                                      'w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all',
+                                      isCompleted ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                                        : isOverdue ? 'bg-red-100 dark:bg-red-900/40 border-red-500 text-red-600 dark:text-red-400 animate-pulse'
+                                        : 'bg-muted border-border text-muted-foreground'
+                                    )}>
+                                      {isCompleted ? <CheckCircle className="w-4 h-4" /> : <StepIcon className="w-4 h-4" />}
                                     </div>
-                                    <div className="pb-3 flex-1 min-w-0">
-                                      <div className="text-[10px]">
-                                        <span className="font-semibold text-primary">{log.campo_alterado}</span>
-                                        {log.valor_novo && <span className="font-medium ml-1">→ {log.valor_novo?.substring(0, 30)}</span>}
-                                      </div>
-                                      <p className="text-[9px] text-muted-foreground">
-                                        {log.admin_email?.split('@')[0] || 'Sistema'} · {format(new Date(log.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                                    <div className="w-0.5 flex-1 bg-border min-h-[24px]" />
+                                  </div>
+                                  <div className="pb-6 flex-1">
+                                    <p className={cn('text-sm font-semibold', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>{step.label}</p>
+                                    <p className="text-xs text-muted-foreground">{step.description}</p>
+                                    {date && (
+                                      <p className={cn('text-xs mt-1 font-medium', isOverdue ? 'text-red-600 dark:text-red-400' : 'text-primary')}>
+                                        {format(new Date(date), "dd/MM/yyyy", { locale: ptBR })}
+                                        {!isCompleted && getDaysLeft(date) !== null && (
+                                          <span className="ml-1 text-muted-foreground">
+                                            ({getDaysLeft(date)! < 0 ? `${Math.abs(getDaysLeft(date)!)}d atrasado` : `em ${getDaysLeft(date)}d`})
+                                          </span>
+                                        )}
                                       </p>
-                                    </div>
+                                    )}
                                   </div>
-                                ))}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {pub.proximo_prazo_critico && getScheduledAlerts(pub.proximo_prazo_critico).length > 0 && (
+                            <>
+                              <Separator />
+                              <div>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                                  <BellRing className="w-3 h-3" /> Alertas Programados
+                                </p>
+                                <div className="space-y-1">
+                                  {getScheduledAlerts(pub.proximo_prazo_critico).map((alert, i) => (
+                                    <div key={i} className="text-[10px] flex items-center gap-2 p-1.5 rounded bg-muted/50">
+                                      <Bell className="w-3 h-3 text-amber-500" />
+                                      <span>{alert.label}</span>
+                                      <span className="text-muted-foreground ml-auto">{format(alert.date, 'dd/MM/yyyy')}</span>
+                                      <span className="text-muted-foreground">(em {alert.days}d)</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          )}
+
+                          {pub.comentarios_internos && (
+                            <>
+                              <Separator />
+                              <div>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Comentários</p>
+                                <p className="text-xs text-foreground whitespace-pre-wrap">{pub.comentarios_internos}</p>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* ── SECTION 3: PROCESS LOGS (publicacao_logs) ── */}
+                  {processLogs.length > 0 && (
+                    <>
+                      <Separator />
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                          <ActivityIcon className="w-3 h-3" /> Histórico de Alterações ({processLogs.length})
+                        </p>
+                        <div className="space-y-0">
+                          {processLogs.slice(0, 15).map((log: any, idx: number) => (
+                            <div key={log.id} className="flex gap-2.5">
+                              <div className="flex flex-col items-center">
+                                <div className={cn('w-2 h-2 rounded-full mt-1.5 flex-shrink-0', log.campo_alterado === 'status' ? 'bg-primary' : 'bg-muted-foreground/40')} />
+                                {idx < Math.min(processLogs.length, 15) - 1 && <div className="w-px flex-1 bg-border" />}
+                              </div>
+                              <div className="pb-3 flex-1 min-w-0">
+                                <div className="text-[10px]">
+                                  <span className="font-semibold text-primary">{log.campo_alterado}</span>
+                                  {log.valor_novo && <span className="font-medium ml-1">→ {log.valor_novo?.substring(0, 30)}</span>}
+                                </div>
+                                <p className="text-[9px] text-muted-foreground">
+                                  {log.admin_email?.split('@')[0] || 'Sistema'} · {format(new Date(log.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                                </p>
                               </div>
                             </div>
-                          </>
-                        )}
+                          ))}
+                        </div>
                       </div>
-                    );
-                  })}
+                    </>
+                  )}
                 </div>
               </ScrollArea>
             </div>
