@@ -19,9 +19,16 @@ import {
   Newspaper,
   FolderOpen,
   Activity,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  Shield,
+  Award,
+  RefreshCw,
+  Gavel,
+  ExternalLink
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { format, parseISO, differenceInDays, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { User } from '@supabase/supabase-js';
 import { generateDocumentPrintHTML, getLogoBase64ForPDF } from '@/components/contracts/DocumentRenderer';
@@ -84,6 +91,47 @@ interface RpiEntry {
   };
 }
 
+interface PublicacaoMarca {
+  id: string;
+  process_id: string | null;
+  client_id: string | null;
+  status: string;
+  rpi_number: string | null;
+  rpi_link: string | null;
+  documento_rpi_url: string | null;
+  data_deposito: string | null;
+  data_publicacao_rpi: string | null;
+  prazo_oposicao: string | null;
+  data_decisao: string | null;
+  data_certificado: string | null;
+  data_renovacao: string | null;
+  proximo_prazo_critico: string | null;
+  descricao_prazo: string | null;
+  brand_name_rpi: string | null;
+  process_number_rpi: string | null;
+  created_at: string;
+}
+
+const PUB_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
+  publicada: { label: 'Publicada', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
+  oposicao: { label: 'Oposição', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
+  deferida: { label: 'Deferida', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+  certificada: { label: 'Certificada', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40' },
+  indeferida: { label: 'Indeferida', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
+  arquivada: { label: 'Arquivada', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
+  renovacao_pendente: { label: 'Renovação Pendente', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+};
+
+const PUB_TIMELINE_STEPS = [
+  { key: 'data_deposito', label: 'Depósito', icon: FileText },
+  { key: 'data_publicacao_rpi', label: 'Publicação RPI', icon: Newspaper },
+  { key: 'prazo_oposicao', label: 'Prazo Oposição', icon: Gavel },
+  { key: 'data_decisao', label: 'Decisão', icon: Shield },
+  { key: 'data_certificado', label: 'Certificado', icon: Award },
+  { key: 'data_renovacao', label: 'Renovação', icon: RefreshCw },
+] as const;
+
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   em_andamento: { label: 'Em Andamento', variant: 'default' },
   aguardando_documentos: { label: 'Aguardando Documentos', variant: 'secondary' },
@@ -111,6 +159,7 @@ export default function ProcessoDetalhe() {
   const [events, setEvents] = useState<ProcessEvent[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [rpiEntries, setRpiEntries] = useState<RpiEntry[]>([]);
+  const [publicacoes, setPublicacoes] = useState<PublicacaoMarca[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
@@ -163,8 +212,8 @@ export default function ProcessoDetalhe() {
 
       setProcess(processData);
 
-      // Fetch events, documents, and RPI entries in parallel
-      const [eventsResult, documentsResult, rpiResult] = await Promise.all([
+      // Fetch events, documents, RPI entries, and publicacoes in parallel
+      const [eventsResult, documentsResult, rpiResult, pubResult] = await Promise.all([
         supabase
           .from('process_events')
           .select('*')
@@ -179,12 +228,38 @@ export default function ProcessoDetalhe() {
           .from('rpi_entries')
           .select('*, rpi_uploads(rpi_number, rpi_date)')
           .eq('matched_process_id', id)
-          .order('publication_date', { ascending: false })
+          .order('publication_date', { ascending: false }),
+        supabase
+          .from('publicacoes_marcas')
+          .select('*')
+          .eq('process_id', id)
+          .eq('client_id', user.id)
+          .order('created_at', { ascending: false })
       ]);
 
       if (eventsResult.data) setEvents(eventsResult.data);
-      if (documentsResult.data) setDocuments(documentsResult.data);
       if (rpiResult.data) setRpiEntries(rpiResult.data as RpiEntry[]);
+      if (pubResult.data) setPublicacoes(pubResult.data as PublicacaoMarca[]);
+
+      // Merge documents: regular docs + publication RPI docs
+      const regularDocs = documentsResult.data || [];
+      const pubDocs: Document[] = (pubResult.data || [])
+        .filter((p: any) => p.documento_rpi_url)
+        .map((p: any) => ({
+          id: `pub-doc-${p.id}`,
+          name: `Documento RPI ${p.rpi_number || ''} - ${p.brand_name_rpi || 'Publicação'}`.trim(),
+          file_url: p.documento_rpi_url!,
+          document_type: 'Publicação RPI',
+          mime_type: 'application/pdf',
+          file_size: null,
+          created_at: p.data_publicacao_rpi || p.created_at,
+          contract_id: null,
+        }));
+      
+      // Deduplicate by URL
+      const existingUrls = new Set(regularDocs.map((d: any) => d.file_url));
+      const uniquePubDocs = pubDocs.filter(d => !existingUrls.has(d.file_url));
+      setDocuments([...regularDocs, ...uniquePubDocs]);
 
     } catch (error) {
       console.error('Error fetching process data:', error);
@@ -522,17 +597,107 @@ export default function ProcessoDetalhe() {
           </TabsContent>
 
           {/* Publications Tab */}
-          <TabsContent value="publications" className="mt-4">
+          <TabsContent value="publications" className="mt-4 space-y-4">
+            {/* Publicacoes Marcas Summary Cards */}
+            {publicacoes.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Newspaper className="h-5 w-5 text-primary" />
+                    Situação Atual da Publicação
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {publicacoes.map(pub => {
+                    const stCfg = PUB_STATUS_CONFIG[pub.status] || PUB_STATUS_CONFIG.depositada;
+                    const days = pub.proximo_prazo_critico ? differenceInDays(parseISO(pub.proximo_prazo_critico), new Date()) : null;
+
+                    return (
+                      <div key={pub.id} className="border rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <p className="font-bold">{pub.brand_name_rpi || process?.brand_name || 'Marca'}</p>
+                            <p className="text-xs text-muted-foreground">{pub.process_number_rpi || process?.process_number || ''}</p>
+                          </div>
+                          <span className={cn('text-xs font-semibold px-3 py-1 rounded-full', stCfg.bg, stCfg.color)}>
+                            {stCfg.label}
+                          </span>
+                        </div>
+
+                        {/* Deadline info */}
+                        {days !== null && (
+                          <div className={cn('flex items-center gap-2 text-sm',
+                            days < 0 ? 'text-destructive' : days <= 7 ? 'text-amber-600' : 'text-muted-foreground'
+                          )}>
+                            {days < 0 ? <AlertTriangle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                            {days < 0 ? `Prazo atrasado por ${Math.abs(days)} dias` : `Próximo prazo em ${days} dias`}
+                            {pub.descricao_prazo && <span className="text-xs">({pub.descricao_prazo})</span>}
+                          </div>
+                        )}
+
+                        {/* Mini timeline */}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {PUB_TIMELINE_STEPS.map((step, i) => {
+                            const date = (pub as any)[step.key] as string | null;
+                            const completed = !!date && isBefore(parseISO(date), new Date());
+                            const Icon = step.icon;
+                            return (
+                              <div key={step.key} className="flex items-center">
+                                <div
+                                  className={cn(
+                                    'w-7 h-7 rounded-full flex items-center justify-center border',
+                                    completed
+                                      ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-500 text-emerald-600'
+                                      : 'bg-muted border-border text-muted-foreground'
+                                  )}
+                                  title={`${step.label}${date ? `: ${format(parseISO(date), 'dd/MM/yyyy', { locale: ptBR })}` : ''}`}
+                                >
+                                  {completed ? <CheckCircle2 className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
+                                </div>
+                                {i < PUB_TIMELINE_STEPS.length - 1 && (
+                                  <div className={cn('w-4 h-0.5', completed ? 'bg-emerald-500' : 'bg-border')} />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* RPI info + document download */}
+                        <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+                          {pub.rpi_number && <span>RPI: {pub.rpi_number}</span>}
+                          {pub.rpi_link && (
+                            <a href={pub.rpi_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                              <ExternalLink className="w-3 h-3" /> Ver RPI oficial
+                            </a>
+                          )}
+                          {pub.documento_rpi_url && (
+                            <a href={pub.documento_rpi_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                              <Download className="w-3 h-3" /> Documento RPI
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* RPI Entries Table */}
             <Card>
               <CardHeader>
-                <CardTitle>Publicações na Revista INPI</CardTitle>
+                <CardTitle>Despachos na Revista INPI</CardTitle>
                 <CardDescription>Despachos publicados nas edições da RPI</CardDescription>
               </CardHeader>
               <CardContent>
-                {rpiEntries.length === 0 ? (
+                {rpiEntries.length === 0 && publicacoes.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Newspaper className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Nenhuma publicação encontrada para este processo</p>
+                  </div>
+                ) : rpiEntries.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    <p>Nenhum despacho RPI vinculado diretamente</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
