@@ -1,8 +1,8 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { format, differenceInDays, addDays, addYears, isAfter, isBefore, parseISO } from 'date-fns';
+import { format, differenceInDays, addDays, addYears, isAfter, isBefore, parseISO, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,18 +10,21 @@ import {
   Newspaper, Search, Filter, Download, Plus, ChevronRight, Clock, AlertTriangle,
   CheckCircle2, Circle, Calendar, Edit3, MessageSquare, Bell, Upload, X,
   FileText, Eye, ArrowRight, RotateCcw, Shield, Gavel, Award, RefreshCw,
+  ExternalLink, Trash2, Users, Zap, BellRing, Hash, Paperclip,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
+import { StatsCard } from '@/components/admin/dashboard/StatsCard';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type PubStatus = 'depositada' | 'publicada' | 'oposicao' | 'deferida' | 'indeferida' | 'arquivada' | 'renovacao_pendente';
@@ -114,6 +117,15 @@ function calcAutoFields(pub: Partial<Publicacao>): Partial<Publicacao> {
   return out;
 }
 
+function getScheduledAlerts(prazoCritico: string | null): { label: string; date: Date; days: number }[] {
+  if (!prazoCritico) return [];
+  const prazoDate = parseISO(prazoCritico);
+  return [30, 15, 7].map(d => {
+    const alertDate = subDays(prazoDate, d);
+    return { label: `${d} dias antes`, date: alertDate, days: differenceInDays(alertDate, new Date()) };
+  }).filter(a => a.days >= 0);
+}
+
 // ─── Timeline step component ────────────────────────────────────────────────
 const TIMELINE_STEPS = [
   { key: 'data_deposito', label: 'Depósito', icon: FileText, description: 'Pedido protocolado no INPI' },
@@ -164,7 +176,7 @@ function TimelineStep({ step, date, isCompleted, isOverdue }: {
   );
 }
 
-// ─── Main Component (no AdminLayout wrapper) ─────────────────────────────────
+// ─── Main Component ─────────────────────────────────────────────────────────
 export default function PublicacaoTab() {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -175,8 +187,18 @@ export default function PublicacaoTab() {
   const [filterTipo, setFilterTipo] = useState<string>('todos');
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [editData, setEditData] = useState<Partial<Publicacao>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ─── Create dialog state ────
+  const [createProcessId, setCreateProcessId] = useState('');
+  const [createDataDeposito, setCreateDataDeposito] = useState('');
+  const [createDataPubRpi, setCreateDataPubRpi] = useState('');
+  const [createTipo, setCreateTipo] = useState<PubTipo>('publicacao_rpi');
+  const [createAdminId, setCreateAdminId] = useState('');
+
+  // ─── Queries ────
   const { data: publicacoes = [], isLoading } = useQuery({
     queryKey: ['publicacoes-marcas'],
     queryFn: async () => {
@@ -227,6 +249,19 @@ export default function PublicacaoTab() {
     enabled: !!selectedId,
   });
 
+  // Fetch rpi_entries with matched_process_id for auto-populate (#8)
+  const { data: rpiEntries = [] } = useQuery({
+    queryKey: ['rpi-entries-matched'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('rpi_entries')
+        .select('id, matched_process_id, matched_client_id, publication_date, dispatch_code, dispatch_text, process_number, brand_name')
+        .not('matched_process_id', 'is', null);
+      if (error) return [];
+      return data || [];
+    },
+  });
+
   const currentUserQuery = useQuery({
     queryKey: ['current-user-pub'],
     queryFn: async () => {
@@ -236,6 +271,7 @@ export default function PublicacaoTab() {
     staleTime: 60000,
   });
 
+  // ─── Mutations ────
   const createMutation = useMutation({
     mutationFn: async (data: Partial<Publicacao>) => {
       const computed = calcAutoFields(data);
@@ -246,6 +282,7 @@ export default function PublicacaoTab() {
       queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
       toast.success('Publicação criada com sucesso');
       setShowCreate(false);
+      resetCreateForm();
     },
     onError: (e: any) => toast.error(e.message || 'Erro ao criar'),
   });
@@ -279,10 +316,56 @@ export default function PublicacaoTab() {
     onError: (e: any) => toast.error(e.message || 'Erro ao atualizar'),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Delete logs first
+      await supabase.from('publicacao_logs').delete().eq('publicacao_id', id);
+      const { error } = await supabase.from('publicacoes_marcas').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
+      toast.success('Publicação excluída');
+      setSelectedId(null);
+      setShowDelete(false);
+    },
+    onError: (e: any) => toast.error(e.message || 'Erro ao excluir'),
+  });
+
+  // ─── Maps ────
   const clientMap = useMemo(() => new Map(clients.map(c => [c.id, c])), [clients]);
   const processMap = useMemo(() => new Map(processes.map(p => [p.id, p])), [processes]);
   const adminMap = useMemo(() => new Map(admins.map(a => [a.id, a])), [admins]);
 
+  // ─── KPI Stats (#1) ────
+  const kpiStats = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const total = publicacoes.length;
+    const urgentes = publicacoes.filter(p => {
+      const d = getDaysLeft(p.proximo_prazo_critico);
+      return d !== null && d >= 0 && d <= 7;
+    }).length;
+    const atrasados = publicacoes.filter(p => {
+      const d = getDaysLeft(p.proximo_prazo_critico);
+      return d !== null && d < 0;
+    }).length;
+    const deferidosMes = publicacoes.filter(p =>
+      p.status === 'deferida' && p.data_decisao && isAfter(parseISO(p.data_decisao), startOfMonth)
+    ).length;
+    return { total, urgentes, atrasados, deferidosMes };
+  }, [publicacoes]);
+
+  // ─── Status counts for sidebar (#13) ────
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    publicacoes.forEach(p => {
+      counts[p.status] = (counts[p.status] || 0) + 1;
+    });
+    return counts;
+  }, [publicacoes]);
+
+  // ─── Filtering ────
   const filtered = useMemo(() => {
     return publicacoes.filter(pub => {
       const proc = processMap.get(pub.process_id);
@@ -311,6 +394,7 @@ export default function PublicacaoTab() {
 
   const selected = useMemo(() => publicacoes.find(p => p.id === selectedId) || null, [publicacoes, selectedId]);
 
+  // ─── Alert toast on mount (#existing) ────
   useEffect(() => {
     const urgentes = publicacoes.filter(p => {
       const d = getDaysLeft(p.proximo_prazo_critico);
@@ -321,14 +405,17 @@ export default function PublicacaoTab() {
     }
   }, [publicacoes.length]);
 
+  // ─── CSV Export ────
   const exportCSV = useCallback(() => {
     const rows = filtered.map(pub => {
       const proc = processMap.get(pub.process_id);
       const client = clientMap.get(pub.client_id);
+      const admin = pub.admin_id ? adminMap.get(pub.admin_id) : null;
       return {
         Cliente: client?.full_name || '',
         Marca: proc?.brand_name || '',
         'N. Processo': proc?.process_number || '',
+        Responsável: admin?.full_name || '',
         Status: STATUS_CONFIG[pub.status as PubStatus]?.label || pub.status,
         'Data Depósito': pub.data_deposito || '',
         'Data Publicação RPI': pub.data_publicacao_rpi || '',
@@ -339,7 +426,8 @@ export default function PublicacaoTab() {
         'Próximo Prazo': pub.proximo_prazo_critico || '',
       };
     });
-    const headers = Object.keys(rows[0] || {});
+    if (rows.length === 0) return;
+    const headers = Object.keys(rows[0]);
     const csv = [headers.join(','), ...rows.map(r => headers.map(h => `"${(r as any)[h]}"`).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -349,27 +437,210 @@ export default function PublicacaoTab() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success('CSV exportado');
-  }, [filtered, processMap, clientMap]);
+  }, [filtered, processMap, clientMap, adminMap]);
 
-  const [createProcessId, setCreateProcessId] = useState('');
+  // ─── Create helpers ────
+  const linkedProcessIds = useMemo(() => new Set(publicacoes.map(p => p.process_id)), [publicacoes]);
+
+  const resetCreateForm = () => {
+    setCreateProcessId('');
+    setCreateDataDeposito('');
+    setCreateDataPubRpi('');
+    setCreateTipo('publicacao_rpi');
+    setCreateAdminId('');
+  };
+
+  // Pre-fill deposit date when process is selected (#6)
+  useEffect(() => {
+    if (createProcessId) {
+      const proc = processMap.get(createProcessId);
+      if (proc?.deposit_date) setCreateDataDeposito(proc.deposit_date);
+    }
+  }, [createProcessId, processMap]);
+
   const handleCreate = () => {
     const proc = processMap.get(createProcessId);
     if (!proc) { toast.error('Selecione um processo'); return; }
     createMutation.mutate({
       process_id: createProcessId,
       client_id: proc.user_id!,
-      admin_id: currentUserQuery.data?.id,
+      admin_id: createAdminId || currentUserQuery.data?.id || null,
       status: 'depositada',
-      tipo_publicacao: 'publicacao_rpi',
-      data_deposito: proc.deposit_date || null,
+      tipo_publicacao: createTipo,
+      data_deposito: createDataDeposito || proc.deposit_date || null,
+      data_publicacao_rpi: createDataPubRpi || null,
     });
   };
 
-  const linkedProcessIds = useMemo(() => new Set(publicacoes.map(p => p.process_id)), [publicacoes]);
+  // ─── Real notification insert (#2 + #9) ────
+  const handleGenerateReminder = async (pub: Publicacao) => {
+    const proc = processMap.get(pub.process_id);
+    const brandName = proc?.brand_name || 'Marca';
+    const prazoStr = pub.proximo_prazo_critico ? format(parseISO(pub.proximo_prazo_critico), 'dd/MM/yyyy') : 'N/A';
+    const user = currentUserQuery.data;
+
+    const notifications: any[] = [];
+
+    // Notification for admin
+    if (user?.id) {
+      notifications.push({
+        user_id: user.id,
+        title: `🔔 Prazo crítico: ${brandName}`,
+        message: `O processo "${brandName}" tem prazo crítico em ${prazoStr}. Verifique a aba Publicações.`,
+        type: 'warning',
+        link: '/admin/revista-inpi',
+      });
+    }
+
+    // Notification for client
+    if (pub.client_id) {
+      notifications.push({
+        user_id: pub.client_id,
+        title: `📋 Atualização do processo: ${brandName}`,
+        message: `Seu processo "${brandName}" possui um prazo importante em ${prazoStr}.`,
+        type: 'info',
+        link: '/cliente/processos',
+      });
+    }
+
+    // Scheduled alerts: 30d, 15d, 7d before (#9)
+    const alerts = getScheduledAlerts(pub.proximo_prazo_critico);
+    alerts.forEach(alert => {
+      if (user?.id) {
+        notifications.push({
+          user_id: user.id,
+          title: `⏰ Alerta ${alert.label}: ${brandName}`,
+          message: `O prazo de "${brandName}" vence em ${prazoStr}. Alerta programado para ${format(alert.date, 'dd/MM/yyyy')}.`,
+          type: 'warning',
+          link: '/admin/revista-inpi',
+        });
+      }
+    });
+
+    if (notifications.length > 0) {
+      const { error } = await supabase.from('notifications').insert(notifications);
+      if (error) {
+        toast.error('Erro ao gerar lembrete');
+        return;
+      }
+    }
+    toast.success(`🔔 ${notifications.length} lembrete(s) gerado(s) para "${brandName}"`);
+  };
+
+  // ─── Upload document (#3) ────
+  const handleUploadDocument = async (file: File) => {
+    if (!selected) return;
+    const ext = file.name.split('.').pop();
+    const path = `publicacoes/${selected.id}/${Date.now()}.${ext}`;
+
+    const { error: uploadErr } = await supabase.storage.from('documents').upload(path, file);
+    if (uploadErr) { toast.error('Erro no upload'); return; }
+
+    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
+    const publicUrl = urlData.publicUrl;
+
+    const { error: updateErr } = await supabase
+      .from('publicacoes_marcas')
+      .update({ documento_rpi_url: publicUrl } as any)
+      .eq('id', selected.id);
+    if (updateErr) { toast.error('Erro ao vincular documento'); return; }
+
+    queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
+    toast.success('Documento RPI enviado');
+  };
+
+  // ─── Auto-populate from RPI entry (#8) ────
+  const handleAutoPopulateFromRPI = (entry: any) => {
+    if (linkedProcessIds.has(entry.matched_process_id)) {
+      toast.error('Este processo já possui uma publicação vinculada');
+      return;
+    }
+    const proc = processMap.get(entry.matched_process_id);
+    if (!proc) return;
+
+    createMutation.mutate({
+      process_id: entry.matched_process_id,
+      client_id: entry.matched_client_id || proc.user_id!,
+      admin_id: currentUserQuery.data?.id || null,
+      status: 'publicada',
+      tipo_publicacao: 'publicacao_rpi',
+      data_deposito: proc.deposit_date || null,
+      data_publicacao_rpi: entry.publication_date || null,
+      rpi_number: entry.dispatch_code || null,
+      descricao_prazo: entry.dispatch_text || null,
+    });
+  };
+
+  // Available RPI entries that can auto-populate
+  const availableRpiEntries = useMemo(() => {
+    return rpiEntries.filter(e => e.matched_process_id && !linkedProcessIds.has(e.matched_process_id));
+  }, [rpiEntries, linkedProcessIds]);
 
   return (
     <>
-      <div className="flex flex-col lg:flex-row gap-4 min-h-[calc(100vh-280px)]">
+      {/* ─── KPI DASHBOARD (#1) ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <StatsCard
+          title="Total de Processos"
+          value={kpiStats.total}
+          icon={Newspaper}
+          gradient="from-blue-500 to-cyan-500"
+          index={0}
+        />
+        <StatsCard
+          title="Prazos Urgentes (< 7d)"
+          value={kpiStats.urgentes}
+          icon={AlertTriangle}
+          gradient="from-amber-500 to-orange-500"
+          index={1}
+        />
+        <StatsCard
+          title="Atrasados"
+          value={kpiStats.atrasados}
+          icon={Clock}
+          gradient="from-red-500 to-rose-500"
+          index={2}
+        />
+        <StatsCard
+          title="Deferidos este mês"
+          value={kpiStats.deferidosMes}
+          icon={CheckCircle2}
+          gradient="from-emerald-500 to-green-500"
+          index={3}
+        />
+      </div>
+
+      {/* ─── Auto-populate banner (#8) ─── */}
+      {availableRpiEntries.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 p-3 rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-900/20"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <Zap className="w-4 h-4 text-amber-600" />
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+              {availableRpiEntries.length} entrada(s) da RPI prontas para importar
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {availableRpiEntries.slice(0, 5).map(entry => (
+              <Button
+                key={entry.id}
+                size="sm"
+                variant="outline"
+                className="text-xs border-amber-400 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                onClick={() => handleAutoPopulateFromRPI(entry)}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                {entry.brand_name || entry.process_number || 'Importar'}
+              </Button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      <div className="flex flex-col lg:flex-row gap-4 min-h-[calc(100vh-380px)]">
         {/* ─── SIDEBAR FILTROS ─── */}
         <Card className="lg:w-64 xl:w-72 flex-shrink-0">
           <CardHeader className="pb-3">
@@ -397,8 +668,13 @@ export default function PublicacaoTab() {
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  {Object.entries(STATUS_CONFIG).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+                  <SelectItem value="todos">Todos ({publicacoes.length})</SelectItem>
+                  {/* #13 - Status counts */}
+                  {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>
+                      {v.label} ({statusCounts[k] || 0})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -432,7 +708,7 @@ export default function PublicacaoTab() {
             <Button variant="outline" size="sm" className="w-full text-xs" onClick={exportCSV} disabled={filtered.length === 0}>
               <Download className="w-3 h-3 mr-1" /> Exportar CSV
             </Button>
-            <Button size="sm" className="w-full text-xs" onClick={() => setShowCreate(true)}>
+            <Button size="sm" className="w-full text-xs" onClick={() => { resetCreateForm(); setShowCreate(true); }}>
               <Plus className="w-3 h-3 mr-1" /> Nova Publicação
             </Button>
           </CardContent>
@@ -448,7 +724,7 @@ export default function PublicacaoTab() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[calc(100vh-340px)]">
+            <ScrollArea className="h-[calc(100vh-440px)]">
               {isLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -468,6 +744,8 @@ export default function PublicacaoTab() {
                       <TableHead className="text-xs hidden lg:table-cell">Pub. RPI</TableHead>
                       <TableHead className="text-xs">Prazo</TableHead>
                       <TableHead className="text-xs">Status</TableHead>
+                      {/* #10 - Responsável column */}
+                      <TableHead className="text-xs hidden xl:table-cell">Responsável</TableHead>
                       <TableHead className="text-xs w-10" />
                     </TableRow>
                   </TableHeader>
@@ -475,6 +753,7 @@ export default function PublicacaoTab() {
                     {filtered.map(pub => {
                       const proc = processMap.get(pub.process_id);
                       const client = clientMap.get(pub.client_id);
+                      const admin = pub.admin_id ? adminMap.get(pub.admin_id) : null;
                       const days = getDaysLeft(pub.proximo_prazo_critico);
                       const urgency = getUrgencyBadge(days);
                       const stCfg = STATUS_CONFIG[pub.status as PubStatus] || STATUS_CONFIG.depositada;
@@ -500,6 +779,10 @@ export default function PublicacaoTab() {
                             <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', stCfg.bg, stCfg.color)}>
                               {stCfg.label}
                             </span>
+                          </TableCell>
+                          {/* #10 */}
+                          <TableCell className="text-xs text-muted-foreground hidden xl:table-cell truncate max-w-[100px]">
+                            {admin?.full_name || '—'}
                           </TableCell>
                           <TableCell>
                             <ChevronRight className={cn('w-4 h-4 text-muted-foreground transition-transform', isSelected && 'rotate-90')} />
@@ -537,10 +820,34 @@ export default function PublicacaoTab() {
                     <p className="text-xs text-muted-foreground">
                       {processMap.get(selected.process_id)?.process_number || 'Sem número'} · {clientMap.get(selected.client_id)?.full_name || '—'}
                     </p>
+                    {/* #5 - Show responsible admin */}
+                    {selected.admin_id && adminMap.get(selected.admin_id) && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <Users className="w-3 h-3" /> Resp: {adminMap.get(selected.admin_id)?.full_name}
+                      </p>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="h-[calc(100vh-420px)]">
+                  <ScrollArea className="h-[calc(100vh-520px)]">
+                    {/* #12 - RPI Number & Document indicator */}
+                    {(selected.rpi_number || selected.documento_rpi_url) && (
+                      <div className="mb-4 p-2 rounded-lg bg-muted/50 space-y-1">
+                        {selected.rpi_number && (
+                          <p className="text-xs flex items-center gap-1.5">
+                            <Hash className="w-3 h-3 text-primary" />
+                            <span className="font-medium">RPI N°:</span> {selected.rpi_number}
+                          </p>
+                        )}
+                        {selected.documento_rpi_url && (
+                          <a href={selected.documento_rpi_url} target="_blank" rel="noopener noreferrer"
+                            className="text-xs flex items-center gap-1.5 text-primary hover:underline">
+                            <Paperclip className="w-3 h-3" /> Documento RPI anexado
+                          </a>
+                        )}
+                      </div>
+                    )}
+
                     {/* Timeline */}
                     <div className="mb-4">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Timeline</p>
@@ -554,17 +861,60 @@ export default function PublicacaoTab() {
 
                     <Separator className="my-4" />
 
+                    {/* #9 - Scheduled Alerts */}
+                    {selected.proximo_prazo_critico && getScheduledAlerts(selected.proximo_prazo_critico).length > 0 && (
+                      <>
+                        <div className="mb-4">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <BellRing className="w-3 h-3" /> Alertas Programados
+                          </p>
+                          <div className="space-y-1">
+                            {getScheduledAlerts(selected.proximo_prazo_critico).map((alert, i) => (
+                              <div key={i} className="text-[10px] flex items-center gap-2 p-1.5 rounded bg-muted/50">
+                                <Bell className="w-3 h-3 text-amber-500" />
+                                <span>{alert.label}</span>
+                                <span className="text-muted-foreground ml-auto">{format(alert.date, 'dd/MM/yyyy')}</span>
+                                <span className="text-muted-foreground">(em {alert.days}d)</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <Separator className="my-4" />
+                      </>
+                    )}
+
                     {/* Actions */}
                     <div className="space-y-2">
                       <Button size="sm" variant="outline" className="w-full text-xs justify-start" onClick={() => { setEditData(selected); setShowEdit(true); }}>
                         <Edit3 className="w-3 h-3 mr-2" /> Editar Datas e Status
                       </Button>
-                      <Button size="sm" variant="outline" className="w-full text-xs justify-start" onClick={() => {
-                        const proc = processMap.get(selected.process_id);
-                        toast.success(`🔔 Lembrete gerado para "${proc?.brand_name}" — prazo: ${selected.proximo_prazo_critico || 'N/A'}`);
-                      }}>
+                      {/* #2 - Real notification */}
+                      <Button size="sm" variant="outline" className="w-full text-xs justify-start" onClick={() => handleGenerateReminder(selected)}>
                         <Bell className="w-3 h-3 mr-2" /> Gerar Lembrete
                       </Button>
+                      {/* #4 - RPI official link */}
+                      {selected.rpi_link && (
+                        <Button size="sm" variant="outline" className="w-full text-xs justify-start" asChild>
+                          <a href={selected.rpi_link} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="w-3 h-3 mr-2" /> Abrir RPI Oficial
+                          </a>
+                        </Button>
+                      )}
+                      {/* #3 - Upload document */}
+                      <Button size="sm" variant="outline" className="w-full text-xs justify-start" onClick={() => fileInputRef.current?.click()}>
+                        <Upload className="w-3 h-3 mr-2" /> Upload Documento RPI
+                      </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleUploadDocument(file);
+                          e.target.value = '';
+                        }}
+                      />
                       {!selected.oposicao_protocolada && selected.status === 'oposicao' && (
                         <Button size="sm" variant="outline" className="w-full text-xs justify-start" onClick={() => {
                           updateMutation.mutate({
@@ -576,6 +926,10 @@ export default function PublicacaoTab() {
                           <Gavel className="w-3 h-3 mr-2" /> Marcar Oposição Protocolada
                         </Button>
                       )}
+                      {/* #7 - Delete */}
+                      <Button size="sm" variant="outline" className="w-full text-xs justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => setShowDelete(true)}>
+                        <Trash2 className="w-3 h-3 mr-2" /> Excluir Publicação
+                      </Button>
                     </div>
 
                     {/* Comentários */}
@@ -620,13 +974,16 @@ export default function PublicacaoTab() {
         </AnimatePresence>
       </div>
 
-      {/* ─── CREATE DIALOG ─── */}
+      {/* ─── CREATE DIALOG (#6 - Enhanced) ─── */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Nova Publicação</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Nova Publicação</DialogTitle>
+            <DialogDescription>Vincule um processo existente e preencha os dados iniciais.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Processo (marca)</Label>
+              <Label className="text-xs">Processo (marca)</Label>
               <Select value={createProcessId} onValueChange={setCreateProcessId}>
                 <SelectTrigger><SelectValue placeholder="Selecione um processo" /></SelectTrigger>
                 <SelectContent>
@@ -635,6 +992,36 @@ export default function PublicacaoTab() {
                       {p.brand_name} {p.process_number ? `(${p.process_number})` : ''} — {clientMap.get(p.user_id!)?.full_name || 'Sem cliente'}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Data de Depósito</Label>
+              <Input type="date" value={createDataDeposito} onChange={e => setCreateDataDeposito(e.target.value)} className="h-9" />
+            </div>
+            <div>
+              <Label className="text-xs">Data Publicação RPI (opcional)</Label>
+              <Input type="date" value={createDataPubRpi} onChange={e => setCreateDataPubRpi(e.target.value)} className="h-9" />
+              {createDataPubRpi && (
+                <p className="text-[10px] text-muted-foreground mt-1">Prazo oposição auto: {format(addDays(parseISO(createDataPubRpi), 60), 'dd/MM/yyyy')}</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs">Tipo de Publicação</Label>
+              <Select value={createTipo} onValueChange={v => setCreateTipo(v as PubTipo)}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TIPO_CONFIG).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* #5 - Admin responsible */}
+            <div>
+              <Label className="text-xs">Admin Responsável</Label>
+              <Select value={createAdminId} onValueChange={setCreateAdminId}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                <SelectContent>
+                  {admins.map(a => <SelectItem key={a.id} value={a.id}>{a.full_name || a.email}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -648,10 +1035,12 @@ export default function PublicacaoTab() {
         </DialogContent>
       </Dialog>
 
-      {/* ─── EDIT DIALOG ─── */}
+      {/* ─── EDIT DIALOG (#14 - tipo_publicacao + #5 admin) ─── */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Editar Publicação</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Editar Publicação</DialogTitle>
+          </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-3 pr-4">
               <div>
@@ -660,6 +1049,26 @@ export default function PublicacaoTab() {
                   <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(STATUS_CONFIG).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* #14 - tipo_publicacao */}
+              <div>
+                <Label className="text-xs">Tipo de Publicação</Label>
+                <Select value={editData.tipo_publicacao || ''} onValueChange={v => setEditData(d => ({ ...d, tipo_publicacao: v as PubTipo }))}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(TIPO_CONFIG).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* #5 - Admin responsible in edit */}
+              <div>
+                <Label className="text-xs">Admin Responsável</Label>
+                <Select value={editData.admin_id || ''} onValueChange={v => setEditData(d => ({ ...d, admin_id: v }))}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {admins.map(a => <SelectItem key={a.id} value={a.id}>{a.full_name || a.email}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -714,6 +1123,28 @@ export default function PublicacaoTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ─── DELETE CONFIRMATION (#7) ─── */}
+      <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Publicação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta publicação? Esta ação não pode ser desfeita.
+              Todos os logs de auditoria associados também serão removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => selected && deleteMutation.mutate(selected.id)}
+            >
+              {deleteMutation.isPending ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
