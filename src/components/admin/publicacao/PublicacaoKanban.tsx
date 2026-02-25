@@ -57,7 +57,7 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
   }, [columns]);
 
   return (
-    <div className="flex gap-2.5 overflow-x-auto pb-4 px-1">
+    <div className="flex gap-2.5 overflow-x-auto pb-2 px-1 h-[calc(100vh-350px)]">
       {visibleColumns.map(([status, cfg]) => {
         const items = columns[status];
         const overdueCount = items.filter(p => {
@@ -88,7 +88,7 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
             </div>
 
             {/* Cards */}
-            <ScrollArea className="h-[calc(100vh-480px)] mt-2">
+            <ScrollArea className="flex-1 mt-2">
               <div className="space-y-1.5 pr-1">
                 {items.map(pub => {
                   const proc = pub.process_id ? processMap.get(pub.process_id) : null;

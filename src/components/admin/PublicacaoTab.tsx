@@ -946,7 +946,7 @@ export default function PublicacaoTab() {
         />
       </AnimatePresence>
 
-      <div className="flex flex-col lg:flex-row gap-4 min-h-[calc(100vh-380px)]">
+      <div className="flex flex-col lg:flex-row gap-4 flex-1">
         {/* ─── SIDEBAR FILTROS ─── */}
         <Card className="lg:w-64 xl:w-72 flex-shrink-0">
           <CardHeader className="pb-3">
