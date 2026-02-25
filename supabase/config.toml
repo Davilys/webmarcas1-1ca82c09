@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.recalculate-upsell-weights]
 verify_jwt = false
+
+[functions.check-rpi-reminders]
+verify_jwt = false

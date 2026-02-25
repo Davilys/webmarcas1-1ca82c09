@@ -2198,6 +2198,8 @@ export type Database = {
           dispatch_type: string | null
           holder_name: string | null
           id: string
+          last_reminder_sent_at: string | null
+          linked_at: string | null
           matched_client_id: string | null
           matched_process_id: string | null
           ncl_classes: string[] | null
@@ -2218,6 +2220,8 @@ export type Database = {
           dispatch_type?: string | null
           holder_name?: string | null
           id?: string
+          last_reminder_sent_at?: string | null
+          linked_at?: string | null
           matched_client_id?: string | null
           matched_process_id?: string | null
           ncl_classes?: string[] | null
@@ -2238,6 +2242,8 @@ export type Database = {
           dispatch_type?: string | null
           holder_name?: string | null
           id?: string
+          last_reminder_sent_at?: string | null
+          linked_at?: string | null
           matched_client_id?: string | null
           matched_process_id?: string | null
           ncl_classes?: string[] | null

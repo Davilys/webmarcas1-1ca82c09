@@ -19,7 +19,7 @@ import {
   Calendar, Loader2, BookOpen, Filter, Download, Eye, ArrowRight, Clock,
   Building2, Cloud, CloudDownload, Globe, Sparkles, Zap, UserPlus,
   AlertTriangle, BarChart3, TrendingUp, Shield, Activity, Newspaper,
-  ExternalLink, Hash, Layers, Radio, Database, Wifi,
+  ExternalLink, Hash, Layers, Radio, Database, Wifi, Pencil, Save, X,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -183,6 +183,9 @@ export default function RevistaINPI() {
   const [assigning, setAssigning] = useState(false);
   const [updatingTag, setUpdatingTag] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('fetch');
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ brand_name: '', process_number: '', ncl_classes: '', holder_name: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     fetchUploads();
@@ -377,7 +380,7 @@ export default function RevistaINPI() {
     try {
       const deadlineDate = new Date();
       deadlineDate.setDate(deadlineDate.getDate() + 60);
-      const { error: entryError } = await supabase.from('rpi_entries').update({ matched_client_id: selectedClient.id, update_status: 'pending', updated_at: new Date().toISOString() }).eq('id', assignEntry.id);
+      const { error: entryError } = await supabase.from('rpi_entries').update({ matched_client_id: selectedClient.id, update_status: 'pending', updated_at: new Date().toISOString(), linked_at: new Date().toISOString() }).eq('id', assignEntry.id);
       if (entryError) throw entryError;
       await supabase.from('notifications').insert({ user_id: selectedClient.id, title: assignPriority === 'urgent' ? '🚨 URGENTE: Nova Publicação INPI' : 'Nova Publicação INPI', message: `Uma publicação referente ao processo ${assignEntry.process_number} (${assignEntry.brand_name || 'Marca'}) foi vinculada ao seu perfil. Prazo: 60 dias.`, type: assignPriority === 'urgent' ? 'warning' : 'info', link: '/cliente/processos' });
       const { data: { user } } = await supabase.auth.getUser();
@@ -812,14 +815,93 @@ export default function RevistaINPI() {
                                           <h4 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
                                             <FileText className="h-3.5 w-3.5" />
                                             Dados do Processo
+                                            {editingEntryId !== entry.id && (
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-6 w-6 p-0 ml-auto"
+                                                onClick={() => {
+                                                  setEditingEntryId(entry.id);
+                                                  setEditForm({
+                                                    brand_name: entry.brand_name || '',
+                                                    process_number: entry.process_number || '',
+                                                    ncl_classes: entry.ncl_classes?.join(', ') || '',
+                                                    holder_name: entry.holder_name || '',
+                                                  });
+                                                }}
+                                              >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
                                           </h4>
                                           <div className="space-y-2.5 bg-card rounded-xl p-4 border border-border/50">
-                                            <DetailRow label="Nº Processo" value={entry.process_number} mono />
-                                            <DetailRow label="Marca" value={entry.brand_name || '—'} />
-                                            <DetailRow label="Classe NCL" value={entry.ncl_classes?.join(', ') || '—'} />
-                                            <DetailRow label="Titular" value={entry.holder_name || '—'} />
-                                            {entry.publication_date && (
-                                              <DetailRow label="Publicação" value={format(new Date(entry.publication_date), "dd/MM/yyyy", { locale: ptBR })} />
+                                            {editingEntryId === entry.id ? (
+                                              <>
+                                                <div className="space-y-1.5">
+                                                  <label className="text-[11px] text-muted-foreground">Nº Processo</label>
+                                                  <Input value={editForm.process_number} onChange={e => setEditForm(f => ({ ...f, process_number: e.target.value }))} className="h-8 text-xs font-mono" />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                  <label className="text-[11px] text-muted-foreground">Marca</label>
+                                                  <Input value={editForm.brand_name} onChange={e => setEditForm(f => ({ ...f, brand_name: e.target.value }))} className="h-8 text-xs" />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                  <label className="text-[11px] text-muted-foreground">Classe NCL (separar por vírgula)</label>
+                                                  <Input value={editForm.ncl_classes} onChange={e => setEditForm(f => ({ ...f, ncl_classes: e.target.value }))} className="h-8 text-xs" placeholder="25, 35" />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                  <label className="text-[11px] text-muted-foreground">Titular</label>
+                                                  <Input value={editForm.holder_name} onChange={e => setEditForm(f => ({ ...f, holder_name: e.target.value }))} className="h-8 text-xs" />
+                                                </div>
+                                                <div className="flex gap-2 pt-2">
+                                                  <Button
+                                                    size="sm"
+                                                    className="gap-1.5 h-8 text-xs rounded-lg flex-1"
+                                                    disabled={savingEdit}
+                                                    onClick={async () => {
+                                                      setSavingEdit(true);
+                                                      try {
+                                                        const nclArray = editForm.ncl_classes.split(',').map(s => s.trim()).filter(Boolean);
+                                                        const { error } = await supabase.from('rpi_entries').update({
+                                                          brand_name: editForm.brand_name || null,
+                                                          process_number: editForm.process_number,
+                                                          ncl_classes: nclArray.length > 0 ? nclArray : null,
+                                                          holder_name: editForm.holder_name || null,
+                                                          updated_at: new Date().toISOString(),
+                                                        }).eq('id', entry.id);
+                                                        if (error) throw error;
+                                                        toast.success('Dados atualizados!');
+                                                        setEditingEntryId(null);
+                                                        setEntries(prev => prev.map(e => e.id === entry.id ? {
+                                                          ...e,
+                                                          brand_name: editForm.brand_name || null,
+                                                          process_number: editForm.process_number,
+                                                          ncl_classes: nclArray.length > 0 ? nclArray : null,
+                                                          holder_name: editForm.holder_name || null,
+                                                        } : e));
+                                                      } catch (err) { toast.error('Erro ao salvar'); console.error(err); }
+                                                      finally { setSavingEdit(false); }
+                                                    }}
+                                                  >
+                                                    {savingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                                                    Salvar
+                                                  </Button>
+                                                  <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs rounded-lg" onClick={() => setEditingEntryId(null)}>
+                                                    <X className="h-3 w-3" />
+                                                    Cancelar
+                                                  </Button>
+                                                </div>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <DetailRow label="Nº Processo" value={entry.process_number} mono />
+                                                <DetailRow label="Marca" value={entry.brand_name || '—'} />
+                                                <DetailRow label="Classe NCL" value={entry.ncl_classes?.join(', ') || '—'} />
+                                                <DetailRow label="Titular" value={entry.holder_name || '—'} />
+                                                {entry.publication_date && (
+                                                  <DetailRow label="Publicação" value={format(new Date(entry.publication_date), "dd/MM/yyyy", { locale: ptBR })} />
+                                                )}
+                                              </>
                                             )}
                                           </div>
                                         </div>
