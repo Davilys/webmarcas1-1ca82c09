@@ -50,6 +50,7 @@ import AdminRevistaINPI from "./pages/admin/RevistaINPI";
 import AdminEmails from "./pages/admin/Emails";
 import AdminChatAoVivo from "./pages/admin/ChatAoVivo";
 import AdminPremiacao from "./pages/admin/Premiacao";
+import AdminPublicacao from "./pages/admin/Publicacao";
 
 // Initialize query client
 const queryClient = new QueryClient();
@@ -106,6 +107,7 @@ const App = () => (
               <Route path="/admin/emails" element={<AdminEmails />} />
               <Route path="/admin/chat-ao-vivo" element={<AdminChatAoVivo />} />
               <Route path="/admin/premiacao" element={<AdminPremiacao />} />
+              <Route path="/admin/publicacao" element={<AdminPublicacao />} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

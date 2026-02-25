@@ -27,6 +27,7 @@ import {
   Moon,
   Sun,
   ArrowLeft,
+  Newspaper,
 } from 'lucide-react';
 import logo from '@/assets/webmarcas-logo.png';
 import logoIcon from '@/assets/webmarcas-icon.png';
@@ -181,6 +182,15 @@ const menuItems: MenuItem[] = [
     iconColor: 'text-amber-500',
     iconBg: 'bg-amber-100 dark:bg-amber-900/30',
     permissionKey: 'awards'
+  },
+  { 
+    icon: Newspaper, 
+    label: 'Publicação', 
+    subtitle: 'Prazos e publicações',
+    href: '/admin/publicacao',
+    iconColor: 'text-rose-500',
+    iconBg: 'bg-rose-100 dark:bg-rose-900/30',
+    permissionKey: 'publications'
   },
   { 
     icon: Settings, 

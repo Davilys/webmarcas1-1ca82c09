@@ -2188,6 +2188,130 @@ export type Database = {
         }
         Relationships: []
       }
+      publicacao_logs: {
+        Row: {
+          admin_email: string | null
+          admin_id: string | null
+          campo_alterado: string
+          created_at: string
+          id: string
+          publicacao_id: string
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          admin_email?: string | null
+          admin_id?: string | null
+          campo_alterado: string
+          created_at?: string
+          id?: string
+          publicacao_id: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          admin_email?: string | null
+          admin_id?: string | null
+          campo_alterado?: string
+          created_at?: string
+          id?: string
+          publicacao_id?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publicacao_logs_publicacao_id_fkey"
+            columns: ["publicacao_id"]
+            isOneToOne: false
+            referencedRelation: "publicacoes_marcas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      publicacoes_marcas: {
+        Row: {
+          admin_id: string | null
+          client_id: string
+          comentarios_internos: string | null
+          created_at: string
+          data_certificado: string | null
+          data_decisao: string | null
+          data_deposito: string | null
+          data_publicacao_rpi: string | null
+          data_renovacao: string | null
+          descricao_prazo: string | null
+          documento_rpi_url: string | null
+          id: string
+          oposicao_data: string | null
+          oposicao_protocolada: boolean | null
+          prazo_oposicao: string | null
+          process_id: string
+          proximo_prazo_critico: string | null
+          rpi_link: string | null
+          rpi_number: string | null
+          status: string
+          tipo_publicacao: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_id?: string | null
+          client_id: string
+          comentarios_internos?: string | null
+          created_at?: string
+          data_certificado?: string | null
+          data_decisao?: string | null
+          data_deposito?: string | null
+          data_publicacao_rpi?: string | null
+          data_renovacao?: string | null
+          descricao_prazo?: string | null
+          documento_rpi_url?: string | null
+          id?: string
+          oposicao_data?: string | null
+          oposicao_protocolada?: boolean | null
+          prazo_oposicao?: string | null
+          process_id: string
+          proximo_prazo_critico?: string | null
+          rpi_link?: string | null
+          rpi_number?: string | null
+          status?: string
+          tipo_publicacao?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string | null
+          client_id?: string
+          comentarios_internos?: string | null
+          created_at?: string
+          data_certificado?: string | null
+          data_decisao?: string | null
+          data_deposito?: string | null
+          data_publicacao_rpi?: string | null
+          data_renovacao?: string | null
+          descricao_prazo?: string | null
+          documento_rpi_url?: string | null
+          id?: string
+          oposicao_data?: string | null
+          oposicao_protocolada?: boolean | null
+          prazo_oposicao?: string | null
+          process_id?: string
+          proximo_prazo_critico?: string | null
+          rpi_link?: string | null
+          rpi_number?: string | null
+          status?: string
+          tipo_publicacao?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "publicacoes_marcas_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: true
+            referencedRelation: "brand_processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rpi_entries: {
         Row: {
           attorney_name: string | null
