@@ -1,97 +1,82 @@
 
+# Botao "Agenda" em Detalhes do Processo: Abrir Dialog de Agendamento com Google Meet + Notificacao
 
-# Correcao: Detalhes do Processo vazios no ficheiro azul para publicacoes orfas
-
-## Problema
-Quando um card "Sem cliente vinculado" e clicado no Kanban de Publicacoes, o ficheiro azul abre com "Detalhes do Processo" completamente vazio (sem timeline, sem publicacoes, sem botoes). Isso acontece porque todas as queries no `ClientDetailSheet` usam `client.id` para buscar dados, e para publicacoes orfas `client.id === ''`, retornando zero resultados.
-
-O antigo painel branco funcionava porque usava os dados da publicacao diretamente. Precisamos replicar esse comportamento no ficheiro azul.
-
-## Causa Raiz
-Dois pontos no `ClientDetailSheet.tsx`:
-
-1. **`fetchClientData`** (linha ~295): Queries como `.eq('user_id', client.id)` e `.eq('id', client.id)` com `client.id = ''` retornam vazio. `clientBrands` fica vazio.
-2. **`handleQuickAction('processo')`** (linha ~619): `.eq('client_id', client.id)` e `.eq('user_id', client.id)` com `client.id = ''` retornam vazio. `processPublicacoes`, `processContracts`, `processEvents` ficam vazios.
+## Problema Atual
+O botao "Agenda" nas publicacoes dentro de "Detalhes do Processo" chama `handleSchedulePubReminder`, que cria silenciosamente um lembrete simples (sem dialog, sem Google Meet, sem notificacao). O usuario quer que este botao abra o formulario de agendamento completo (como na imagem) e envie o link do Google Meet por email e WhatsApp.
 
 ## Solucao
 
 ### Arquivo: `src/components/admin/clients/ClientDetailSheet.tsx`
 
-**1. Corrigir `fetchClientData` para orfaos:**
-- Quando `client.id === ''` e `client.process_id` existe, buscar `brand_processes` por `process_id` em vez de `user_id`
-- Setar `clientBrands` com o resultado (ou com `client.brands` como fallback)
-- Pular queries que dependem de user_id (notes, appointments, docs, invoices, profile) — elas legitimamente nao existem para orfaos
+**1. Novo estado para agendamento de publicacao:**
+- `schedulingPub`: guarda a publicacao selecionada (ou `null`)
+- Quando setado, abre um dialog inline (ou reutiliza a logica do "Novo Agendamento" existente) pre-preenchido com o titulo da publicacao
 
-**2. Corrigir `handleQuickAction('processo')` para orfaos:**
-- Quando `client.id === ''`, buscar publicacoes por `process_id` (se existir) em vez de `client_id`
-- Buscar `process_events` pelo `process_id`
-- Contratos e faturas continuam vazios (correto, pois nao ha cliente vinculado)
-- Garantir que `processPublicacoes` tenha a publicacao da qual o card veio
+**2. Substituir `handleSchedulePubReminder` pelo novo fluxo:**
+- Em vez de criar um lembrete silencioso, setar `schedulingPub = pub` e abrir o formulario de agendamento
+- O formulario ja existe na aba "Agenda" (com campos titulo, descricao, data, hora, duracao, Google Meet toggle) - reutilizar essa UI como Dialog
 
-**3. Logica especifica:**
+**3. Criar `handleCreatePubAppointment`:**
+- Cria o agendamento em `client_appointments` (mesmo para orfaos, usar admin_id)
+- Gera Google Meet via edge function `create-google-meet`
+- Apos criar, envia notificacao multicanal (email + whatsapp) com o link do Meet via `send-multichannel-notification`
+- Payload da notificacao: titulo da reuniao, data/hora, link do Google Meet, nome da marca
 
-No `fetchClientData`:
-```typescript
-if (client.id === '') {
-  // Orphan: fetch brand_process by process_id
-  if (client.process_id) {
-    const { data } = await supabase.from('brand_processes')
-      .select('id, brand_name, business_area, process_number, pipeline_stage, status, created_at, updated_at, ncl_classes')
-      .eq('id', client.process_id);
-    setClientBrands(data || []);
-  } else {
-    setClientBrands(client.brands?.map(b => ({ ...b })) || []);
-  }
-  // Skip user-dependent queries
-  setNotes([]); setAppointments([]); setDocuments([]); setInvoices([]);
-  setProfileData(null);
-  setLoading(false);
-  return;
-}
+**4. Dialog de agendamento:**
+- Abrir como Dialog por cima do sheet (z-index alto)
+- Pre-preencher titulo com "Reuniao: [nome da marca/processo]"
+- Campos: Titulo, Descricao, Data, Hora, Duracao (select), Google Meet checkbox
+- Botao "Criar Agendamento"
+
+**5. Envio de notificacao apos criar:**
+- Chamar `send-multichannel-notification` com:
+  - `channels: ['email', 'whatsapp']`
+  - `event_type: 'agendamento_criado'`
+  - `recipient: { nome, email, phone }` (do cliente, se vinculado)
+  - `data: { titulo, data_hora, meet_link, marca }`
+
+## Detalhes Tecnicos
+
+```text
+Fluxo:
+[Clicar "Agenda" na pub] 
+  -> Abre Dialog com formulario
+  -> Preencher dados + Google Meet ON
+  -> "Criar Agendamento"
+    -> INSERT client_appointments
+    -> invoke create-google-meet
+    -> UPDATE appointment com meet_link
+    -> invoke send-multichannel-notification (email + whatsapp)
+    -> Toast sucesso
 ```
 
-No `handleQuickAction('processo')`:
-```typescript
-case 'processo':
-  if (client) {
-    let pubsQuery, eventsQuery;
-    
-    if (client.id === '' && client.process_id) {
-      // Orphan: fetch by process_id
-      pubsQuery = supabase.from('publicacoes_marcas').select('*')
-        .eq('process_id', client.process_id)
-        .order('proximo_prazo_critico', { ascending: true, nullsFirst: false });
-      eventsQuery = supabase.from('process_events').select('*')
-        .eq('process_id', client.process_id)
-        .order('event_date', { ascending: false });
-    } else {
-      // Normal client
-      pubsQuery = supabase.from('publicacoes_marcas').select('*')
-        .eq('client_id', client.id)
-        .order('proximo_prazo_critico', { ascending: true, nullsFirst: false });
-      eventsQuery = client.process_id
-        ? supabase.from('process_events').select('*')
-            .eq('process_id', client.process_id)
-            .order('event_date', { ascending: false })
-        : Promise.resolve({ data: [] });
-    }
-    
-    const contractsQuery = client.id !== ''
-      ? supabase.from('contracts').select('...').eq('user_id', client.id)
-      : Promise.resolve({ data: [] });
-    const invoicesQuery = client.id !== ''
-      ? supabase.from('invoices').select('...').eq('user_id', client.id)
-      : Promise.resolve({ data: [] });
-    
-    const [pubsRes, contractsRes, invoicesRes2, eventsRes] = await Promise.all([
-      pubsQuery, contractsQuery, invoicesQuery, eventsQuery
-    ]);
-    // ... rest same
-  }
-```
+### Mudancas no codigo:
+
+1. **Novos estados** (~linha 200):
+   - `schedulingPub: any | null` - publicacao sendo agendada
+   - `schedulingForm: { title, description, date, time, duration, generateMeet }`
+   - `savingSchedule: boolean`
+
+2. **Nova funcao `handleCreatePubSchedule`** (~apos linha 800):
+   - Insere em `client_appointments` (user_id = client.id ou null para orfaos, admin_id = current user)
+   - Invoca `create-google-meet` se toggle ativo
+   - Invoca `send-multichannel-notification` com link do Meet
+   - Fecha dialog, recarrega dados
+
+3. **Botao "Agenda" na pub** (linha 1243):
+   - Mudar de `handleSchedulePubReminder(pub)` para `setSchedulingPub(pub)` + setar form pre-preenchido
+
+4. **Novo Dialog** (apos os dialogs existentes, ~final do JSX):
+   - Dialog com z-index 200+
+   - Layout identico ao da imagem: Titulo, Descricao, Data+Hora, Duracao+Google Meet, Botao criar
+   - Usar mesmos componentes (Input, Textarea, Select)
+
+### Edge function `send-multichannel-notification`:
+- Ja existe e suporta email + whatsapp
+- Usar `event_type: 'agendamento_criado'` (pode nao ter template - a funcao envia mensagem customizada via `data.mensagem_custom`)
 
 ## Resultado Esperado
-- Ficheiro azul para publicacoes orfas mostra a timeline completa (Deposito, Publicacao RPI, Prazo Oposicao, etc.) com datas preenchidas
-- Botoes de acao (Editar Datas, Agenda, Upload Doc RPI, Excluir) aparecem dentro da publicacao
-- Dados da marca/processo aparecem mesmo sem cliente vinculado
-- Aba Contatos continua mostrando campo de busca para vincular cliente
+- Botao "Agenda" abre dialog completo (como na imagem)
+- Agendamento criado com Google Meet automatico
+- Link do Meet enviado por email e WhatsApp ao cliente (se tiver dados de contato)
+- Agendamento aparece na aba "Agenda" do ficheiro
