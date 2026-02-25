@@ -13,11 +13,13 @@ interface StatsCardProps {
   trendLabel?: string;
   gradient: string;
   index: number;
+  onClick?: () => void;
+  isActive?: boolean;
 }
 
 export function StatsCard({
   title, value, prefix = '', suffix = '',
-  icon: Icon, trend, trendLabel, gradient, index
+  icon: Icon, trend, trendLabel, gradient, index, onClick, isActive
 }: StatsCardProps) {
   const isPos = (trend ?? 0) > 0;
   const isNeg = (trend ?? 0) < 0;
@@ -30,8 +32,9 @@ export function StatsCard({
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
       whileTap={{ scale: 0.97 }}
       className="group relative cursor-pointer"
+      onClick={onClick}
     >
-      <div className="relative rounded-2xl overflow-hidden bg-card border border-border shadow-sm dark:bg-white/[0.03] dark:border-white/[0.08] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+      <div className={cn("relative rounded-2xl overflow-hidden bg-card border shadow-sm dark:bg-white/[0.03] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-200", isActive ? 'border-primary ring-2 ring-primary/30 shadow-md' : 'border-border dark:border-white/[0.08]')}>
         <div className={cn('absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r', gradient)} />
 
         <div className="p-4 relative z-10">

@@ -291,6 +291,7 @@ export default function PublicacaoTab() {
   const [showProcessDetailFromSheet, setShowProcessDetailFromSheet] = useState(false);
   const [showInvoiceFromPub, setShowInvoiceFromPub] = useState(false);
   const [sheetPubId, setSheetPubId] = useState<string | null>(null);
+  const [activeKpi, setActiveKpi] = useState<string | null>(null);
 
   // ─── Create dialog state ────
   const [createProcessId, setCreateProcessId] = useState('');
@@ -659,6 +660,8 @@ export default function PublicacaoTab() {
 
   // ─── Filtering + Sorting + Pagination ────
   const filtered = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     let result = publicacoes.filter(pub => {
       const proc = pub.process_id ? processMap.get(pub.process_id) : null;
       const client = pub.client_id ? clientMap.get(pub.client_id) : null;
@@ -680,6 +683,11 @@ export default function PublicacaoTab() {
         if (filterPrazo === '7dias' && (days < 0 || days > 7)) return false;
         if (filterPrazo === '30dias' && (days < 0 || days > 30)) return false;
         if (filterPrazo === 'atrasados' && days >= 0) return false;
+      }
+      // Special KPI filter: "deferidos este mês"
+      if (activeKpi === 'deferidosMes') {
+        if (pub.status !== 'deferida') return false;
+        if (!pub.data_decisao || !isAfter(parseISO(pub.data_decisao), startOfMonth)) return false;
       }
       // Date range filter (#3)
       if (filterDateFrom || filterDateTo) {
@@ -724,7 +732,7 @@ export default function PublicacaoTab() {
     });
 
     return result;
-  }, [publicacoes, search, filterClient, filterStatus, filterPrazo, filterTipo, filterAdmin, filterDateFrom, filterDateTo, processMap, clientMap, sortKey, sortDir]);
+  }, [publicacoes, search, filterClient, filterStatus, filterPrazo, filterTipo, filterAdmin, filterDateFrom, filterDateTo, processMap, clientMap, sortKey, sortDir, activeKpi]);
 
   // Pagination (#10)
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -1104,10 +1112,38 @@ export default function PublicacaoTab() {
     <>
       {/* ─── KPI DASHBOARD ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatsCard title="Total de Processos" value={kpiStats.total} icon={Newspaper} gradient="from-blue-500 to-cyan-500" index={0} />
-        <StatsCard title="Prazos Urgentes (< 7d)" value={kpiStats.urgentes} icon={AlertTriangle} gradient="from-amber-500 to-orange-500" index={1} />
-        <StatsCard title="Atrasados" value={kpiStats.atrasados} icon={Clock} gradient="from-red-500 to-rose-500" index={2} />
-        <StatsCard title="Deferidos este mês" value={kpiStats.deferidosMes} icon={CheckCircle2} gradient="from-emerald-500 to-green-500" index={3} />
+        <StatsCard title="Total de Processos" value={kpiStats.total} icon={Newspaper} gradient="from-blue-500 to-cyan-500" index={0}
+          isActive={activeKpi === 'total'}
+          onClick={() => {
+            if (activeKpi === 'total') { setActiveKpi(null); setFilterPrazo('todos'); setFilterStatus('todos'); }
+            else { setActiveKpi('total'); setFilterPrazo('todos'); setFilterStatus('todos'); setViewMode('lista'); }
+            setCurrentPage(1);
+          }}
+        />
+        <StatsCard title="Prazos Urgentes (< 7d)" value={kpiStats.urgentes} icon={AlertTriangle} gradient="from-amber-500 to-orange-500" index={1}
+          isActive={activeKpi === 'urgentes'}
+          onClick={() => {
+            if (activeKpi === 'urgentes') { setActiveKpi(null); setFilterPrazo('todos'); }
+            else { setActiveKpi('urgentes'); setFilterPrazo('7dias'); setFilterStatus('todos'); setViewMode('lista'); }
+            setCurrentPage(1);
+          }}
+        />
+        <StatsCard title="Atrasados" value={kpiStats.atrasados} icon={Clock} gradient="from-red-500 to-rose-500" index={2}
+          isActive={activeKpi === 'atrasados'}
+          onClick={() => {
+            if (activeKpi === 'atrasados') { setActiveKpi(null); setFilterPrazo('todos'); }
+            else { setActiveKpi('atrasados'); setFilterPrazo('atrasados'); setFilterStatus('todos'); setViewMode('lista'); }
+            setCurrentPage(1);
+          }}
+        />
+        <StatsCard title="Deferidos este mês" value={kpiStats.deferidosMes} icon={CheckCircle2} gradient="from-emerald-500 to-green-500" index={3}
+          isActive={activeKpi === 'deferidosMes'}
+          onClick={() => {
+            if (activeKpi === 'deferidosMes') { setActiveKpi(null); setFilterStatus('todos'); setFilterPrazo('todos'); }
+            else { setActiveKpi('deferidosMes'); setFilterStatus('deferida'); setFilterPrazo('todos'); setViewMode('lista'); }
+            setCurrentPage(1);
+          }}
+        />
       </div>
 
       {/* ─── AUTO-LINK ORPHAN BANNER ─── */}
