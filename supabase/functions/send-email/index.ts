@@ -85,24 +85,12 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("From:", fromAddress);
     console.log("Attachments:", attachments?.length || 0);
 
-    // Build Resend attachments from URLs
+    // Build Resend attachments using path (URL) - Resend fetches the file directly
     const resendAttachments = attachments && attachments.length > 0
-      ? await Promise.all(
-          attachments.map(async (att) => {
-            try {
-              const res = await fetch(att.url);
-              if (!res.ok) throw new Error(`Failed to fetch attachment: ${att.filename}`);
-              const arrayBuffer = await res.arrayBuffer();
-              const content = btoa(
-                new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-              );
-              return { filename: att.filename, content };
-            } catch (err) {
-              console.error(`Error fetching attachment ${att.filename}:`, err);
-              return null;
-            }
-          })
-        ).then(results => results.filter(Boolean))
+      ? attachments.map((att) => ({
+          filename: att.filename,
+          path: att.url,
+        }))
       : undefined;
 
     // Send email via Resend API
