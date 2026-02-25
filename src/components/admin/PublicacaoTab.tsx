@@ -222,6 +222,7 @@ export default function PublicacaoTab() {
   const [showDelete, setShowDelete] = useState(false);
   const [editData, setEditData] = useState<Partial<Publicacao>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasSyncedRef = useRef(false);
 
   // New state for premium features
   const [viewMode, setViewMode] = useState<ViewMode>('lista');
@@ -259,7 +260,7 @@ export default function PublicacaoTab() {
   const { data: clients = [] } = useQuery({
     queryKey: ['profiles-pub'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('id, full_name, email');
+      const { data, error } = await supabase.from('profiles').select('id, full_name, email, cpf');
       if (error) throw error;
       return data || [];
     },
@@ -294,7 +295,7 @@ export default function PublicacaoTab() {
       const { data, error } = await supabase
         .from('rpi_entries')
         .select('id, matched_process_id, matched_client_id, publication_date, dispatch_code, dispatch_text, process_number, brand_name')
-        .not('matched_process_id', 'is', null);
+        .or('matched_process_id.not.is.null,matched_client_id.not.is.null');
       if (error) return [];
       return data || [];
     },
@@ -319,6 +320,129 @@ export default function PublicacaoTab() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
+
+  // ─── Auto-sync RPI entries → Publicações ────
+  useEffect(() => {
+    if (hasSyncedRef.current) return;
+    if (isLoading || rpiEntries.length === 0 || processes.length === 0 || clients.length === 0) return;
+
+    const doSync = async () => {
+      hasSyncedRef.current = true;
+
+      // Build lookup maps
+      const existingProcessIds = new Set(publicacoes.map(p => p.process_id));
+      const clientByCpf = new Map<string, string>();
+      const clientByEmail = new Map<string, string>();
+      clients.forEach((c: any) => {
+        if (c.cpf) clientByCpf.set(c.cpf, c.id);
+        if (c.email) clientByEmail.set(c.email.toLowerCase(), c.id);
+      });
+
+      // Find processes by user_id for matched_client_id lookups
+      const processesByUserId = new Map<string, typeof processes>();
+      processes.forEach(p => {
+        if (p.user_id) {
+          const existing = processesByUserId.get(p.user_id) || [];
+          existing.push(p);
+          processesByUserId.set(p.user_id, existing);
+        }
+      });
+
+      const toInsert: any[] = [];
+      let skipped = 0;
+
+      for (const entry of rpiEntries) {
+        // Determine process_id
+        let processId = entry.matched_process_id;
+        let clientId = entry.matched_client_id;
+
+        if (!processId && clientId) {
+          // Find processes for this client
+          const clientProcesses = processesByUserId.get(clientId) || [];
+          // Try matching by process_number
+          if (entry.process_number) {
+            const match = clientProcesses.find(p => p.process_number === entry.process_number);
+            if (match) processId = match.id;
+          }
+          // If no match by process_number, use first process of client
+          if (!processId && clientProcesses.length > 0) {
+            processId = clientProcesses[0].id;
+          }
+        }
+
+        if (!processId) {
+          skipped++;
+          continue;
+        }
+
+        // Skip if publicacao already exists for this process
+        if (existingProcessIds.has(processId)) {
+          skipped++;
+          continue;
+        }
+
+        // Resolve client_id
+        if (!clientId) {
+          const proc = processes.find(p => p.id === processId);
+          clientId = proc?.user_id || null;
+        }
+
+        if (!clientId) {
+          skipped++;
+          continue;
+        }
+
+        // Deduplicate by CPF/email
+        const clientProfile = clients.find((c: any) => c.id === clientId);
+        if (clientProfile) {
+          const cpfMatch = (clientProfile as any).cpf ? clientByCpf.get((clientProfile as any).cpf) : null;
+          const emailMatch = clientProfile.email ? clientByEmail.get(clientProfile.email.toLowerCase()) : null;
+          // Use existing client if found by CPF/email
+          if (cpfMatch && cpfMatch !== clientId) {
+            clientId = cpfMatch;
+          } else if (emailMatch && emailMatch !== clientId) {
+            clientId = emailMatch;
+          }
+        }
+
+        // Determine status from dispatch
+        let status: PubStatus = 'publicada';
+        const dispatchText = (entry.dispatch_text || '').toLowerCase();
+        if (dispatchText.includes('deferido') || dispatchText.includes('deferimento')) status = 'deferida';
+        else if (dispatchText.includes('indeferido') || dispatchText.includes('indeferimento')) status = 'indeferida';
+        else if (dispatchText.includes('oposição') || dispatchText.includes('oposicao')) status = 'oposicao';
+        else if (dispatchText.includes('arquiv')) status = 'arquivada';
+
+        const pubData = calcAutoFields({
+          process_id: processId,
+          client_id: clientId,
+          status,
+          tipo_publicacao: 'publicacao_rpi' as PubTipo,
+          rpi_number: entry.dispatch_code || null,
+          data_publicacao_rpi: entry.publication_date || null,
+        });
+
+        toInsert.push(pubData);
+        existingProcessIds.add(processId); // Prevent duplicates within same batch
+      }
+
+      if (toInsert.length > 0) {
+        const { error } = await supabase.from('publicacoes_marcas').insert(toInsert);
+        if (error) {
+          console.error('Auto-sync error:', error);
+          toast.error('Erro na sincronização automática com revistas');
+          return;
+        }
+        queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
+        toast.success(
+          `✅ ${toInsert.length} publicação(ões) sincronizada(s) automaticamente${skipped > 0 ? `, ${skipped} ignorada(s) (já existiam)` : ''}`,
+          { duration: 5000 }
+        );
+      }
+    };
+
+    doSync();
+  }, [isLoading, rpiEntries, publicacoes, processes, clients, queryClient]);
 
   // ─── Mutations ────
   const createMutation = useMutation({
