@@ -8,6 +8,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+interface EmailAttachment {
+  url: string;
+  filename: string;
+}
+
 interface EmailRequest {
   to: string[];
   cc?: string[];
@@ -16,6 +21,7 @@ interface EmailRequest {
   body: string;
   html?: string;
   from?: string;
+  attachments?: EmailAttachment[];
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -24,7 +30,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { to, cc, bcc, subject, body, html }: EmailRequest = await req.json();
+    const { to, cc, bcc, subject, body, html, attachments }: EmailRequest = await req.json();
 
     // Initialize Resend client
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
@@ -77,6 +83,27 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending email via Resend to:", to);
     console.log("From:", fromAddress);
+    console.log("Attachments:", attachments?.length || 0);
+
+    // Build Resend attachments from URLs
+    const resendAttachments = attachments && attachments.length > 0
+      ? await Promise.all(
+          attachments.map(async (att) => {
+            try {
+              const res = await fetch(att.url);
+              if (!res.ok) throw new Error(`Failed to fetch attachment: ${att.filename}`);
+              const arrayBuffer = await res.arrayBuffer();
+              const content = btoa(
+                new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+              );
+              return { filename: att.filename, content };
+            } catch (err) {
+              console.error(`Error fetching attachment ${att.filename}:`, err);
+              return null;
+            }
+          })
+        ).then(results => results.filter(Boolean))
+      : undefined;
 
     // Send email via Resend API
     const { data, error } = await resend.emails.send({
@@ -86,6 +113,7 @@ const handler = async (req: Request): Promise<Response> => {
       bcc: bcc,
       subject: subject,
       html: htmlContent,
+      ...(resendAttachments && resendAttachments.length > 0 ? { attachments: resendAttachments } : {}),
     });
 
     if (error) {
