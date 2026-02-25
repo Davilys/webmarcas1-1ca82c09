@@ -131,12 +131,12 @@ const Footer = () => {
               © {new Date().getFullYear()} WebMarcas Intelligence PI. {t("footer.rights")}
             </p>
             <div className="flex items-center gap-6">
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <Link to="/politica-de-privacidade" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 {t("footer.privacy")}
-              </a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              </Link>
+              <Link to="/termos-de-uso" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 {t("footer.terms")}
-              </a>
+              </Link>
             </div>
           </div>
         </div>

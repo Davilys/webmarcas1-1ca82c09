@@ -14,6 +14,8 @@ import Obrigado from "./pages/Obrigado";
 import VerificarContrato from "./pages/VerificarContrato";
 import AssinarDocumento from "./pages/AssinarDocumento";
 import RegistroBlockchain from "./pages/RegistroBlockchain";
+import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
+import TermosUso from "./pages/TermosUso";
 import NotFound from "./pages/NotFound";
 
 // Cliente pages
@@ -73,6 +75,8 @@ const App = () => (
               <Route path="/verificar-contrato" element={<VerificarContrato />} />
               <Route path="/assinar/:token" element={<AssinarDocumento />} />
               <Route path="/registro-blockchain" element={<RegistroBlockchain />} />
+              <Route path="/politica-de-privacidade" element={<PoliticaPrivacidade />} />
+              <Route path="/termos-de-uso" element={<TermosUso />} />
               
               {/* Área do Cliente */}
               <Route path="/cliente/login" element={<ClienteLogin />} />
