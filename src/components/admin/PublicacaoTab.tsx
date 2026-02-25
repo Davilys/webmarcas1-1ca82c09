@@ -396,7 +396,14 @@ export default function PublicacaoTab() {
       const processMap = new Map(processes.map(p => [p.id, p]));
       const processByNumber = new Map(processes.filter(p => p.process_number).map(p => [p.process_number!, p]));
 
+      // Build lookup: existing publicações by process_number_rpi for update matching
+      const existingPubByProcessNumber = new Map<string, Publicacao>();
+      publicacoes.forEach(p => {
+        if (p.process_number_rpi) existingPubByProcessNumber.set(p.process_number_rpi, p);
+      });
+
       const toInsert: any[] = [];
+      const toUpdate: { id: string; data: any }[] = [];
       let skipped = 0;
 
       for (const entry of rpiEntries) {
@@ -455,7 +462,23 @@ export default function PublicacaoTab() {
           process_number_rpi: entry.process_number || null,
         } as any, entry.dispatch_text);
 
-        toInsert.push(pubData);
+        // Check if there's an existing publicação with the same process number → UPDATE
+        if (entry.process_number && existingPubByProcessNumber.has(entry.process_number)) {
+          const existingPub = existingPubByProcessNumber.get(entry.process_number)!;
+          // Only update if the RPI entry is newer (has publication date)
+          const updateData: any = { ...pubData };
+          delete updateData.process_number_rpi; // keep original
+          toUpdate.push({ id: existingPub.id, data: updateData });
+        } else {
+          toInsert.push(pubData);
+        }
+      }
+
+      // Process updates
+      let updated = 0;
+      for (const { id, data } of toUpdate) {
+        const { error } = await supabase.from('publicacoes_marcas').update(data).eq('id', id);
+        if (!error) updated++;
       }
 
       if (toInsert.length > 0) {
@@ -473,10 +496,14 @@ export default function PublicacaoTab() {
           inserted += batch.length;
         }
         queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
-        toast.success(
-          `✅ ${inserted} publicação(ões) sincronizada(s) automaticamente${skipped > 0 ? `, ${skipped} já existiam` : ''}`,
-          { duration: 5000 }
-        );
+        const parts = [];
+        if (inserted > 0) parts.push(`${inserted} criada(s)`);
+        if (updated > 0) parts.push(`${updated} atualizada(s)`);
+        if (skipped > 0) parts.push(`${skipped} já existiam`);
+        toast.success(`✅ Sincronização: ${parts.join(', ')}`, { duration: 5000 });
+      } else if (updated > 0) {
+        queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
+        toast.success(`✅ ${updated} publicação(ões) atualizada(s) da revista`, { duration: 5000 });
       }
     };
 

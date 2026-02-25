@@ -50,15 +50,14 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
     return cols;
   }, [publicacoes]);
 
-  // Only show columns that have items
-  const visibleColumns = useMemo(() => {
-    return (Object.entries(STATUS_CONFIG) as [PubStatus, typeof STATUS_CONFIG[PubStatus]][])
-      .filter(([status]) => columns[status].length > 0);
-  }, [columns]);
+  // Show ALL columns (full funnel) even when empty
+  const allColumns = useMemo(() => {
+    return Object.entries(STATUS_CONFIG) as [PubStatus, typeof STATUS_CONFIG[PubStatus]][];
+  }, []);
 
   return (
     <div className="flex gap-2.5 overflow-x-auto pb-2 px-1 h-[calc(100vh-350px)]">
-      {visibleColumns.map(([status, cfg]) => {
+      {allColumns.map(([status, cfg]) => {
         const items = columns[status];
         const overdueCount = items.filter(p => {
           if (!p.proximo_prazo_critico) return false;
@@ -66,7 +65,7 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
         }).length;
 
         return (
-          <div key={status} className="min-w-[220px] max-w-[260px] flex-shrink-0 flex flex-col">
+          <div key={status} className="min-w-[180px] flex-1 flex-shrink-0 flex flex-col">
             {/* Column header */}
             <div className={cn('rounded-xl px-3 py-2.5 bg-gradient-to-r text-white shadow-md', cfg.accent)}>
               <div className="flex items-center justify-between">
@@ -90,6 +89,14 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
             {/* Cards */}
             <ScrollArea className="flex-1 mt-2">
               <div className="space-y-1.5 pr-1">
+                {items.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/50">
+                    <div className="w-8 h-8 rounded-full border-2 border-dashed border-muted-foreground/20 flex items-center justify-center mb-2">
+                      <span className="text-xs">{cfg.icon}</span>
+                    </div>
+                    <p className="text-[10px]">Nenhuma publicação</p>
+                  </div>
+                )}
                 {items.map(pub => {
                   const proc = pub.process_id ? processMap.get(pub.process_id) : null;
                   const client = pub.client_id ? clientMap.get(pub.client_id) : null;
@@ -107,32 +114,25 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                         'group relative rounded-lg p-2.5 cursor-pointer transition-all duration-200',
                         'bg-card border border-border/60 hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5',
                         selectedId === pub.id && 'ring-2 ring-primary border-primary shadow-lg',
-                        isOverdue && 'border-l-[3px] border-l-red-500',
+                        isOverdue && 'border-l-[3px] border-l-destructive',
                         isUrgent && !isOverdue && 'border-l-[3px] border-l-amber-500'
                       )}
                       onClick={() => onSelect(pub.id)}
                     >
-                      {/* Brand name */}
                       <p className="text-xs font-bold truncate text-foreground leading-tight">{brandName}</p>
-
-                      {/* Client */}
                       <p className="text-[10px] truncate mt-0.5 leading-tight">
                         {client?.full_name
                           ? <span className="text-muted-foreground">{client.full_name}</span>
                           : <span className="text-amber-600 dark:text-amber-400 font-medium">Sem cliente</span>
                         }
                       </p>
-
-                      {/* Process number */}
                       {processNumber && (
                         <p className="text-[10px] text-muted-foreground/70 font-mono mt-0.5">{processNumber}</p>
                       )}
-
-                      {/* Footer: deadline + admin */}
                       <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border/40">
                         {days !== null ? (
                           <div className={cn('flex items-center gap-1 text-[10px] font-semibold',
-                            isOverdue ? 'text-red-600 dark:text-red-400' : isUrgent ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'
+                            isOverdue ? 'text-destructive' : isUrgent ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'
                           )}>
                             {isOverdue ? <AlertTriangle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                             {isOverdue ? `${Math.abs(days)}d atrasado` : `${days}d`}
@@ -154,7 +154,7 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
         );
       })}
 
-      {visibleColumns.length === 0 && (
+      {allColumns.length === 0 && (
         <div className="flex-1 flex items-center justify-center py-20 text-muted-foreground text-sm">
           Nenhuma publicação encontrada
         </div>
