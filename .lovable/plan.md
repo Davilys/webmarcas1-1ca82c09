@@ -1,43 +1,77 @@
 
 
-## Correcao: Logo WebMarcas quebrada no contrato
+## Correção: Links de verificação blockchain no email
 
-### Diagnostico
+### Problema
 
-O componente `ContractRenderer.tsx` importa o logo de `@/assets/webmarcas-logo-new.png` e exibe com uma tag `<img>`. O arquivo existe no projeto, porem pode estar corrompido ou com problemas de carregamento.
+Dois pontos usam URLs incorretas, causando 404:
 
-Alem disso, a funcao `generateContractPrintHTML` (usada ao imprimir/baixar) usa um logo SVG placeholder generico (retangulo azul com texto branco) em vez do logo real.
+1. `sign-contract-blockchain/index.ts` linha 248: fallback é `webmarcas.lovable.app` (domínio antigo)
+2. `confirm-payment/index.ts` linhas 260-268: não inclui `verification_url` nem `link_area_cliente` no payload do email
 
-### Solucao
+### Solução
 
-1. **Adicionar fallback no `ContractRenderer`**: Colocar `onError` no `<img>` para trocar para o logo `webmarcas-logo-mark.png` (que sabemos que funciona, pois aparece no header do site) caso o `webmarcas-logo-new.png` falhe
+Usar o mesmo padrão já adotado em `generate-signature-link`, `send-signature-request` e `trigger-email-automation`: domínio fixo `https://webmarcas.net` como PRODUCTION_DOMAIN, com proteção contra URLs de preview.
 
-2. **Trocar o import principal**: Usar `webmarcas-logo-mark.png` como logo principal no contrato, ja que este e o logo que funciona em toda a aplicacao (header, etc)
+### Alterações
 
-3. **Atualizar `generateContractPrintHTML`**: Fazer a funcao aceitar o logo real convertido em base64 em vez de usar o fallback SVG generico
-
-### Arquivo a editar
-
-| Arquivo | Alteracao |
+| Arquivo | O que muda |
 |---------|-----------|
-| `ContractRenderer.tsx` | Trocar import de `webmarcas-logo-new.png` para `webmarcas-logo-mark.png`, adicionar `onError` fallback no `<img>`, e atualizar `generateContractPrintHTML` para usar logo real via base64 |
+| `sign-contract-blockchain/index.ts` | Linha 248: trocar fallback de `webmarcas.lovable.app` para `webmarcas.net`, com validação anti-preview |
+| `confirm-payment/index.ts` | Adicionar `verification_url` e `link_area_cliente` no payload do email contract_signed, buscando o `blockchain_hash` do contrato |
 
-### Detalhes tecnicos
+### Detalhes técnicos
+
+**sign-contract-blockchain (linha 248)**
 
 ```text
 Antes:
-  import webmarcasLogo from '@/assets/webmarcas-logo-new.png'
+  const verificationBaseUrl = baseUrl || Deno.env.get('SITE_URL') || 'https://webmarcas.lovable.app';
 
 Depois:
-  import webmarcasLogo from '@/assets/webmarcas-logo-mark.png'
-
-No <img>:
-  onError={(e) => { e.currentTarget.src = WEBMARCAS_LOGO_FALLBACK; }}
-
-Na funcao generateContractPrintHTML:
-  - Adicionar parametro opcional logoBase64
-  - Usar logoBase64 se disponivel, senao WEBMARCAS_LOGO_FALLBACK
+  const PRODUCTION_DOMAIN = 'https://webmarcas.net';
+  const isPreviewUrl = (url: string) =>
+    !url || url.includes('lovable.app') || url.includes('localhost');
+  const rawSiteUrl = Deno.env.get('SITE_URL') || '';
+  const verificationBaseUrl = (!isPreviewUrl(rawSiteUrl) ? rawSiteUrl : null)
+    || (!isPreviewUrl(baseUrl || '') ? baseUrl : null)
+    || PRODUCTION_DOMAIN;
 ```
 
-Tambem aplicar a mesma correcao no `DocumentRenderer.tsx` que importa o mesmo logo.
+Isso segue exatamente o padrão das outras funções (generate-signature-link, send-signature-request).
+
+**confirm-payment (linhas 249-269)**
+
+Antes de disparar o email, buscar o `blockchain_hash` do contrato e incluir os links:
+
+```text
+// Buscar blockchain_hash do contrato
+let blockchainHash = '';
+if (contractId) {
+  const { data: contractRecord } = await supabaseAdmin
+    .from('contracts')
+    .select('blockchain_hash')
+    .eq('id', contractId)
+    .maybeSingle();
+  blockchainHash = contractRecord?.blockchain_hash || '';
+}
+
+// No payload do email, adicionar:
+const PRODUCTION_DOMAIN = 'https://webmarcas.net';
+data: {
+  ...campos existentes...,
+  verification_url: blockchainHash
+    ? `${PRODUCTION_DOMAIN}/verificar-contrato?hash=${blockchainHash}`
+    : '',
+  link_area_cliente: `${PRODUCTION_DOMAIN}/cliente/documentos`,
+}
+```
+
+### Segurança
+
+- Nenhuma tabela alterada
+- Nenhum schema modificado
+- Nenhum fluxo existente quebrado
+- Apenas URLs nos emails corrigidas para apontar ao domínio correto (webmarcas.net)
+- Deploy automático das edge functions após edição
 
