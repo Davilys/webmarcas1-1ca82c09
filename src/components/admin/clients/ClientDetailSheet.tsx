@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -195,6 +196,16 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
   const [processContracts, setProcessContracts] = useState<any[]>([]);
   const [processInvoices, setProcessInvoices] = useState<any[]>([]);
   const [processEvents, setProcessEvents] = useState<any[]>([]);
+
+  // Publication action states
+  const [editingPubData, setEditingPubData] = useState<any>(null);
+  const [showEditPubDialog, setShowEditPubDialog] = useState(false);
+  const [deletingPubId, setDeletingPubId] = useState<string | null>(null);
+  const [showDeletePubConfirm, setShowDeletePubConfirm] = useState(false);
+  const [savingPub, setSavingPub] = useState(false);
+  const [uploadingRpi, setUploadingRpi] = useState<string | null>(null);
+  const rpiFileInputRef = useRef<HTMLInputElement>(null);
+  const [rpiUploadPubId, setRpiUploadPubId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -537,6 +548,14 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
   };
 
   const handleQuickAction = async (actionId: string) => {
+    // Auto-close other inline views when switching
+    if (actionId === 'email') { setShowProcessDetails(false); }
+    if (actionId === 'processo') { setShowEmailCompose(false); }
+    if (['chat', 'move', 'notification', 'excluir', 'nova_fatura'].includes(actionId)) {
+      setShowProcessDetails(false);
+      setShowEmailCompose(false);
+    }
+
     switch (actionId) {
       case 'chat':
         if (client) window.dispatchEvent(new CustomEvent('open-admin-chat', { detail: { clientId: client.id } }));
@@ -582,6 +601,100 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
         break;
       case 'nova_fatura': setShowNewInvoiceDialog(true); break;
     }
+  };
+
+  // ─── Publication Actions ─────────────────────────────────────────────────
+  const handleEditPub = (pub: any) => {
+    setEditingPubData({
+      id: pub.id,
+      status: pub.status || 'depositada',
+      data_deposito: pub.data_deposito || '',
+      data_publicacao_rpi: pub.data_publicacao_rpi || '',
+      prazo_oposicao: pub.prazo_oposicao || '',
+      data_decisao: pub.data_decisao || '',
+      data_certificado: pub.data_certificado || '',
+      data_renovacao: pub.data_renovacao || '',
+      tipo_publicacao: pub.tipo_publicacao || 'publicacao_rpi',
+      comentarios_internos: pub.comentarios_internos || '',
+      rpi_number: pub.rpi_number || '',
+    });
+    setShowEditPubDialog(true);
+  };
+
+  const handleSavePub = async () => {
+    if (!editingPubData?.id) return;
+    setSavingPub(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const updateData: any = {
+        status: editingPubData.status,
+        tipo_publicacao: editingPubData.tipo_publicacao,
+        comentarios_internos: editingPubData.comentarios_internos,
+        rpi_number: editingPubData.rpi_number,
+      };
+      ['data_deposito', 'data_publicacao_rpi', 'prazo_oposicao', 'data_decisao', 'data_certificado', 'data_renovacao'].forEach(k => {
+        updateData[k] = editingPubData[k] || null;
+      });
+      const { error } = await supabase.from('publicacoes_marcas').update(updateData).eq('id', editingPubData.id);
+      if (error) throw error;
+      // Log the change
+      await supabase.from('publicacao_logs').insert({
+        publicacao_id: editingPubData.id,
+        campo_alterado: 'status',
+        valor_anterior: null,
+        valor_novo: editingPubData.status,
+        admin_email: user?.email || 'admin',
+      });
+      toast.success('Publicação atualizada!');
+      setShowEditPubDialog(false);
+      // Refresh data
+      handleQuickAction('processo');
+    } catch (err: any) { toast.error(`Erro: ${err?.message}`); }
+    finally { setSavingPub(false); }
+  };
+
+  const handleDeletePub = async () => {
+    if (!deletingPubId) return;
+    try {
+      const { error } = await supabase.from('publicacoes_marcas').delete().eq('id', deletingPubId);
+      if (error) throw error;
+      toast.success('Publicação excluída!');
+      setShowDeletePubConfirm(false);
+      setDeletingPubId(null);
+      handleQuickAction('processo');
+    } catch (err: any) { toast.error(`Erro: ${err?.message}`); }
+  };
+
+  const handleRpiUpload = async (files: FileList | null) => {
+    if (!files || !rpiUploadPubId) return;
+    setUploadingRpi(rpiUploadPubId);
+    try {
+      const file = files[0];
+      const fileName = `rpi/${rpiUploadPubId}/${Date.now()}_${file.name}`;
+      const { error: upErr } = await supabase.storage.from('documents').upload(fileName, file);
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(fileName);
+      await supabase.from('publicacoes_marcas').update({ documento_rpi_url: publicUrl }).eq('id', rpiUploadPubId);
+      toast.success('Documento RPI enviado!');
+      handleQuickAction('processo');
+    } catch (err: any) { toast.error(`Erro: ${err?.message}`); }
+    finally { setUploadingRpi(null); setRpiUploadPubId(null); }
+  };
+
+  const handleSchedulePubReminder = async (pub: any) => {
+    if (!client) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const scheduledDate = pub.proximo_prazo_critico ? new Date(new Date(pub.proximo_prazo_critico).getTime() - 7 * 86400000) : new Date(Date.now() + 7 * 86400000);
+      await supabase.from('client_appointments').insert({
+        user_id: client.id,
+        admin_id: user?.id,
+        title: `Prazo Publicação: ${pub.brand_name_rpi || 'Marca'}`,
+        description: `Prazo crítico: ${pub.proximo_prazo_critico ? format(new Date(pub.proximo_prazo_critico), 'dd/MM/yyyy') : 'N/A'} — Status: ${pub.status}`,
+        scheduled_at: scheduledDate.toISOString(),
+      });
+      toast.success('Lembrete agendado!');
+    } catch { toast.error('Erro ao agendar'); }
   };
 
   if (!client) return null;
@@ -1017,6 +1130,23 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                               </div>
                             </>
                           )}
+
+                          {/* ── ACTION BUTTONS ── */}
+                          <Separator />
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleEditPub(pub)}>
+                              <Edit2 className="h-3 w-3" /> Editar Datas e Status
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleSchedulePubReminder(pub)}>
+                              <CalendarIcon className="h-3 w-3" /> Agenda
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => { setRpiUploadPubId(pub.id); rpiFileInputRef.current?.click(); }} disabled={uploadingRpi === pub.id}>
+                              {uploadingRpi === pub.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />} Upload Doc RPI
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-destructive hover:text-destructive" onClick={() => { setDeletingPubId(pub.id); setShowDeletePubConfirm(true); }}>
+                              <Trash2 className="h-3 w-3" /> Excluir
+                            </Button>
+                          </div>
                         </div>
                       );
                     })}
@@ -1937,6 +2067,79 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
           </DialogContent>
         </Dialog>
       </SheetContent>
+
+      {/* ─── HIDDEN RPI FILE INPUT ─── */}
+      <input ref={rpiFileInputRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => handleRpiUpload(e.target.files)} />
+
+      {/* ─── EDIT PUB DIALOG ─── */}
+      <Dialog open={showEditPubDialog} onOpenChange={setShowEditPubDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Edit2 className="h-5 w-5" />Editar Publicação</DialogTitle>
+            <DialogDescription>Atualize datas, status e informações da publicação.</DialogDescription>
+          </DialogHeader>
+          {editingPubData && (
+            <ScrollArea className="max-h-[60vh] pr-2">
+              <div className="space-y-4 py-4">
+                <div>
+                  <Label>Status</Label>
+                  <Select value={editingPubData.status} onValueChange={(v) => setEditingPubData((prev: any) => ({ ...prev, status: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['depositada','publicada','oposicao','deferida','certificada','indeferida','arquivada','renovacao_pendente'].map(s => (
+                        <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Tipo de Publicação</Label>
+                  <Select value={editingPubData.tipo_publicacao} onValueChange={(v) => setEditingPubData((prev: any) => ({ ...prev, tipo_publicacao: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="publicacao_rpi">Publicação RPI</SelectItem>
+                      <SelectItem value="oposicao">Oposição</SelectItem>
+                      <SelectItem value="exigencia">Exigência</SelectItem>
+                      <SelectItem value="deferimento">Deferimento</SelectItem>
+                      <SelectItem value="indeferimento">Indeferimento</SelectItem>
+                      <SelectItem value="certificado">Certificado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Nº RPI</Label><Input value={editingPubData.rpi_number} onChange={(e) => setEditingPubData((prev: any) => ({ ...prev, rpi_number: e.target.value }))} placeholder="Ex: 2801" /></div>
+                {['data_deposito', 'data_publicacao_rpi', 'prazo_oposicao', 'data_decisao', 'data_certificado', 'data_renovacao'].map(field => (
+                  <div key={field}>
+                    <Label>{field.replace('data_', '').replace('prazo_', 'Prazo ').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</Label>
+                    <Input type="date" value={editingPubData[field] || ''} onChange={(e) => setEditingPubData((prev: any) => ({ ...prev, [field]: e.target.value }))} />
+                  </div>
+                ))}
+                <div><Label>Comentários Internos</Label><Textarea value={editingPubData.comentarios_internos} onChange={(e) => setEditingPubData((prev: any) => ({ ...prev, comentarios_internos: e.target.value }))} rows={3} className="resize-none" /></div>
+              </div>
+            </ScrollArea>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditPubDialog(false)}>Cancelar</Button>
+            <Button onClick={handleSavePub} disabled={savingPub}>
+              {savingPub ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── DELETE PUB CONFIRM ─── */}
+      <AlertDialog open={showDeletePubConfirm} onOpenChange={setShowDeletePubConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive"><AlertTriangle className="h-5 w-5" />Excluir Publicação</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir esta publicação? Esta ação é irreversível.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setShowDeletePubConfirm(false); setDeletingPubId(null); }}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePub} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ─── CREATE INVOICE DIALOG ─── */}
       <CreateInvoiceDialog
