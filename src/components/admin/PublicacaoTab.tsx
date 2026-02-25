@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StatsCard } from '@/components/admin/dashboard/StatsCard';
@@ -273,6 +274,7 @@ export default function PublicacaoTab() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showFilters, setShowFilters] = useState(false);
 
   // ─── Create dialog state ────
   const [createProcessId, setCreateProcessId] = useState('');
@@ -947,108 +949,125 @@ export default function PublicacaoTab() {
       </AnimatePresence>
 
       <div className="flex flex-col lg:flex-row gap-4 flex-1">
-        {/* ─── SIDEBAR FILTROS ─── */}
-        <Card className="lg:w-64 xl:w-72 flex-shrink-0">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Filter className="w-4 h-4 text-rose-500" /> Filtros
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar marca, processo..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Cliente</Label>
-              <Select value={filterClient} onValueChange={setFilterClient}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os clientes</SelectItem>
-                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name || c.email}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Status</Label>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos ({publicacoes.length})</SelectItem>
-                  {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v.label} ({statusCounts[k] || 0})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Prazo Crítico</Label>
-              <Select value={filterPrazo} onValueChange={v => setFilterPrazo(v as PrazoFilter)}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="hoje">Vence hoje</SelectItem>
-                  <SelectItem value="7dias">Próximos 7 dias</SelectItem>
-                  <SelectItem value="30dias">Próximos 30 dias</SelectItem>
-                  <SelectItem value="atrasados">Atrasados</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Tipo</Label>
-              <Select value={filterTipo} onValueChange={setFilterTipo}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  {Object.entries(TIPO_CONFIG).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            {/* Date range filter (#3) */}
-            <Separator />
-            <div>
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <Calendar className="w-3 h-3" /> Período
-              </Label>
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="h-8 text-xs" placeholder="De" />
-                <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="h-8 text-xs" placeholder="Até" />
+        {/* ─── FILTERS SHEET ─── */}
+        <Sheet open={showFilters} onOpenChange={setShowFilters}>
+          <SheetContent side="left" className="w-80 sm:w-96">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2 text-sm">
+                <Filter className="w-4 h-4 text-primary" /> Filtros
+              </SheetTitle>
+            </SheetHeader>
+            <div className="space-y-4 mt-4">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Buscar marca, processo..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
               </div>
-            </div>
-            <Separator />
-            <Button variant="outline" size="sm" className="w-full text-xs" onClick={clearAllFilters}>
-              <RotateCcw className="w-3 h-3 mr-1" /> Limpar Filtros
-            </Button>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" className="text-xs" onClick={exportCSV} disabled={filtered.length === 0}>
-                <Download className="w-3 h-3 mr-1" /> CSV
+              <div>
+                <Label className="text-xs text-muted-foreground">Cliente</Label>
+                <Select value={filterClient} onValueChange={setFilterClient}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os clientes</SelectItem>
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name || c.email}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Status</Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos ({publicacoes.length})</SelectItem>
+                    {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v.label} ({statusCounts[k] || 0})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Prazo Crítico</Label>
+                <Select value={filterPrazo} onValueChange={v => setFilterPrazo(v as PrazoFilter)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="hoje">Vence hoje</SelectItem>
+                    <SelectItem value="7dias">Próximos 7 dias</SelectItem>
+                    <SelectItem value="30dias">Próximos 30 dias</SelectItem>
+                    <SelectItem value="atrasados">Atrasados</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Tipo</Label>
+                <Select value={filterTipo} onValueChange={setFilterTipo}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    {Object.entries(TIPO_CONFIG).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Separator />
+              <div>
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Calendar className="w-3 h-3" /> Período
+                </Label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="h-8 text-xs" />
+                  <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="h-8 text-xs" />
+                </div>
+              </div>
+              <Separator />
+              <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => { clearAllFilters(); setShowFilters(false); }}>
+                <RotateCcw className="w-3 h-3 mr-1" /> Limpar Filtros
               </Button>
-              <Button variant="outline" size="sm" className="text-xs" onClick={exportPDF} disabled={filtered.length === 0}>
-                <FileDown className="w-3 h-3 mr-1" /> PDF
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" className="text-xs" onClick={exportCSV} disabled={filtered.length === 0}>
+                  <Download className="w-3 h-3 mr-1" /> CSV
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs" onClick={exportPDF} disabled={filtered.length === 0}>
+                  <FileDown className="w-3 h-3 mr-1" /> PDF
+                </Button>
+              </div>
+              <Button size="sm" className="w-full text-xs" onClick={() => { resetCreateForm(); setShowCreate(true); setShowFilters(false); }}>
+                <Plus className="w-3 h-3 mr-1" /> Nova Publicação
               </Button>
             </div>
-            <Button size="sm" className="w-full text-xs" onClick={() => { resetCreateForm(); setShowCreate(true); }}>
-              <Plus className="w-3 h-3 mr-1" /> Nova Publicação
-            </Button>
-          </CardContent>
-        </Card>
+          </SheetContent>
+        </Sheet>
 
         {/* ─── LISTA / KANBAN ─── */}
         <div className="flex-1 min-w-0 flex flex-col">
           {/* Header bar */}
-          <div className="flex items-center justify-between px-1 mb-2">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Newspaper className="w-4 h-4 text-rose-500" />
-              Processos de Publicação
-              <Badge variant="secondary" className="text-xs">{filtered.length}</Badge>
+          <div className="flex items-center justify-between px-1 mb-3">
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setShowFilters(true)}>
+                <Filter className="w-3.5 h-3.5" />
+                Filtros
+                {(filterClient !== 'todos' || filterStatus !== 'todos' || filterPrazo !== 'todos' || filterTipo !== 'todos' || search || filterDateFrom || filterDateTo) && (
+                  <Badge variant="default" className="h-4 w-4 p-0 text-[9px] rounded-full flex items-center justify-center ml-0.5">
+                    !
+                  </Badge>
+                )}
+              </Button>
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Newspaper className="w-4 h-4 text-primary" />
+                Publicações
+                <Badge variant="secondary" className="text-xs">{filtered.length}</Badge>
+              </div>
             </div>
-            <div className="flex gap-1">
-              <Button variant={viewMode === 'lista' ? 'default' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setViewMode('lista')}>
-                <List className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => { resetCreateForm(); setShowCreate(true); }}>
+                <Plus className="w-3.5 h-3.5" /> Nova
               </Button>
-              <Button variant={viewMode === 'kanban' ? 'default' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setViewMode('kanban')}>
-                <LayoutGrid className="w-3.5 h-3.5" />
-              </Button>
+              <div className="flex border rounded-md overflow-hidden">
+                <Button variant={viewMode === 'lista' ? 'default' : 'ghost'} size="sm" className="h-8 px-2.5 rounded-none" onClick={() => setViewMode('lista')}>
+                  <List className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant={viewMode === 'kanban' ? 'default' : 'ghost'} size="sm" className="h-8 px-2.5 rounded-none" onClick={() => setViewMode('kanban')}>
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
 
