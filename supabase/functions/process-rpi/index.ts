@@ -87,17 +87,22 @@ async function extractTextFromPdf(bytes: Uint8Array): Promise<{ text: string; pa
 
 function extractAttorneyBlocks(text: string): string[] {
   const blocks: string[] = [];
-  const normalized = normalizeText(text);
+  // FIX: buscar no lowercase do texto original (mesmo comprimento), não no normalizado
+  const lower = text.toLowerCase();
   let idx = 0;
 
-  // Busca simplificada apenas por "davilys"
-  while ((idx = normalized.indexOf(ATTORNEY_SEARCH_TERM, idx)) !== -1) {
-    // Capturar contexto amplo ao redor do nome (5000 chars antes e depois)
+  while ((idx = lower.indexOf(ATTORNEY_SEARCH_TERM, idx)) !== -1) {
     const start = Math.max(0, idx - 5000);
     const end = Math.min(text.length, idx + ATTORNEY_SEARCH_TERM.length + 5000);
     const block = text.slice(start, end);
 
-    if (!blocks.some((b) => b.includes(block.slice(100, 200)))) {
+    // Deduplicação melhorada: verificar se o centro do bloco já está coberto
+    const isDuplicate = blocks.some((b) => {
+      const overlap = block.substring(4900, 5100);
+      return overlap.length > 50 && b.includes(overlap);
+    });
+
+    if (!isDuplicate) {
       blocks.push(block);
     }
     idx += ATTORNEY_SEARCH_TERM.length;
@@ -137,14 +142,14 @@ async function aiExtractFromBlocks(args: {
       messages: [
         {
           role: "system",
-          content: `Você é especialista em RPI (INPI). Extraia APENAS processos de MARCAS cujo procurador seja "${ATTORNEY_NAME}" (ou variações diretas).\n\nNão retorne patentes/desenhos/IG. Retorne apenas JSON válido.`,
+          content: `Você é especialista em RPI (Revista da Propriedade Industrial do INPI). Extraia APENAS processos de MARCAS cujo procurador seja "${ATTORNEY_NAME}" (ou variações diretas como nome parcial "Davilys").\n\nRegras OBRIGATÓRIAS:\n1. NUNCA retorne process_number vazio - busque o número do processo (ex: 123456789) no contexto próximo ao nome do procurador\n2. NUNCA retorne brand_name vazio se houver qualquer indicação de marca no bloco\n3. ncl_classes deve conter as classes NCL mencionadas (ex: ["25","35"])\n4. holder_name é o titular/requerente da marca, NÃO o procurador\n5. Não retorne patentes/desenhos/IG. Retorne apenas JSON válido.\n6. Se um campo não for encontrado, use "NI" (não identificado) em vez de string vazia`,
         },
         {
           role: "user",
-          content: `A seguir há blocos de texto onde o nome do procurador aparece.\n\nPara cada processo de MARCA identificado, retorne:\n- process_number (apenas dígitos)\n- brand_name\n- ncl_classes\n- dispatch_code\n- dispatch_type\n- dispatch_text (resumido)\n- holder_name\n- publication_date (YYYY-MM-DD, se disponível)\n\nFormato obrigatório (somente JSON):\n{"attorney_processes":[{"process_number":"...","brand_name":"...","ncl_classes":["35"],"dispatch_code":"...","dispatch_type":"...","dispatch_text":"...","holder_name":"...","publication_date":"YYYY-MM-DD"}]}\n\nSe não houver processos de marca, retorne: {"attorney_processes":[]}\n\nBLOCOS:\n${combinedText}`,
+          content: `A seguir há blocos de texto da RPI onde o nome do procurador aparece.\n\nPara cada processo de MARCA identificado, extraia TODOS os campos abaixo com máximo esforço:\n- process_number (OBRIGATÓRIO - apenas dígitos, geralmente 9 dígitos)\n- brand_name (OBRIGATÓRIO - nome da marca registrada)\n- ncl_classes (lista de classes NCL, ex: ["25"])\n- dispatch_code (código do despacho, ex: "IPAS 159")\n- dispatch_type (tipo: deferimento, indeferimento, exigência, etc.)\n- dispatch_text (texto resumido do despacho)\n- holder_name (OBRIGATÓRIO - titular/requerente, NÃO o procurador)\n- publication_date (YYYY-MM-DD, se disponível)\n\nIMPORTANTE: Analise cuidadosamente cada bloco. O número do processo geralmente aparece antes ou logo após a marca. O titular aparece como "Titular:" ou "Requerente:". As classes NCL aparecem como "NCL(X)" ou "Classe X".\n\nFormato obrigatório (somente JSON):\n{"attorney_processes":[{"process_number":"...","brand_name":"...","ncl_classes":["35"],"dispatch_code":"...","dispatch_type":"...","dispatch_text":"...","holder_name":"...","publication_date":"YYYY-MM-DD"}]}\n\nSe não houver processos de marca, retorne: {"attorney_processes":[]}\n\nBLOCOS:\n${combinedText}`,
         },
       ],
-      max_tokens: 6000,
+      max_tokens: 16000,
     }),
   });
 
@@ -308,7 +313,7 @@ serve(async (req) => {
     processingDetails.blocksFound = blocks.length;
 
     // Processar em lotes para não estourar contexto
-    const batchSize = 10;
+    const batchSize = 5;
     const collected: AttorneyProcess[] = [];
 
     for (let i = 0; i < blocks.length; i += batchSize) {
