@@ -207,6 +207,45 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
   const rpiFileInputRef = useRef<HTMLInputElement>(null);
   const [rpiUploadPubId, setRpiUploadPubId] = useState<string | null>(null);
 
+  // Link client states (for orphan publications)
+  const [linkClientSearch, setLinkClientSearch] = useState('');
+  const [linkClientResults, setLinkClientResults] = useState<any[]>([]);
+  const [linkingClient, setLinkingClient] = useState(false);
+  const [linkSearchLoading, setLinkSearchLoading] = useState(false);
+
+  // Debounced search for linking client
+  useEffect(() => {
+    if (linkClientSearch.length < 2) { setLinkClientResults([]); setLinkSearchLoading(false); return; }
+    setLinkSearchLoading(true);
+    const timer = setTimeout(async () => {
+      const term = `%${linkClientSearch}%`;
+      const { data } = await supabase.from('profiles').select('id, full_name, email, cpf_cnpj, company_name, phone')
+        .or(`full_name.ilike.${term},email.ilike.${term},cpf_cnpj.ilike.${term}`)
+        .limit(10);
+      setLinkClientResults(data || []);
+      setLinkSearchLoading(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [linkClientSearch]);
+
+  const handleLinkClient = async (profileId: string) => {
+    if (!client) return;
+    setLinkingClient(true);
+    try {
+      if (client.process_id) {
+        await supabase.from('publicacoes_marcas').update({ client_id: profileId }).eq('process_id', client.process_id);
+        await supabase.from('brand_processes').update({ user_id: profileId }).eq('id', client.process_id);
+      }
+      toast.success('Cliente vinculado com sucesso!');
+      onUpdate();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error('Erro ao vincular cliente');
+    } finally {
+      setLinkingClient(false);
+    }
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [newAppointment, setNewAppointment] = useState({ title: '', description: '', date: new Date(), time: '10:00', duration: '30', generateMeet: true });
@@ -1399,31 +1438,82 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
 
                 {/* ─── CONTACTS TAB ──────────────────────────────────────── */}
                 <TabsContent value="contacts" className="mt-0 space-y-4">
-                  {/* Personal */}
-                  <div className="rounded-2xl border border-border bg-card p-4">
-                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-                      <User className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-semibold">Dados Pessoais</span>
-                    </div>
-                    <InfoRow icon={User} label="Nome Completo" value={client.full_name} copyable />
-                    <InfoRow icon={Hash} label="CPF" value={profileData?.cpf || client.cpf_cnpj} mono copyable />
-                    <InfoRow icon={Hash} label="CNPJ" value={profileData?.cnpj} mono copyable />
-                    <InfoRow icon={Mail} label="E-mail" value={client.email} copyable onAction={() => { if (client.email) setShowEmailCompose(true); }} />
-                    <InfoRow icon={Phone} label="Telefone" value={client.phone} copyable link={`https://wa.me/55${client.phone?.replace(/\D/g,'')}`} />
-                    <InfoRow icon={Building2} label="Empresa" value={client.company_name || profileData?.company_name} />
-                  </div>
-
-                  {/* Address */}
-                  {(profileData?.address || profileData?.city) && (
-                    <div className="rounded-2xl border border-border bg-card p-4">
-                      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-                        <MapPin className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-semibold">Endereço</span>
+                  {/* Link client UI for orphan publications */}
+                  {client.id === '' ? (
+                    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
+                          <UserCheck className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold">Vincular Cliente</p>
+                          <p className="text-xs text-muted-foreground">Pesquise e atribua um cliente a esta publicação</p>
+                        </div>
                       </div>
-                      <InfoRow icon={MapPin} label="Logradouro" value={[profileData.address, profileData.neighborhood].filter(Boolean).join(' – ')} />
-                      <InfoRow icon={Globe} label="Cidade / Estado" value={[profileData.city, profileData.state].filter(Boolean).join(' – ')} />
-                      <InfoRow icon={Hash} label="CEP" value={profileData.zip_code} mono copyable />
+                      <Input
+                        placeholder="Pesquisar por nome, email ou CPF/CNPJ..."
+                        value={linkClientSearch}
+                        onChange={e => setLinkClientSearch(e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                      {linkSearchLoading && (
+                        <div className="flex items-center justify-center py-3">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        </div>
+                      )}
+                      {!linkSearchLoading && linkClientResults.length > 0 && (
+                        <div className="space-y-1 max-h-[250px] overflow-y-auto">
+                          {linkClientResults.map(r => (
+                            <div key={r.id} className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-border bg-card hover:bg-muted/50 transition-colors">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{r.full_name || 'Sem nome'}</p>
+                                <p className="text-xs text-muted-foreground truncate">{r.email}{r.cpf_cnpj ? ` · ${r.cpf_cnpj}` : ''}</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs px-3"
+                                disabled={linkingClient}
+                                onClick={() => handleLinkClient(r.id)}
+                              >
+                                {linkingClient ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Vincular'}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!linkSearchLoading && linkClientSearch.length >= 2 && linkClientResults.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-3">Nenhum cliente encontrado</p>
+                      )}
                     </div>
+                  ) : (
+                    <>
+                      {/* Personal */}
+                      <div className="rounded-2xl border border-border bg-card p-4">
+                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                          <User className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-semibold">Dados Pessoais</span>
+                        </div>
+                        <InfoRow icon={User} label="Nome Completo" value={client.full_name} copyable />
+                        <InfoRow icon={Hash} label="CPF" value={profileData?.cpf || client.cpf_cnpj} mono copyable />
+                        <InfoRow icon={Hash} label="CNPJ" value={profileData?.cnpj} mono copyable />
+                        <InfoRow icon={Mail} label="E-mail" value={client.email} copyable onAction={() => { if (client.email) setShowEmailCompose(true); }} />
+                        <InfoRow icon={Phone} label="Telefone" value={client.phone} copyable link={`https://wa.me/55${client.phone?.replace(/\D/g,'')}`} />
+                        <InfoRow icon={Building2} label="Empresa" value={client.company_name || profileData?.company_name} />
+                      </div>
+
+                      {/* Address */}
+                      {(profileData?.address || profileData?.city) && (
+                        <div className="rounded-2xl border border-border bg-card p-4">
+                          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                            <MapPin className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-semibold">Endereço</span>
+                          </div>
+                          <InfoRow icon={MapPin} label="Logradouro" value={[profileData.address, profileData.neighborhood].filter(Boolean).join(' – ')} />
+                          <InfoRow icon={Globe} label="Cidade / Estado" value={[profileData.city, profileData.state].filter(Boolean).join(' – ')} />
+                          <InfoRow icon={Hash} label="CEP" value={profileData.zip_code} mono copyable />
+                        </div>
+                      )}
+                    </>
                   )}
 
                 </TabsContent>
