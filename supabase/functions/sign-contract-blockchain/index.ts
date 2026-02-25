@@ -244,8 +244,14 @@ serve(async (req) => {
         .eq('id', leadId);
     }
 
-    // Build verification URL
-    const verificationBaseUrl = baseUrl || Deno.env.get('SITE_URL') || 'https://webmarcas.lovable.app';
+    // Build verification URL — use production domain, same pattern as generate-signature-link
+    const PRODUCTION_DOMAIN = 'https://webmarcas.net';
+    const isPreviewUrl = (url: string) =>
+      !url || url.includes('lovable.app') || url.includes('lovableproject.com') || url.includes('localhost');
+    const rawSiteUrl = Deno.env.get('SITE_URL') || '';
+    const verificationBaseUrl = (!isPreviewUrl(rawSiteUrl) ? rawSiteUrl : null)
+      || (!isPreviewUrl(baseUrl || '') ? baseUrl : null)
+      || PRODUCTION_DOMAIN;
 
     // Get recipient info
     let recipientEmail = '';

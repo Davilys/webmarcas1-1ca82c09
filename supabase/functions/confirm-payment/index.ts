@@ -246,6 +246,21 @@ serve(async (req) => {
 
       console.log('Updated contract with signature:', contractId);
 
+      // Fetch blockchain_hash for verification URL
+      let blockchainHash = '';
+      try {
+        const { data: contractRecord } = await supabaseAdmin
+          .from('contracts')
+          .select('blockchain_hash')
+          .eq('id', contractId)
+          .maybeSingle();
+        blockchainHash = contractRecord?.blockchain_hash || '';
+      } catch (hashErr) {
+        console.error('Error fetching blockchain_hash:', hashErr);
+      }
+
+      const PRODUCTION_DOMAIN = 'https://webmarcas.net';
+
       // Trigger contract_signed email automation
       try {
         await fetch(`${SUPABASE_URL}/functions/v1/trigger-email-automation`, {
@@ -264,7 +279,11 @@ serve(async (req) => {
               data_assinatura: new Date().toLocaleDateString('pt-BR'),
               hash_contrato: contractId.substring(0, 12).toUpperCase(),
               ip_assinatura: signatureData?.ip || 'N/A',
-              base_url: 'https://webmarcas.net',
+              base_url: PRODUCTION_DOMAIN,
+              verification_url: blockchainHash
+                ? `${PRODUCTION_DOMAIN}/verificar-contrato?hash=${blockchainHash}`
+                : '',
+              link_area_cliente: `${PRODUCTION_DOMAIN}/cliente/documentos`,
             },
           }),
         });
