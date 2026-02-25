@@ -33,6 +33,8 @@ import { PublicacaoCharts } from '@/components/admin/publicacao/PublicacaoCharts
 import { PublicacaoKanban } from '@/components/admin/publicacao/PublicacaoKanban';
 import { BulkActionsBar } from '@/components/admin/publicacao/BulkActionsBar';
 import { exportPublicacaoPDF } from '@/components/admin/publicacao/PublicacaoPDFExport';
+import { ClientDetailSheet } from '@/components/admin/clients/ClientDetailSheet';
+import type { ClientWithProcess } from '@/components/admin/clients/ClientKanbanBoard';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type PubStatus = 'depositada' | 'publicada' | 'oposicao' | 'deferida' | 'certificada' | 'indeferida' | 'arquivada' | 'renovacao_pendente';
@@ -273,13 +275,19 @@ export default function PublicacaoTab() {
   const hasSyncedRef = useRef(false);
 
   // New state for premium features
-  const [viewMode, setViewMode] = useState<ViewMode>('lista');
+  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [sortKey, setSortKey] = useState<SortKey>('prazo');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [filterAdmin, setFilterAdmin] = useState<string>('todos');
+  const [searchAutocomplete, setSearchAutocomplete] = useState('');
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [editClientSearch, setEditClientSearch] = useState('');
+  const [showEditClientDropdown, setShowEditClientDropdown] = useState(false);
+  const [showClientSheet, setShowClientSheet] = useState(false);
+  const [showProcessDetailFromSheet, setShowProcessDetailFromSheet] = useState(false);
 
   // ─── Create dialog state ────
   const [createProcessId, setCreateProcessId] = useState('');
@@ -301,7 +309,7 @@ export default function PublicacaoTab() {
   const { data: processes = [] } = useQuery({
     queryKey: ['brand-processes-pub'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('brand_processes').select('id, brand_name, process_number, user_id, deposit_date, ncl_classes');
+      const { data, error } = await supabase.from('brand_processes').select('id, brand_name, process_number, user_id, deposit_date, ncl_classes, pipeline_stage, business_area');
       if (error) throw error;
       return data || [];
     },
@@ -310,7 +318,7 @@ export default function PublicacaoTab() {
   const { data: clients = [] } = useQuery({
     queryKey: ['profiles-pub'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('id, full_name, email, cpf');
+      const { data, error } = await supabase.from('profiles').select('id, full_name, email, cpf_cnpj, phone, company_name, priority, origin, contract_value, created_at, last_contact, assigned_to');
       if (error) throw error;
       return data || [];
     },
@@ -726,6 +734,36 @@ export default function PublicacaoTab() {
   useEffect(() => { setCurrentPage(1); }, [search, filterClient, filterStatus, filterPrazo, filterTipo, filterAdmin, filterDateFrom, filterDateTo]);
 
   const selected = useMemo(() => publicacoes.find(p => p.id === selectedId) || null, [publicacoes, selectedId]);
+
+  // Build ClientWithProcess for the ClientDetailSheet
+  const selectedClientForSheet = useMemo<ClientWithProcess | null>(() => {
+    if (!selected?.client_id) return null;
+    const client = clientMap.get(selected.client_id);
+    if (!client) return null;
+    const clientProcesses = processes.filter(p => p.user_id === selected.client_id);
+    const firstProc = clientProcesses[0];
+    return {
+      id: client.id,
+      full_name: client.full_name || '',
+      email: client.email || '',
+      phone: (client as any).phone || null,
+      company_name: (client as any).company_name || null,
+      priority: (client as any).priority || 'medium',
+      origin: (client as any).origin || 'site',
+      pipeline_stage: firstProc?.pipeline_stage || 'protocolado',
+      brand_name: firstProc?.brand_name || '',
+      business_area: firstProc?.business_area || null,
+      process_id: firstProc?.id || null,
+      process_status: null,
+      process_number: firstProc?.process_number || null,
+      contract_value: (client as any).contract_value || 0,
+      created_at: (client as any).created_at || '',
+      last_contact: (client as any).last_contact || null,
+      assigned_to: (client as any).assigned_to || null,
+      cpf_cnpj: (client as any).cpf_cnpj || undefined,
+      brands: clientProcesses.map(p => ({ id: p.id, brand_name: p.brand_name, process_number: p.process_number, pipeline_stage: p.pipeline_stage })),
+    } as ClientWithProcess;
+  }, [selected, clientMap, processes]);
 
   // ─── Alert toast on mount ────
   useEffect(() => {
@@ -1203,6 +1241,57 @@ export default function PublicacaoTab() {
                 Publicações
                 <Badge variant="secondary" className="text-xs">{filtered.length}</Badge>
               </div>
+              {/* Search autocomplete */}
+              <div className="relative">
+                <div className="flex items-center">
+                  <Search className="absolute left-2 w-3.5 h-3.5 text-muted-foreground z-10" />
+                  <Input
+                    className="h-8 w-48 pl-7 text-xs"
+                    placeholder="Buscar cliente, marca..."
+                    value={searchAutocomplete}
+                    onChange={e => { setSearchAutocomplete(e.target.value); setShowSearchDropdown(true); }}
+                    onFocus={() => { if (searchAutocomplete.length >= 2) setShowSearchDropdown(true); }}
+                    onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
+                  />
+                  {(searchAutocomplete || filterClient !== 'todos') && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 ml-1" onClick={() => { setSearchAutocomplete(''); setFilterClient('todos'); setSearch(''); setShowSearchDropdown(false); }}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+                {showSearchDropdown && searchAutocomplete.length >= 2 && (
+                  <div className="absolute z-50 w-72 mt-1 bg-popover border rounded-md shadow-lg max-h-56 overflow-y-auto">
+                    {(() => {
+                      const q = searchAutocomplete.toLowerCase();
+                      const matchedClients = clients.filter(c => (c.full_name?.toLowerCase().includes(q)) || (c.email?.toLowerCase().includes(q))).slice(0, 6);
+                      const matchedProcs = processes.filter(p => (p.brand_name?.toLowerCase().includes(q)) || (p.process_number?.toLowerCase().includes(q))).slice(0, 6);
+                      if (matchedClients.length === 0 && matchedProcs.length === 0) return <p className="px-3 py-2 text-xs text-muted-foreground">Nenhum resultado</p>;
+                      return (
+                        <>
+                          {matchedClients.length > 0 && (
+                            <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase">Clientes</div>
+                          )}
+                          {matchedClients.map(c => (
+                            <button key={c.id} className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors" onClick={() => { setFilterClient(c.id); setSearchAutocomplete(c.full_name || c.email); setShowSearchDropdown(false); }}>
+                              <p className="text-xs font-medium">{c.full_name || 'Sem nome'}</p>
+                              <p className="text-[10px] text-muted-foreground">{c.email}</p>
+                            </button>
+                          ))}
+                          {matchedProcs.length > 0 && (
+                            <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase border-t">Processos/Marcas</div>
+                          )}
+                          {matchedProcs.map(p => (
+                            <button key={p.id} className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors" onClick={() => { setSearch(p.brand_name || p.process_number || ''); setSearchAutocomplete(p.brand_name || p.process_number || ''); setShowSearchDropdown(false); }}>
+                              <p className="text-xs font-medium">{p.brand_name}</p>
+                              {p.process_number && <p className="text-[10px] text-muted-foreground font-mono">{p.process_number}</p>}
+                            </button>
+                          ))}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-1.5">
               <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => { resetCreateForm(); setShowCreate(true); }}>
@@ -1234,7 +1323,14 @@ export default function PublicacaoTab() {
               processMap={processMap}
               clientMap={clientMap}
               adminMap={adminMap}
-              onSelect={id => setSelectedId(selectedId === id ? null : id)}
+              onSelect={id => {
+                setSelectedId(selectedId === id ? null : id);
+                // Open ClientDetailSheet if the pub has a client
+                const pub = publicacoes.find(p => p.id === id);
+                if (pub?.client_id) {
+                  setShowClientSheet(true);
+                }
+              }}
               selectedId={selectedId}
               onStatusChange={handleKanbanStatusChange}
             />
@@ -1438,7 +1534,7 @@ export default function PublicacaoTab() {
                         <Edit3 className="w-3 h-3 mr-2" /> Editar Datas e Status
                       </Button>
                       <Button size="sm" variant="outline" className="w-full text-xs justify-start" onClick={() => handleGenerateReminder(selected)}>
-                        <Bell className="w-3 h-3 mr-2" /> Gerar Lembrete
+                        <Calendar className="w-3 h-3 mr-2" /> Agenda
                       </Button>
                       {selected.rpi_link && (
                         <Button size="sm" variant="outline" className="w-full text-xs justify-start" asChild>
@@ -1616,15 +1712,64 @@ export default function PublicacaoTab() {
                   </SelectContent>
                 </Select>
               </div>
-              {/* Manual client assignment */}
+              {/* Manual client assignment with autocomplete */}
               <div>
                 <Label className="text-xs">Cliente (vincular manualmente)</Label>
-                <Select value={editData.client_id || ''} onValueChange={v => setEditData(d => ({ ...d, client_id: v || null }))}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Selecione um cliente" /></SelectTrigger>
-                  <SelectContent>
-                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name || c.email}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="relative">
+                  <div className="flex items-center gap-1">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      <Input
+                        className="h-9 pl-7 text-sm"
+                        placeholder="Buscar por nome, email ou CPF..."
+                        value={editClientSearch}
+                        onChange={e => setEditClientSearch(e.target.value)}
+                        onFocus={() => setShowEditClientDropdown(true)}
+                      />
+                    </div>
+                    {editData.client_id && (
+                      <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => { setEditData(d => ({ ...d, client_id: null })); setEditClientSearch(''); }}>
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  {editData.client_id && !editClientSearch && (
+                    <p className="text-[10px] text-primary mt-1 font-medium">
+                      ✓ {clientMap.get(editData.client_id)?.full_name || clientMap.get(editData.client_id)?.email || editData.client_id}
+                    </p>
+                  )}
+                  {showEditClientDropdown && editClientSearch.length >= 2 && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {clients
+                        .filter(c => {
+                          const q = editClientSearch.toLowerCase();
+                          return (c.full_name?.toLowerCase().includes(q)) || (c.email?.toLowerCase().includes(q)) || ((c as any).cpf_cnpj?.toLowerCase().includes(q));
+                        })
+                        .slice(0, 10)
+                        .map(c => (
+                          <button
+                            key={c.id}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors border-b last:border-0"
+                            onClick={() => {
+                              setEditData(d => ({ ...d, client_id: c.id }));
+                              setEditClientSearch('');
+                              setShowEditClientDropdown(false);
+                            }}
+                          >
+                            <p className="font-medium text-xs">{c.full_name || 'Sem nome'}</p>
+                            <p className="text-[10px] text-muted-foreground">{c.email}</p>
+                          </button>
+                        ))
+                      }
+                      {clients.filter(c => {
+                        const q = editClientSearch.toLowerCase();
+                        return (c.full_name?.toLowerCase().includes(q)) || (c.email?.toLowerCase().includes(q));
+                      }).length === 0 && (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">Nenhum cliente encontrado</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               {/* Manual process assignment */}
               <div>
@@ -1717,6 +1862,128 @@ export default function PublicacaoTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* ─── CLIENT DETAIL SHEET (from Kanban click) ─── */}
+      {showClientSheet && selectedClientForSheet && (
+        <>
+          <ClientDetailSheet
+            client={selectedClientForSheet}
+            open={showClientSheet}
+            onOpenChange={(open) => { setShowClientSheet(open); if (!open) setShowProcessDetailFromSheet(false); }}
+            onUpdate={() => queryClient.invalidateQueries({ queryKey: ['profiles-pub'] })}
+          />
+          {/* Floating "Detalhes do Processo" button */}
+          {selected && (
+            <div className="fixed bottom-6 right-6 z-[60]">
+              <Button
+                size="lg"
+                className="gap-2 shadow-xl rounded-full px-6"
+                onClick={() => setShowProcessDetailFromSheet(true)}
+              >
+                <FileText className="w-4 h-4" />
+                Detalhes do Processo
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ─── PROCESS DETAIL DIALOG (from ClientDetailSheet) ─── */}
+      <Dialog open={showProcessDetailFromSheet} onOpenChange={setShowProcessDetailFromSheet}>
+        <DialogContent className="max-w-lg max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Detalhes do Processo</DialogTitle>
+          </DialogHeader>
+          {selected && (
+            <ScrollArea className="max-h-[60vh]">
+              <div className="space-y-4">
+                <div>
+                  <p className="font-bold text-base">
+                    {(selected.process_id ? processMap.get(selected.process_id)?.brand_name : null) || (selected as any).brand_name_rpi || '—'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {(selected.process_id ? processMap.get(selected.process_id)?.process_number : null) || (selected as any).process_number_rpi || 'Sem número'}
+                  </p>
+                  {selected.descricao_prazo && <p className="text-xs text-primary font-medium mt-1">{selected.descricao_prazo}</p>}
+                </div>
+
+                {(selected.rpi_number || selected.documento_rpi_url) && (
+                  <div className="p-2 rounded-lg bg-muted/50 space-y-1">
+                    {selected.rpi_number && <p className="text-xs flex items-center gap-1.5"><Hash className="w-3 h-3 text-primary" /><span className="font-medium">RPI N°:</span> {selected.rpi_number}</p>}
+                    {selected.documento_rpi_url && (
+                      <a href={selected.documento_rpi_url} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-primary hover:underline">
+                        <Paperclip className="w-3 h-3" /> Documento RPI
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Timeline</p>
+                  {TIMELINE_STEPS.map(step => {
+                    const date = (selected as any)[step.key] as string | null;
+                    const isCompleted = !!date && isBefore(parseISO(date), new Date());
+                    const isOverdue = !!date && isBefore(parseISO(date), new Date()) && !isCompleted && step.key !== 'data_deposito';
+                    return <TimelineStep key={step.key} step={step} date={date} isCompleted={isCompleted} isOverdue={isOverdue && getDaysLeft(date)! < 0} />;
+                  })}
+                </div>
+
+                {selected.proximo_prazo_critico && getScheduledAlerts(selected.proximo_prazo_critico).length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                      <BellRing className="w-3 h-3" /> Alertas Programados
+                    </p>
+                    <div className="space-y-1">
+                      {getScheduledAlerts(selected.proximo_prazo_critico).map((alert, i) => (
+                        <div key={i} className="text-[10px] flex items-center gap-2 p-1.5 rounded bg-muted/50">
+                          <Bell className="w-3 h-3 text-amber-500" />
+                          <span>{alert.label}</span>
+                          <span className="text-muted-foreground ml-auto">{format(alert.date, 'dd/MM/yyyy')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Button size="sm" variant="outline" className="w-full text-xs justify-start" onClick={() => { setEditData(selected); setShowEdit(true); setShowProcessDetailFromSheet(false); }}>
+                    <Edit3 className="w-3 h-3 mr-2" /> Editar Datas e Status
+                  </Button>
+                  <Button size="sm" variant="outline" className="w-full text-xs justify-start" onClick={() => handleGenerateReminder(selected)}>
+                    <Calendar className="w-3 h-3 mr-2" /> Agenda
+                  </Button>
+                </div>
+
+                {logs.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <Activity className="w-3 h-3" /> Histórico ({logs.length})
+                    </p>
+                    <div className="space-y-0">
+                      {logs.slice(0, 10).map((log, idx) => (
+                        <div key={log.id} className="flex gap-2.5">
+                          <div className="flex flex-col items-center">
+                            <div className={cn('w-2 h-2 rounded-full mt-1.5 flex-shrink-0', log.campo_alterado === 'status' ? 'bg-primary' : 'bg-muted-foreground/40')} />
+                            {idx < Math.min(logs.length, 10) - 1 && <div className="w-px flex-1 bg-border" />}
+                          </div>
+                          <div className="pb-3 flex-1 min-w-0">
+                            <div className="text-[10px]">
+                              <span className="font-semibold text-primary">{log.campo_alterado}</span>
+                              {log.valor_novo && <span className="font-medium ml-1">→ {log.valor_novo?.substring(0, 30)}</span>}
+                            </div>
+                            <p className="text-[9px] text-muted-foreground">
+                              {log.admin_email?.split('@')[0] || 'Sistema'} · {format(parseISO(log.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
