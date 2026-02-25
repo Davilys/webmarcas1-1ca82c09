@@ -152,6 +152,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate }: Clie
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
   const [profileData, setProfileData] = useState<any>(null);
+  const [clientBrands, setClientBrands] = useState<any[]>([]);
   const [adminUsersList, setAdminUsersList] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
 
   // Loading states
@@ -218,19 +219,21 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate }: Clie
     if (!client) return;
     setLoading(true);
     try {
-      const [notesRes, appointmentsRes, docsRes, invoicesRes, profileRes, contractRes] = await Promise.all([
+      const [notesRes, appointmentsRes, docsRes, invoicesRes, profileRes, contractRes, brandsRes] = await Promise.all([
         supabase.from('client_notes').select('*').eq('user_id', client.id).order('created_at', { ascending: false }),
         supabase.from('client_appointments').select('*').eq('user_id', client.id).order('scheduled_at', { ascending: true }),
         supabase.from('documents').select('*').eq('user_id', client.id).order('created_at', { ascending: false }),
         supabase.from('invoices').select('*').eq('user_id', client.id).order('due_date', { ascending: false }),
         supabase.from('profiles').select('cpf, cnpj, company_name, address, neighborhood, city, state, zip_code, assigned_to, contract_value').eq('id', client.id).maybeSingle(),
         supabase.from('contracts').select('contract_value, payment_method, signature_status').eq('user_id', client.id).order('created_at', { ascending: false }).limit(1),
+        supabase.from('brand_processes').select('id, brand_name, business_area, process_number, pipeline_stage, status, created_at, updated_at, ncl_classes').eq('user_id', client.id).order('created_at', { ascending: false }),
       ]);
       setNotes(notesRes.data || []);
       setAppointments(appointmentsRes.data || []);
       setDocuments(docsRes.data || []);
       setInvoices(invoicesRes.data || []);
       setProfileData(profileRes.data);
+      setClientBrands(brandsRes.data || (client.brands ? client.brands.map(b => ({ ...b, business_area: null, status: null, created_at: null, updated_at: null, ncl_classes: null })) : []));
       if (contractRes.data && contractRes.data.length > 0) {
         const contract = contractRes.data[0];
         if (contract.contract_value && contract.contract_value > 0) {
@@ -667,6 +670,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate }: Clie
                   { value: 'appointments', label: 'Agenda', icon: CalendarIcon },
                   { value: 'attachments', label: 'Anexos', icon: Paperclip },
                   { value: 'financial', label: 'Financeiro', icon: Wallet },
+                  { value: 'brands', label: 'Marcas', icon: Tag },
                 ].map(tab => (
                   <TabsTrigger
                     key={tab.value}
@@ -869,18 +873,6 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate }: Clie
                     </div>
                   )}
 
-                  {/* Brand info */}
-                  {client.brand_name && (
-                    <div className="rounded-2xl border border-border bg-card p-4">
-                      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-                        <Tag className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-semibold">Dados da Marca</span>
-                      </div>
-                      <InfoRow icon={Tag} label="Nome da Marca" value={client.brand_name} copyable />
-                      <InfoRow icon={Briefcase} label="Ramo de Atividade" value={client.business_area} />
-                      {client.process_number && <InfoRow icon={Hash} label="Protocolo INPI" value={client.process_number} mono copyable />}
-                    </div>
-                  )}
                 </TabsContent>
 
                 {/* ─── SERVICES TAB ──────────────────────────────────────── */}
@@ -1223,6 +1215,78 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate }: Clie
                               <div className="text-right flex-shrink-0">
                                 <p className="font-bold text-sm">{Number(inv.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                 <Badge className={cn('border text-[10px] h-4 px-1.5', STATUS.cls)}>{STATUS.label}</Badge>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* ─── BRANDS TAB ──────────────────────────────────────── */}
+                <TabsContent value="brands" className="mt-0 space-y-4">
+                  {loading ? (
+                    <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                  ) : clientBrands.length === 0 ? (
+                    <EmptyState icon={Tag} title="Nenhuma marca" description="As marcas registradas por este cliente aparecerão aqui" />
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Tag className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-semibold">{clientBrands.length} marca{clientBrands.length !== 1 ? 's' : ''} registrada{clientBrands.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      <AnimatePresence>
+                        {clientBrands.map((brand, i) => {
+                          const stageInfo = PIPELINE_STAGES.find(s => s.id === brand.pipeline_stage) || PIPELINE_STAGES[0];
+                          return (
+                            <motion.div
+                              key={brand.id}
+                              initial={{ opacity: 0, y: -6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.05 }}
+                              className="rounded-2xl border border-border bg-card p-4 space-y-3"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${stageInfo.color}20` }}>
+                                    <Tag className="h-4 w-4" style={{ color: stageInfo.color }} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-sm truncate">{brand.brand_name}</p>
+                                    {brand.business_area && <p className="text-xs text-muted-foreground truncate">{brand.business_area}</p>}
+                                  </div>
+                                </div>
+                                <Badge className="border text-[10px] h-5 px-2 flex-shrink-0" style={{ backgroundColor: `${stageInfo.color}15`, color: stageInfo.color, borderColor: `${stageInfo.color}30` }}>
+                                  {stageInfo.label}
+                                </Badge>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                {brand.process_number && (
+                                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                                    <Hash className="h-3 w-3" />
+                                    <span className="font-mono">{brand.process_number}</span>
+                                  </div>
+                                )}
+                                {brand.ncl_classes && brand.ncl_classes.length > 0 && (
+                                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                                    <Briefcase className="h-3 w-3" />
+                                    <span>NCL: {brand.ncl_classes.join(', ')}</span>
+                                  </div>
+                                )}
+                                {brand.status && (
+                                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                                    <Activity className="h-3 w-3" />
+                                    <span>{brand.status === 'em_andamento' ? 'Em andamento' : brand.status}</span>
+                                  </div>
+                                )}
+                                {brand.created_at && (
+                                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                                    <CalendarIcon className="h-3 w-3" />
+                                    <span>{format(new Date(brand.created_at), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                                  </div>
+                                )}
                               </div>
                             </motion.div>
                           );
