@@ -1,94 +1,163 @@
 
 
-## Correcao: Identificacao de Dados dos Processos na Revista INPI
+## Correcao: Dados Faltantes nos Processos da Revista INPI
 
-### Problema Identificado
+### Problemas Identificados (com evidencia no banco de dados)
 
-Ha um **bug critico** na funcao `extractAttorneyBlocks` no arquivo `supabase/functions/process-rpi/index.ts` que causa perda de dados dos processos.
+Analisando os 30 registros mais recentes da tabela `rpi_entries`:
+
+1. **~60% dos registros tem `brand_name` vazio (null)** - A IA nao esta extraindo o nome da marca
+2. **~100% dos registros tem `holder_name` vazio (null)** - Titular nunca esta sendo preenchido
+3. **~40% dos registros tem `ncl_classes` vazio (null)** - Classes NCL faltando
+4. **100% dos registros tem `dispatch_code` vazio (null)** - Codigo do despacho nunca preenchido
+5. **Processos duplicados** - Numeros como 942644468 e 935405593 aparecem 2 vezes cada
+6. **Processos com "NI" descartados** - Quando a IA retorna "NI" como process_number, o `replace(/\D/g, "")` transforma em string vazia e o processo e ignorado
 
 ### Causa Raiz
 
-Na linha 90-98 do `process-rpi/index.ts`, o codigo faz o seguinte:
+Tres problemas no codigo:
 
-```text
-const normalized = normalizeText(text);   // texto modificado (sem acentos, espacos colapsados)
-// ...
-const start = Math.max(0, idx - 5000);
-const end = Math.min(text.length, idx + ...);
-const block = text.slice(start, end);     // usa indices do NORMALIZED no TEXT ORIGINAL
-```
+**A) Janela de contexto pequena (5000 chars)**
+Em documentos XML/PDF da RPI, o nome do procurador pode estar a milhares de caracteres de distancia dos dados do processo. 5000 caracteres antes/depois nao e suficiente.
 
-O `idx` e calculado sobre o texto **normalizado** (sem acentos, espacos colapsados), mas o `text.slice(start, end)` e aplicado sobre o texto **original**. Como a normalizacao muda o comprimento do texto (remove acentos compostos, colapsa espacos e quebras de linha), os indices ficam **desalinhados**. Resultado: os blocos enviados para a IA contem texto cortado no lugar errado, perdendo numeros de processo, marca, titular etc.
+**B) Busca apenas por "davilys"**
+Se o documento contiver apenas "Danques" ou "Cunha" sem "Davilys", esses processos sao perdidos.
 
-Alem disso:
-- O **max_tokens: 6000** na chamada da IA e baixo demais quando ha muitos processos num unico lote, causando respostas truncadas (JSON incompleto que e descartado)
-- A **deduplicacao de blocos** (linha 100) pode pular blocos validos por coincidencia de substring
+**C) Deduplicacao fragil**
+A deduplicacao por substring no centro do bloco (linhas 99-103) falha quando blocos tem conteudo similar mas nao identico, e a deduplicacao final por process_number (linhas 351-357) descarta entradas onde o numero e "NI" ou vazio.
 
 ### Solucao
 
-Alterar a funcao `extractAttorneyBlocks` para usar os indices no texto **normalizado** e tambem fatiar o texto **normalizado** (ja que a IA nao precisa de acentos para identificar dados). Alternativamente, buscar no texto original em lowercase. Vou usar a segunda abordagem para manter fidelidade dos dados.
-
-### Alteracoes no Arquivo
-
 **Arquivo:** `supabase/functions/process-rpi/index.ts`
 
-#### 1. Corrigir `extractAttorneyBlocks` - Alinhar indices
+#### 1. Adicionar termos de busca multiplos
 
-Em vez de buscar no texto normalizado e fatiar o original, buscar diretamente no texto original convertido para lowercase (sem remover acentos nem colapsar espacos). Assim os indices correspondem exatamente:
+Alterar de um unico termo para uma lista de termos:
 
 ```text
+const ATTORNEY_SEARCH_TERMS = ["davilys", "danques"];
+```
+
+Atualizar `containsAttorney` e `extractAttorneyBlocks` para buscar por QUALQUER um dos termos.
+
+#### 2. Aumentar janela de contexto de 5000 para 8000
+
+Capturar mais texto ao redor do nome do procurador para garantir que os dados do processo (marca, titular, NCL) estejam incluidos no bloco.
+
+#### 3. Corrigir descarte de processos com "NI"
+
+Na deduplicacao final (linha 354), nao descartar processos cujo process_number seja "NI" ou vazio. Em vez disso, gerar um ID unico temporario para mante-los no resultado.
+
+#### 4. Melhorar deduplicacao de blocos
+
+Usar os indices de posicao no texto para verificar sobreposicao em vez de comparacao de substring fragil.
+
+#### 5. Refinar prompt da IA com instrucoes especificas para XML
+
+Adicionar instrucoes mais claras sobre a estrutura dos documentos XML da RPI (tags como `<processo>`, `<marca>`, `<titular>`, `<procurador>`).
+
+### Alteracoes Detalhadas
+
+```text
+// ANTES (linha 13):
+const ATTORNEY_SEARCH_TERM = "davilys";
+
+// DEPOIS:
+const ATTORNEY_SEARCH_TERMS = ["davilys", "danques"];
+```
+
+```text
+// ANTES (containsAttorney):
+return normalized.includes(ATTORNEY_SEARCH_TERM);
+
+// DEPOIS:
+return ATTORNEY_SEARCH_TERMS.some(term => normalized.includes(term));
+```
+
+```text
+// ANTES (extractAttorneyBlocks): busca 1 termo, janela 5000
+while ((idx = lower.indexOf(ATTORNEY_SEARCH_TERM, idx)) !== -1) {
+  const start = Math.max(0, idx - 5000);
+  const end = Math.min(text.length, idx + ATTORNEY_SEARCH_TERM.length + 5000);
+
+// DEPOIS: busca multiplos termos, janela 8000, deduplicacao por posicao
 function extractAttorneyBlocks(text: string): string[] {
-  const blocks: string[] = [];
+  const blocks: { start: number; end: number; text: string }[] = [];
   const lower = text.toLowerCase();
-  let idx = 0;
 
-  while ((idx = lower.indexOf(ATTORNEY_SEARCH_TERM, idx)) !== -1) {
-    const start = Math.max(0, idx - 5000);
-    const end = Math.min(text.length, idx + ATTORNEY_SEARCH_TERM.length + 5000);
-    const block = text.slice(start, end);
+  for (const term of ATTORNEY_SEARCH_TERMS) {
+    let idx = 0;
+    while ((idx = lower.indexOf(term, idx)) !== -1) {
+      const start = Math.max(0, idx - 8000);
+      const end = Math.min(text.length, idx + term.length + 8000);
 
-    // Deduplicacao melhorada: verificar se o indice central ja esta coberto
-    const isDuplicate = blocks.some((b) => {
-      const overlap = block.substring(4900, 5100);
-      return overlap.length > 50 && b.includes(overlap);
-    });
+      // Verificar sobreposicao com blocos existentes
+      const overlaps = blocks.some(b =>
+        (start >= b.start && start <= b.end) || (end >= b.start && end <= b.end)
+      );
 
-    if (!isDuplicate) {
-      blocks.push(block);
+      if (!overlaps) {
+        blocks.push({ start, end, text: text.slice(start, end) });
+      } else {
+        // Expandir bloco existente se necessario
+        const existing = blocks.find(b =>
+          (start >= b.start && start <= b.end) || (end >= b.start && end <= b.end)
+        );
+        if (existing) {
+          existing.start = Math.min(existing.start, start);
+          existing.end = Math.max(existing.end, end);
+          existing.text = text.slice(existing.start, existing.end);
+        }
+      }
+      idx += term.length;
     }
-    idx += ATTORNEY_SEARCH_TERM.length;
   }
-
-  return blocks;
+  return blocks.map(b => b.text);
 }
 ```
 
-#### 2. Aumentar max_tokens da IA
+```text
+// ANTES (deduplicacao final, linha 354):
+const clean = (p.process_number || "").toString().replace(/\D/g, "");
+if (!clean) continue;
 
-Mudar `max_tokens` de **6000** para **16000** para evitar respostas truncadas quando ha muitos processos num unico lote.
+// DEPOIS: manter processos mesmo sem numero claro
+const clean = (p.process_number || "").toString().replace(/\D/g, "");
+const key = clean || `unknown_${unknownCounter++}`;
+if (clean && byProcess.has(clean)) continue; // dedup apenas se tem numero
+byProcess.set(key, { ...p, process_number: clean || p.process_number || "NI" });
+```
 
-#### 3. Melhorar o prompt da IA
+```text
+// ANTES (prompt da IA):
+// Prompt generico
 
-Adicionar instrucao mais enfatica para a IA preencher TODOS os campos, especialmente `process_number`, `brand_name`, `ncl_classes` e `holder_name`, mesmo que precise inferir do contexto. Adicionar instrucao para nunca retornar campos vazios se a informacao estiver presente no texto.
-
-#### 4. Reduzir batch size
-
-Mudar `batchSize` de **10** para **5** para dar mais contexto por processo e reduzir risco de truncamento.
+// DEPOIS: instrucoes especificas para XML
+content: `...
+IMPORTANTE para XML da RPI:
+- Em XML, os dados aparecem em tags como <processo>, <numero>, <marca>, <nome>, <titular>, <procurador>, <classe-nice>, <despacho>
+- O numero do processo geralmente tem 9 digitos
+- Procure tambem por "Classe de Nice" ou "NCL" seguido de numeros
+- O titular pode aparecer como "Titular:", "Requerente:", ou dentro de tags XML
+- Se houver multiplos processos num bloco, extraia TODOS eles
+...`
+```
 
 ### Resumo das Mudancas
 
 | O que | Antes | Depois |
 |-------|-------|--------|
-| Indices de fatiamento | Calculados no texto normalizado, aplicados no original (BUG) | Calculados e aplicados no mesmo texto (lowercase) |
-| max_tokens | 6000 | 16000 |
-| batchSize | 10 | 5 |
-| Prompt IA | Generico | Instrucoes explicitas para preencher todos os campos |
-| Deduplicacao | Substring fragil (100-200) | Verificacao central mais robusta |
+| Termos de busca | Apenas "davilys" | "davilys" + "danques" |
+| Janela de contexto | 5000 chars | 8000 chars |
+| Processos sem numero | Descartados silenciosamente | Mantidos com "NI" |
+| Deduplicacao blocos | Substring fragil | Posicao no texto (merge de blocos) |
+| Prompt IA | Generico | Instrucoes XML especificas |
 
 ### Seguranca
 
-- Nenhuma tabela e alterada
-- Nenhum fluxo existente e quebrado
-- A funcionalidade de edicao inline recentemente adicionada continua intacta
-- Apenas a logica de extracao de texto e melhorada
+- Nenhuma tabela alterada
+- Nenhum fluxo existente quebrado
+- Funcionalidade de edicao inline continua intacta
+- Apenas logica de extracao melhorada
+- Mais processos serao capturados (nenhum sera perdido)
 
