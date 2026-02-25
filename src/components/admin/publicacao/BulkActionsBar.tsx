@@ -4,13 +4,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CheckSquare, X, Bell, Download, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-type PubStatus = 'depositada' | 'publicada' | 'oposicao' | 'deferida' | 'indeferida' | 'arquivada' | 'renovacao_pendente';
+type PubStatus = 'depositada' | 'publicada' | 'oposicao' | 'deferida' | 'certificada' | 'indeferida' | 'arquivada' | 'renovacao_pendente';
 
 const STATUS_OPTIONS: { value: PubStatus; label: string }[] = [
   { value: 'depositada', label: 'Depositada' },
   { value: 'publicada', label: 'Publicada' },
   { value: 'oposicao', label: 'Oposição' },
   { value: 'deferida', label: 'Deferida' },
+  { value: 'certificada', label: 'Certificada' },
   { value: 'indeferida', label: 'Indeferida' },
   { value: 'arquivada', label: 'Arquivada' },
   { value: 'renovacao_pendente', label: 'Renovação Pendente' },

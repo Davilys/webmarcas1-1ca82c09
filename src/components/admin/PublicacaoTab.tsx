@@ -35,7 +35,7 @@ import { BulkActionsBar } from '@/components/admin/publicacao/BulkActionsBar';
 import { exportPublicacaoPDF } from '@/components/admin/publicacao/PublicacaoPDFExport';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type PubStatus = 'depositada' | 'publicada' | 'oposicao' | 'deferida' | 'indeferida' | 'arquivada' | 'renovacao_pendente';
+type PubStatus = 'depositada' | 'publicada' | 'oposicao' | 'deferida' | 'certificada' | 'indeferida' | 'arquivada' | 'renovacao_pendente';
 type PubTipo = 'publicacao_rpi' | 'decisao' | 'certificado' | 'renovacao';
 type PrazoFilter = 'todos' | 'hoje' | '7dias' | '30dias' | 'atrasados';
 type SortKey = 'cliente' | 'marca' | 'data_pub' | 'prazo' | 'status';
@@ -85,6 +85,7 @@ const STATUS_CONFIG: Record<PubStatus, { label: string; color: string; bg: strin
   publicada: { label: 'Publicada', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
   oposicao: { label: 'Oposição', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
   deferida: { label: 'Deferida', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+  certificada: { label: 'Certificada', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40' },
   indeferida: { label: 'Indeferida', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
   arquivada: { label: 'Arquivada', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
   renovacao_pendente: { label: 'Renovação Pendente', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
@@ -114,7 +115,7 @@ function getUrgencyBadge(days: number | null) {
   return { label: `${days}d restantes`, variant: 'outline' as const, className: 'text-emerald-700 dark:text-emerald-400' };
 }
 
-function calcDeadlineFromDispatch(dispatchText: string | null, publicationDate: string | null): { days: number | null; desc: string } | null {
+function calcDeadlineFromDispatch(dispatchText: string | null, publicationDate: string | null): { days: number | null; desc: string; status?: PubStatus } | null {
   if (!publicationDate || !dispatchText) return null;
   const text = dispatchText.toLowerCase();
 
@@ -128,6 +129,8 @@ function calcDeadlineFromDispatch(dispatchText: string | null, publicationDate: 
     return { days: 60, desc: 'Cumprimento de exigência' };
   if (text.includes('recurso'))
     return { days: 60, desc: 'Prazo para recurso' };
+  if (text.includes('certificado de registro') || text.includes('concessao') || text.includes('concessão') || text.includes('registro concedido'))
+    return { days: 3285, desc: 'Prazo para renovação ordinária (9 anos)', status: 'certificada' as PubStatus };
   if (text.includes('deferido') || text.includes('deferimento'))
     return { days: 60, desc: 'Pagamento de taxas (deferimento)' };
   if (text.includes('indeferido') || text.includes('indeferimento'))
@@ -142,7 +145,8 @@ function calcAutoFields(pub: Partial<Publicacao>, dispatchText?: string | null):
     out.prazo_oposicao = format(addDays(parseISO(out.data_publicacao_rpi), 60), 'yyyy-MM-dd');
   }
   if (out.data_certificado) {
-    out.data_renovacao = format(addYears(parseISO(out.data_certificado), 10), 'yyyy-MM-dd');
+    out.data_renovacao = format(addYears(parseISO(out.data_certificado), 9), 'yyyy-MM-dd');
+    out.descricao_prazo = 'Renovação ordinária - 9 anos (+ 6m ord. + 6m extra)';
   }
 
   // Auto-calculate deadline from dispatch_text if not manually set
@@ -207,7 +211,7 @@ const TIMELINE_STEPS = [
   { key: 'prazo_oposicao', label: 'Prazo Oposição (60d)', icon: Gavel, description: 'Período para manifestações' },
   { key: 'data_decisao', label: 'Decisão', icon: Shield, description: 'Deferimento ou indeferimento' },
   { key: 'data_certificado', label: 'Certificado', icon: Award, description: 'Emissão do certificado' },
-  { key: 'data_renovacao', label: 'Renovação (10 anos)', icon: RefreshCw, description: 'Prazo para renovação' },
+  { key: 'data_renovacao', label: 'Renovação (9 anos)', icon: RefreshCw, description: 'Prazo ordinário + 6m ord. + 6m extra' },
 ] as const;
 
 function TimelineStep({ step, date, isCompleted, isOverdue }: {
@@ -445,7 +449,8 @@ export default function PublicacaoTab() {
         // Determine status from dispatch
         let status: PubStatus = 'publicada';
         const dispatchText = (entry.dispatch_text || '').toLowerCase();
-        if (dispatchText.includes('deferido') || dispatchText.includes('deferimento')) status = 'deferida';
+        if (dispatchText.includes('certificado de registro') || dispatchText.includes('concessao') || dispatchText.includes('concessão') || dispatchText.includes('registro concedido')) status = 'certificada';
+        else if (dispatchText.includes('deferido') || dispatchText.includes('deferimento')) status = 'deferida';
         else if (dispatchText.includes('indeferido') || dispatchText.includes('indeferimento')) status = 'indeferida';
         else if (dispatchText.includes('oposição') || dispatchText.includes('oposicao')) status = 'oposicao';
         else if (dispatchText.includes('arquiv')) status = 'arquivada';
@@ -457,6 +462,7 @@ export default function PublicacaoTab() {
           tipo_publicacao: 'publicacao_rpi' as PubTipo,
           rpi_number: entry.dispatch_code || null,
           data_publicacao_rpi: entry.publication_date || null,
+          data_certificado: status === 'certificada' ? (entry.publication_date || null) : null,
           rpi_entry_id: entry.id,
           brand_name_rpi: entry.brand_name || null,
           process_number_rpi: entry.process_number || null,
