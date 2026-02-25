@@ -54,6 +54,13 @@ export default function AdminClientes() {
   const [viewOwnOnly, setViewOwnOnly] = useState(false);
   const [adminUsers, setAdminUsers] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
   const [funnelType, setFunnelType] = useState<FunnelType>('comercial');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search input — avoids re-rendering 2300+ cards on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
 
   // Wait for auth session before fetching — fixes intermittent "0 clients" bug
@@ -308,72 +315,57 @@ export default function AdminClientes() {
     setDetailOpen(true);
   };
 
-  // Filter by date period
-  const dateFilteredClients = useMemo(() => {
-    if (dateFilter === 'all') return clients;
-    
-    const now = new Date();
-    
-    return clients.filter(client => {
-      if (!client.created_at) return true;
-      
-      const createdAt = parseISO(client.created_at);
-      
-      switch (dateFilter) {
-        case 'today':
-          return isWithinInterval(createdAt, {
-            start: startOfDay(now),
-            end: endOfDay(now)
-          });
-        case 'week':
-          return isWithinInterval(createdAt, {
-            start: startOfWeek(now, { weekStartsOn: 1 }),
-            end: now
-          });
-        case 'month':
-          return isWithinInterval(createdAt, {
-            start: startOfMonth(selectedMonth),
-            end: endOfMonth(selectedMonth)
-          });
-        default:
-          return true;
-      }
-    });
-  }, [clients, dateFilter, selectedMonth]);
-
-  // Filter by own clients if restricted
-  const ownFilteredClients = useMemo(() => {
-    if (!viewOwnOnly || !currentUserId) return dateFilteredClients;
-    return dateFilteredClients.filter(client => 
-      client.created_by === currentUserId || client.assigned_to === currentUserId
-    );
-  }, [dateFilteredClients, viewOwnOnly, currentUserId]);
-
-  // Filter by funnel type
-  const funnelFilteredClients = useMemo(() => {
-    return ownFilteredClients.filter(client => 
-      (client.client_funnel_type || 'juridico') === funnelType
-    );
-  }, [ownFilteredClients, funnelType]);
-
-  // Filter by search (name, email, cpf/cnpj, phone, brand, company) — memoized
+  // Consolidated filter: funnel + own + date + search — single pass over clients
   const filteredClients = useMemo(() => {
-    if (!search.trim()) return funnelFilteredClients;
-    const s = search.toLowerCase();
-    return funnelFilteredClients.filter(client =>
-      client.full_name?.toLowerCase().includes(s) ||
-      client.email.toLowerCase().includes(s) ||
-      client.company_name?.toLowerCase().includes(s) ||
-      client.brand_name?.toLowerCase().includes(s) ||
-      client.brands?.some(b => b.brand_name.toLowerCase().includes(s)) ||
-      client.phone?.includes(search) ||
-      client.cpf_cnpj?.includes(search)
-    );
-  }, [funnelFilteredClients, search]);
+    let result = clients;
+
+    // Funnel filter
+    result = result.filter(c => (c.client_funnel_type || 'juridico') === funnelType);
+
+    // Own filter
+    if (viewOwnOnly && currentUserId) {
+      result = result.filter(c => c.created_by === currentUserId || c.assigned_to === currentUserId);
+    }
+
+    // Date filter
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      result = result.filter(client => {
+        if (!client.created_at) return true;
+        const createdAt = parseISO(client.created_at);
+        switch (dateFilter) {
+          case 'today':
+            return isWithinInterval(createdAt, { start: startOfDay(now), end: endOfDay(now) });
+          case 'week':
+            return isWithinInterval(createdAt, { start: startOfWeek(now, { weekStartsOn: 1 }), end: now });
+          case 'month':
+            return isWithinInterval(createdAt, { start: startOfMonth(selectedMonth), end: endOfMonth(selectedMonth) });
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Search filter (uses debounced value)
+    if (debouncedSearch.trim()) {
+      const s = debouncedSearch.toLowerCase();
+      result = result.filter(client =>
+        client.full_name?.toLowerCase().includes(s) ||
+        client.email.toLowerCase().includes(s) ||
+        client.company_name?.toLowerCase().includes(s) ||
+        client.brand_name?.toLowerCase().includes(s) ||
+        client.brands?.some(b => b.brand_name.toLowerCase().includes(s)) ||
+        client.phone?.includes(debouncedSearch) ||
+        client.cpf_cnpj?.includes(debouncedSearch)
+      );
+    }
+
+    return result;
+  }, [clients, funnelType, viewOwnOnly, currentUserId, dateFilter, selectedMonth, debouncedSearch]);
 
   // ── Derived stats ────────────────────────────────────────────────
   const stats = useMemo(() => {
-    const base = funnelFilteredClients;
+    const base = filteredClients;
     const uniqueIds = new Set(base.map(c => c.id));
     const total = uniqueIds.size;
     const high = [...uniqueIds].filter(id => base.find(c => c.id === id)?.priority === 'high').length;
@@ -387,7 +379,7 @@ export default function AdminClientes() {
       return isWithinInterval(d, { start: startOfMonth(now), end: endOfMonth(now) });
     }).length;
     return { total, high, withProcess, newThisMonth };
-  }, [funnelFilteredClients]);
+  }, [filteredClients]);
 
   return (
     <AdminLayout>

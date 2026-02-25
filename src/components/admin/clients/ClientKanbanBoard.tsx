@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -100,6 +100,8 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
+  const MAX_VISIBLE = 20;
 
   // Select stages based on funnel type
   const activePipelineStages = funnelType === 'comercial' ? COMMERCIAL_PIPELINE_STAGES : PIPELINE_STAGES;
@@ -271,13 +273,10 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
           const isDragOver = dragOverStage === stage.id;
 
           return (
-            <motion.div
+            <div
               key={stage.id}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: stageIndex * 0.05 }}
               className={cn(
-                "flex-shrink-0 transition-all duration-300",
+                "flex-shrink-0 transition-all duration-200",
                 isCollapsed ? "w-14" : "w-80"
               )}
               onDragOver={(e) => handleDragOver(e, stage.id)}
@@ -364,11 +363,8 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
                 {/* Cards */}
                 {!isCollapsed && (
                   <div className="space-y-3">
-                    <AnimatePresence>
                       {stageClients.length === 0 ? (
-                        <motion.div 
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
+                        <div
                           className={cn(
                             "text-center py-10 rounded-xl border-2 border-dashed transition-all",
                             isDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/20"
@@ -379,9 +375,15 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
                           </div>
                           <p className="text-sm text-muted-foreground">Nenhum cliente</p>
                           <p className="text-xs text-muted-foreground/70">Arraste clientes aqui</p>
-                        </motion.div>
+                        </div>
                       ) : (
-                        stageClients.map((client, index) => {
+                        <>
+                        {(() => {
+                          const isExpanded = expandedStages.has(stage.id);
+                          const visibleClients = isExpanded ? stageClients : stageClients.slice(0, MAX_VISIBLE);
+                          const hiddenCount = stageClients.length - MAX_VISIBLE;
+                          return <>
+                        {visibleClients.map((client) => {
                           const priorityConfig = getPriorityConfig(client.priority);
                           const originConfig = ORIGIN_CONFIG[client.origin || 'site'] || ORIGIN_CONFIG.site;
                           const OriginIcon = originConfig.icon;
@@ -389,23 +391,10 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
                           const isDragging = draggedClient?.id === client.id;
 
                           return (
-                            <motion.div
+                            <div
                               key={client.id + (client.process_id || '')}
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ 
-                                opacity: isDragging ? 0.5 : 1, 
-                                y: 0,
-                                scale: isDragging ? 1.02 : 1,
-                                rotate: isDragging ? 2 : 0
-                              }}
-                              exit={{ opacity: 0, scale: 0.9 }}
-                              transition={{ duration: 0.2, delay: index * 0.03 }}
-                              whileHover={{ 
-                                y: -4, 
-                                boxShadow: "0 12px 40px -10px rgba(0,0,0,0.15)",
-                              }}
-                              onHoverStart={() => setHoveredCard(client.id)}
-                              onHoverEnd={() => setHoveredCard(null)}
+                              onMouseEnter={() => setHoveredCard(client.id)}
+                              onMouseLeave={() => setHoveredCard(null)}
                             >
                               <Card
                                 draggable
@@ -648,14 +637,8 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
                                   </div>
 
                                   {/* Quick Action on Hover */}
-                                  <AnimatePresence>
-                                    {isHovered && (
-                                      <motion.div
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: 'auto' }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        className="mt-2 pt-2 border-t"
-                                      >
+                                  {isHovered && (
+                                    <div className="mt-2 pt-2 border-t">
                                         <Button 
                                           variant="ghost" 
                                           size="sm" 
@@ -665,20 +648,49 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
                                           <Eye className="h-3 w-3 mr-1" />
                                           Visualizar
                                         </Button>
-                                      </motion.div>
-                                    )}
-                                  </AnimatePresence>
+                                    </div>
+                                  )}
                                 </div>
                               </Card>
-                            </motion.div>
+                            </div>
                           );
-                        })
+                        })}
+                        {hiddenCount > 0 && !isExpanded && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full text-xs h-8"
+                            onClick={() => setExpandedStages(prev => {
+                              const next = new Set(prev);
+                              next.add(stage.id);
+                              return next;
+                            })}
+                          >
+                            Ver mais {hiddenCount} clientes
+                          </Button>
+                        )}
+                        {isExpanded && hiddenCount > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-xs h-8"
+                            onClick={() => setExpandedStages(prev => {
+                              const next = new Set(prev);
+                              next.delete(stage.id);
+                              return next;
+                            })}
+                          >
+                            Recolher
+                          </Button>
+                        )}
+                        </>;
+                        })()}
+                        </>
                       )}
-                    </AnimatePresence>
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
