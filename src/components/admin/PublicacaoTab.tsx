@@ -12,7 +12,7 @@ import {
   FileText, Eye, ArrowRight, RotateCcw, Shield, Gavel, Award, RefreshCw,
   ExternalLink, Trash2, Users, Zap, BellRing, Hash, Paperclip,
   ArrowUpDown, ArrowUp, ArrowDown, List, LayoutGrid, FileDown,
-  ChevronLeft, Activity,
+  ChevronLeft, Activity, Wallet, Receipt,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,7 @@ import { PublicacaoKanban } from '@/components/admin/publicacao/PublicacaoKanban
 import { BulkActionsBar } from '@/components/admin/publicacao/BulkActionsBar';
 import { exportPublicacaoPDF } from '@/components/admin/publicacao/PublicacaoPDFExport';
 import { ClientDetailSheet } from '@/components/admin/clients/ClientDetailSheet';
+import { CreateInvoiceDialog } from '@/components/admin/clients/CreateInvoiceDialog';
 import type { ClientWithProcess } from '@/components/admin/clients/ClientKanbanBoard';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -288,6 +289,7 @@ export default function PublicacaoTab() {
   const [showEditClientDropdown, setShowEditClientDropdown] = useState(false);
   const [showClientSheet, setShowClientSheet] = useState(false);
   const [showProcessDetailFromSheet, setShowProcessDetailFromSheet] = useState(false);
+  const [showInvoiceFromPub, setShowInvoiceFromPub] = useState(false);
 
   // ─── Create dialog state ────
   const [createProcessId, setCreateProcessId] = useState('');
@@ -1586,6 +1588,11 @@ export default function PublicacaoTab() {
                       <Button size="sm" variant="outline" className="w-full text-xs justify-start text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setShowDelete(true)}>
                         <Trash2 className="w-3 h-3 mr-2" /> Excluir Publicação
                       </Button>
+                      {selected.client_id && (
+                        <Button size="sm" variant="outline" className="w-full text-xs justify-start" onClick={() => setShowInvoiceFromPub(true)}>
+                          <Receipt className="w-3 h-3 mr-2" /> Nova Fatura
+                        </Button>
+                      )}
                     </div>
 
                     {selected.comentarios_internos && (
@@ -1896,119 +1903,20 @@ export default function PublicacaoTab() {
           open={showClientSheet}
           onOpenChange={(open) => { setShowClientSheet(open); if (!open) setShowProcessDetailFromSheet(false); }}
           onUpdate={() => queryClient.invalidateQueries({ queryKey: ['profiles-pub'] })}
-          extraActions={
-            selected ? (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/60"
-                onClick={() => setShowProcessDetailFromSheet(true)}
-              >
-                <FileText className="h-3.5 w-3.5" />
-                Detalhes do Processo
-              </motion.button>
-            ) : undefined
-          }
+          initialShowProcessDetails={showProcessDetailFromSheet}
         />
       )}
 
-      {/* ─── PROCESS DETAIL DIALOG (from ClientDetailSheet) ─── */}
-      <Dialog open={showProcessDetailFromSheet} onOpenChange={setShowProcessDetailFromSheet}>
-        <DialogContent className="max-w-lg max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle className="text-sm">Detalhes do Processo</DialogTitle>
-          </DialogHeader>
-          {selected && (
-            <ScrollArea className="max-h-[60vh]">
-              <div className="space-y-4">
-                <div>
-                  <p className="font-bold text-base">
-                    {(selected.process_id ? processMap.get(selected.process_id)?.brand_name : null) || (selected as any).brand_name_rpi || '—'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {(selected.process_id ? processMap.get(selected.process_id)?.process_number : null) || (selected as any).process_number_rpi || 'Sem número'}
-                  </p>
-                  {selected.descricao_prazo && <p className="text-xs text-primary font-medium mt-1">{selected.descricao_prazo}</p>}
-                </div>
-
-                {(selected.rpi_number || selected.documento_rpi_url) && (
-                  <div className="p-2 rounded-lg bg-muted/50 space-y-1">
-                    {selected.rpi_number && <p className="text-xs flex items-center gap-1.5"><Hash className="w-3 h-3 text-primary" /><span className="font-medium">RPI N°:</span> {selected.rpi_number}</p>}
-                    {selected.documento_rpi_url && (
-                      <a href={selected.documento_rpi_url} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-primary hover:underline">
-                        <Paperclip className="w-3 h-3" /> Documento RPI
-                      </a>
-                    )}
-                  </div>
-                )}
-
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Timeline</p>
-                  {TIMELINE_STEPS.map(step => {
-                    const date = (selected as any)[step.key] as string | null;
-                    const isCompleted = !!date && isBefore(parseISO(date), new Date());
-                    const isOverdue = !!date && isBefore(parseISO(date), new Date()) && !isCompleted && step.key !== 'data_deposito';
-                    return <TimelineStep key={step.key} step={step} date={date} isCompleted={isCompleted} isOverdue={isOverdue && getDaysLeft(date)! < 0} />;
-                  })}
-                </div>
-
-                {selected.proximo_prazo_critico && getScheduledAlerts(selected.proximo_prazo_critico).length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
-                      <BellRing className="w-3 h-3" /> Alertas Programados
-                    </p>
-                    <div className="space-y-1">
-                      {getScheduledAlerts(selected.proximo_prazo_critico).map((alert, i) => (
-                        <div key={i} className="text-[10px] flex items-center gap-2 p-1.5 rounded bg-muted/50">
-                          <Bell className="w-3 h-3 text-amber-500" />
-                          <span>{alert.label}</span>
-                          <span className="text-muted-foreground ml-auto">{format(alert.date, 'dd/MM/yyyy')}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Button size="sm" variant="outline" className="w-full text-xs justify-start" onClick={() => { setEditData(selected); setShowEdit(true); setShowProcessDetailFromSheet(false); }}>
-                    <Edit3 className="w-3 h-3 mr-2" /> Editar Datas e Status
-                  </Button>
-                  <Button size="sm" variant="outline" className="w-full text-xs justify-start" onClick={() => handleGenerateReminder(selected)}>
-                    <Calendar className="w-3 h-3 mr-2" /> Agenda
-                  </Button>
-                </div>
-
-                {logs.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                      <Activity className="w-3 h-3" /> Histórico ({logs.length})
-                    </p>
-                    <div className="space-y-0">
-                      {logs.slice(0, 10).map((log, idx) => (
-                        <div key={log.id} className="flex gap-2.5">
-                          <div className="flex flex-col items-center">
-                            <div className={cn('w-2 h-2 rounded-full mt-1.5 flex-shrink-0', log.campo_alterado === 'status' ? 'bg-primary' : 'bg-muted-foreground/40')} />
-                            {idx < Math.min(logs.length, 10) - 1 && <div className="w-px flex-1 bg-border" />}
-                          </div>
-                          <div className="pb-3 flex-1 min-w-0">
-                            <div className="text-[10px]">
-                              <span className="font-semibold text-primary">{log.campo_alterado}</span>
-                              {log.valor_novo && <span className="font-medium ml-1">→ {log.valor_novo?.substring(0, 30)}</span>}
-                            </div>
-                            <p className="text-[9px] text-muted-foreground">
-                              {log.admin_email?.split('@')[0] || 'Sistema'} · {format(parseISO(log.created_at), "dd/MM HH:mm", { locale: ptBR })}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* ─── INVOICE DIALOG (from process details panel) ─── */}
+      {selected?.client_id && (
+        <CreateInvoiceDialog
+          open={showInvoiceFromPub}
+          onOpenChange={setShowInvoiceFromPub}
+          clientId={selected.client_id}
+          clientName={clientMap.get(selected.client_id)?.full_name || clientMap.get(selected.client_id)?.email || 'Cliente'}
+          onCreated={() => queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] })}
+        />
+      )}
     </>
   );
 }

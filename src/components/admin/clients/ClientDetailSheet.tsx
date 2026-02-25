@@ -32,6 +32,9 @@ import type { ClientWithProcess } from './ClientKanbanBoard';
 import { PIPELINE_STAGES } from './ClientKanbanBoard';
 import { usePricing } from '@/hooks/usePricing';
 import { EmailCompose } from '@/components/admin/email/EmailCompose';
+import { CreateInvoiceDialog } from './CreateInvoiceDialog';
+import { Separator } from '@/components/ui/separator';
+import { Newspaper, Gavel, Award, BellRing, Activity as ActivityIcon } from 'lucide-react';
 
 const MASTER_ADMIN_EMAIL = 'davillys@gmail.com';
 
@@ -41,6 +44,7 @@ interface ClientDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   onUpdate: () => void;
   extraActions?: React.ReactNode;
+  initialShowProcessDetails?: boolean;
 }
 
 interface ClientNote { id: string; content: string; created_at: string; }
@@ -149,7 +153,7 @@ function fmtBytes(b?: number | null) {
   return `${(b/1048576).toFixed(1)}MB`;
 }
 
-export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraActions }: ClientDetailSheetProps) {
+export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraActions, initialShowProcessDetails }: ClientDetailSheetProps) {
   const SERVICE_PRICING_OPTIONS = useServicePricingOptions();
 
   // Data
@@ -184,6 +188,10 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
   const [showAddProcessDialog, setShowAddProcessDialog] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
+  const [showProcessDetails, setShowProcessDetails] = useState(false);
+  const [showNewInvoiceDialog, setShowNewInvoiceDialog] = useState(false);
+  const [processPublicacoes, setProcessPublicacoes] = useState<any[]>([]);
+  const [processLogs, setProcessLogs] = useState<any[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -207,6 +215,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
   useEffect(() => {
     if (client && open) {
       fetchClientData();
+      setShowProcessDetails(false);
       setEditData({ priority: client.priority || 'medium', origin: client.origin || 'site', contract_value: client.contract_value || 0, pipeline_stage: client.pipeline_stage || 'protocolado' });
       const matchingServiceType = STAGE_TO_SERVICE_TYPE[client.pipeline_stage || 'protocolado'];
       setSelectedServiceType(matchingServiceType || 'pedido_registro');
@@ -222,6 +231,13 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
       else if (client.contract_value && client.contract_value > 0) { setSelectedPricing('personalizado'); setCustomValue(client.contract_value); }
     }
   }, [client, open]);
+
+  // Auto-open process details when prop is set
+  useEffect(() => {
+    if (initialShowProcessDetails && client && open) {
+      handleQuickAction('processo');
+    }
+  }, [initialShowProcessDetails, client, open]);
 
   const fetchClientData = async () => {
     if (!client) return;
@@ -536,6 +552,20 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
         }
         break;
       case 'excluir': setShowDeleteConfirm(true); break;
+      case 'processo':
+        if (client) {
+          const { data: pubs } = await supabase.from('publicacoes_marcas').select('*').eq('client_id', client.id).order('proximo_prazo_critico', { ascending: true, nullsFirst: false });
+          setProcessPublicacoes(pubs || []);
+          if (pubs && pubs.length > 0) {
+            const { data: logs } = await supabase.from('publicacao_logs').select('*').eq('publicacao_id', pubs[0].id).order('created_at', { ascending: false });
+            setProcessLogs(logs || []);
+          } else {
+            setProcessLogs([]);
+          }
+          setShowProcessDetails(true);
+        }
+        break;
+      case 'nova_fatura': setShowNewInvoiceDialog(true); break;
     }
   };
 
@@ -553,6 +583,8 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
     { id: 'email', label: 'Email', icon: Mail, cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200' },
     { id: 'notification', label: 'Notificar', icon: Bell, cls: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200' },
     { id: 'excluir', label: 'Excluir', icon: Trash2, cls: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 hover:bg-red-200' },
+    { id: 'processo', label: 'Detalhes do Processo', icon: FileText, cls: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/60' },
+    { id: 'nova_fatura', label: 'Nova Fatura', icon: Receipt, cls: 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 hover:bg-teal-200 dark:hover:bg-teal-900/60' },
   ];
 
   return (
@@ -716,7 +748,182 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
 
         {/* ──────────────────────────────── TABS / EMAIL COMPOSE ──────────────────────────── */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          {showEmailCompose ? (
+          {showProcessDetails ? (
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
+                <Button variant="ghost" size="sm" onClick={() => setShowProcessDetails(false)} className="gap-1.5">
+                  <X className="h-4 w-4" /> Voltar ao ficheiro
+                </Button>
+                <span className="text-sm text-muted-foreground">Detalhes do Processo — <strong>{client.full_name}</strong></span>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="p-5 space-y-5">
+                  {processPublicacoes.length === 0 ? (
+                    <EmptyState icon={FileText} title="Nenhuma publicação" description="Este cliente não possui publicações vinculadas." />
+                  ) : processPublicacoes.map((pub: any) => {
+                    const brandName = pub.brand_name_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.brand_name || '—';
+                    const processNumber = pub.process_number_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.process_number || 'Sem número';
+                    const TIMELINE_STEPS_INLINE = [
+                      { key: 'data_deposito', label: 'Depósito', icon: FileText, description: 'Pedido protocolado no INPI' },
+                      { key: 'data_publicacao_rpi', label: 'Publicação RPI', icon: Newspaper, description: 'Publicado na Revista da PI' },
+                      { key: 'prazo_oposicao', label: 'Prazo Oposição (60d)', icon: Gavel, description: 'Período para manifestações' },
+                      { key: 'data_decisao', label: 'Decisão', icon: Shield, description: 'Deferimento ou indeferimento' },
+                      { key: 'data_certificado', label: 'Certificado', icon: Award, description: 'Emissão do certificado' },
+                      { key: 'data_renovacao', label: 'Renovação (9 anos)', icon: RefreshCw, description: 'Prazo ordinário + 6m ord. + 6m extra' },
+                    ] as const;
+                    const STATUS_CONFIG_INLINE: Record<string, { label: string; color: string; bg: string }> = {
+                      depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
+                      publicada: { label: 'Publicada', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
+                      oposicao: { label: 'Oposição', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
+                      deferida: { label: 'Deferida', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+                      certificada: { label: 'Certificada', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40' },
+                      indeferida: { label: 'Indeferida', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
+                      arquivada: { label: 'Arquivada', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
+                      renovacao_pendente: { label: 'Renovação Pendente', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+                    };
+                    const statusCfg = STATUS_CONFIG_INLINE[pub.status] || STATUS_CONFIG_INLINE.depositada;
+                    const getDaysLeft = (dateStr: string | null): number | null => {
+                      if (!dateStr) return null;
+                      const d = new Date(dateStr);
+                      return Math.ceil((d.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                    };
+                    const getScheduledAlerts = (prazoCritico: string | null): { label: string; date: Date; days: number }[] => {
+                      if (!prazoCritico) return [];
+                      const prazoDate = new Date(prazoCritico);
+                      return [30, 15, 7].map(d => {
+                        const alertDate = new Date(prazoDate.getTime() - d * 86400000);
+                        const daysLeft = Math.ceil((alertDate.getTime() - new Date().getTime()) / 86400000);
+                        return { label: `${d} dias antes`, date: alertDate, days: daysLeft };
+                      }).filter(a => a.days >= 0);
+                    };
+                    return (
+                      <div key={pub.id} className="space-y-4 border border-border rounded-xl p-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-bold text-base">{brandName}</p>
+                            <Badge className={cn('text-[10px]', statusCfg.bg, statusCfg.color)}>{statusCfg.label}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{processNumber}</p>
+                          {pub.descricao_prazo && <p className="text-xs text-primary font-medium mt-1">{pub.descricao_prazo}</p>}
+                        </div>
+
+                        {(pub.rpi_number || pub.documento_rpi_url) && (
+                          <div className="p-2 rounded-lg bg-muted/50 space-y-1">
+                            {pub.rpi_number && <p className="text-xs flex items-center gap-1.5"><Hash className="w-3 h-3 text-primary" /><span className="font-medium">RPI N°:</span> {pub.rpi_number}</p>}
+                            {pub.documento_rpi_url && (
+                              <a href={pub.documento_rpi_url} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1.5 text-primary hover:underline">
+                                <Paperclip className="w-3 h-3" /> Documento RPI
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Timeline</p>
+                          {TIMELINE_STEPS_INLINE.map(step => {
+                            const date = pub[step.key] as string | null;
+                            const isCompleted = !!date && new Date(date) < new Date();
+                            const isOverdue = !!date && new Date(date) < new Date() && step.key !== 'data_deposito' && (getDaysLeft(date) ?? 0) < 0;
+                            const StepIcon = step.icon;
+                            return (
+                              <div key={step.key} className="flex gap-3 relative">
+                                <div className="flex flex-col items-center">
+                                  <div className={cn(
+                                    'w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all',
+                                    isCompleted ? 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                                      : isOverdue ? 'bg-red-100 dark:bg-red-900/40 border-red-500 text-red-600 dark:text-red-400 animate-pulse'
+                                      : 'bg-muted border-border text-muted-foreground'
+                                  )}>
+                                    {isCompleted ? <CheckCircle className="w-4 h-4" /> : <StepIcon className="w-4 h-4" />}
+                                  </div>
+                                  <div className="w-0.5 flex-1 bg-border min-h-[24px]" />
+                                </div>
+                                <div className="pb-6 flex-1">
+                                  <p className={cn('text-sm font-semibold', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>{step.label}</p>
+                                  <p className="text-xs text-muted-foreground">{step.description}</p>
+                                  {date && (
+                                    <p className={cn('text-xs mt-1 font-medium', isOverdue ? 'text-red-600 dark:text-red-400' : 'text-primary')}>
+                                      {format(new Date(date), "dd/MM/yyyy", { locale: ptBR })}
+                                      {!isCompleted && getDaysLeft(date) !== null && (
+                                        <span className="ml-1 text-muted-foreground">
+                                          ({getDaysLeft(date)! < 0 ? `${Math.abs(getDaysLeft(date)!)}d atrasado` : `em ${getDaysLeft(date)}d`})
+                                        </span>
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {pub.proximo_prazo_critico && getScheduledAlerts(pub.proximo_prazo_critico).length > 0 && (
+                          <>
+                            <Separator />
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                                <BellRing className="w-3 h-3" /> Alertas Programados
+                              </p>
+                              <div className="space-y-1">
+                                {getScheduledAlerts(pub.proximo_prazo_critico).map((alert, i) => (
+                                  <div key={i} className="text-[10px] flex items-center gap-2 p-1.5 rounded bg-muted/50">
+                                    <Bell className="w-3 h-3 text-amber-500" />
+                                    <span>{alert.label}</span>
+                                    <span className="text-muted-foreground ml-auto">{format(alert.date, 'dd/MM/yyyy')}</span>
+                                    <span className="text-muted-foreground">(em {alert.days}d)</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {pub.comentarios_internos && (
+                          <>
+                            <Separator />
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Comentários</p>
+                              <p className="text-xs text-foreground whitespace-pre-wrap">{pub.comentarios_internos}</p>
+                            </div>
+                          </>
+                        )}
+
+                        {processLogs.length > 0 && (
+                          <>
+                            <Separator />
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                <ActivityIcon className="w-3 h-3" /> Histórico ({processLogs.length})
+                              </p>
+                              <div className="space-y-0">
+                                {processLogs.slice(0, 10).map((log: any, idx: number) => (
+                                  <div key={log.id} className="flex gap-2.5">
+                                    <div className="flex flex-col items-center">
+                                      <div className={cn('w-2 h-2 rounded-full mt-1.5 flex-shrink-0', log.campo_alterado === 'status' ? 'bg-primary' : 'bg-muted-foreground/40')} />
+                                      {idx < Math.min(processLogs.length, 10) - 1 && <div className="w-px flex-1 bg-border" />}
+                                    </div>
+                                    <div className="pb-3 flex-1 min-w-0">
+                                      <div className="text-[10px]">
+                                        <span className="font-semibold text-primary">{log.campo_alterado}</span>
+                                        {log.valor_novo && <span className="font-medium ml-1">→ {log.valor_novo?.substring(0, 30)}</span>}
+                                      </div>
+                                      <p className="text-[9px] text-muted-foreground">
+                                        {log.admin_email?.split('@')[0] || 'Sistema'} · {format(new Date(log.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+          ) : showEmailCompose ? (
             <div className="flex-1 overflow-hidden flex flex-col">
               <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
                 <Button variant="ghost" size="sm" onClick={() => setShowEmailCompose(false)} className="gap-1.5">
@@ -1598,6 +1805,15 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
           </DialogContent>
         </Dialog>
       </SheetContent>
+
+      {/* ─── CREATE INVOICE DIALOG ─── */}
+      <CreateInvoiceDialog
+        open={showNewInvoiceDialog}
+        onOpenChange={setShowNewInvoiceDialog}
+        clientId={client.id}
+        clientName={client.full_name || client.email || 'Cliente'}
+        onCreated={() => fetchClientData()}
+      />
 
     </Sheet>
   );
