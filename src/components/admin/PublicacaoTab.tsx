@@ -1034,49 +1034,46 @@ export default function PublicacaoTab() {
         </Card>
 
         {/* ─── LISTA / KANBAN ─── */}
-        <Card className="flex-1 min-w-0">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Newspaper className="w-4 h-4 text-rose-500" />
-                Processos de Publicação
-                <Badge variant="secondary" className="ml-2 text-xs">{filtered.length}</Badge>
-              </CardTitle>
-              {/* View toggle (#5) */}
-              <div className="flex gap-1">
-                <Button variant={viewMode === 'lista' ? 'default' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setViewMode('lista')}>
-                  <List className="w-3.5 h-3.5" />
-                </Button>
-                <Button variant={viewMode === 'kanban' ? 'default' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setViewMode('kanban')}>
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                </Button>
-              </div>
+        <div className="flex-1 min-w-0 flex flex-col">
+          {/* Header bar */}
+          <div className="flex items-center justify-between px-1 mb-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Newspaper className="w-4 h-4 text-rose-500" />
+              Processos de Publicação
+              <Badge variant="secondary" className="text-xs">{filtered.length}</Badge>
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Newspaper className="w-10 h-10 mb-2 opacity-30" />
-                <p className="text-sm">Nenhuma publicação encontrada</p>
-              </div>
-            ) : viewMode === 'kanban' ? (
-              <div className="p-4">
-                <PublicacaoKanban
-                  publicacoes={filtered as any}
-                  processMap={processMap}
-                  clientMap={clientMap}
-                  adminMap={adminMap}
-                  onSelect={id => setSelectedId(selectedId === id ? null : id)}
-                  selectedId={selectedId}
-                  onStatusChange={handleKanbanStatusChange}
-                />
-              </div>
-            ) : (
-              <>
+            <div className="flex gap-1">
+              <Button variant={viewMode === 'lista' ? 'default' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setViewMode('lista')}>
+                <List className="w-3.5 h-3.5" />
+              </Button>
+              <Button variant={viewMode === 'kanban' ? 'default' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setViewMode('kanban')}>
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <Newspaper className="w-10 h-10 mb-2 opacity-30" />
+              <p className="text-sm">Nenhuma publicação encontrada</p>
+            </div>
+          ) : viewMode === 'kanban' ? (
+            <PublicacaoKanban
+              publicacoes={filtered as any}
+              processMap={processMap}
+              clientMap={clientMap}
+              adminMap={adminMap}
+              onSelect={id => setSelectedId(selectedId === id ? null : id)}
+              selectedId={selectedId}
+              onStatusChange={handleKanbanStatusChange}
+            />
+          ) : (
+            <Card className="border">
+              <CardContent className="p-0">
                 <ScrollArea className="h-[calc(100vh-520px)]">
                   <Table>
                     <TableHeader>
@@ -1088,80 +1085,64 @@ export default function PublicacaoTab() {
                             onCheckedChange={toggleSelectAll}
                           />
                         </TableHead>
-                        <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('cliente')}>
-                          <span className="flex items-center">Cliente <SortIcon colKey="cliente" /></span>
-                        </TableHead>
-                        <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('marca')}>
-                          <span className="flex items-center">Marca <SortIcon colKey="marca" /></span>
-                        </TableHead>
-                        <TableHead className="text-xs hidden md:table-cell">N. Processo</TableHead>
-                        <TableHead className="text-xs hidden lg:table-cell cursor-pointer select-none" onClick={() => handleSort('data_pub')}>
-                          <span className="flex items-center">Pub. RPI <SortIcon colKey="data_pub" /></span>
-                        </TableHead>
-                        <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('prazo')}>
-                          <span className="flex items-center">Prazo <SortIcon colKey="prazo" /></span>
-                        </TableHead>
-                        <TableHead className="text-xs cursor-pointer select-none" onClick={() => handleSort('status')}>
-                          <span className="flex items-center">Status <SortIcon colKey="status" /></span>
-                        </TableHead>
-                        <TableHead className="text-xs hidden xl:table-cell">Responsável</TableHead>
-                        <TableHead className="text-xs w-10" />
+                        {(['marca', 'cliente', 'status', 'data_pub', 'prazo'] as SortKey[]).map(key => {
+                          const labels: Record<SortKey, string> = { marca: 'Marca', cliente: 'Cliente', status: 'Status', data_pub: 'Publicação', prazo: 'Prazo' };
+                          return (
+                            <TableHead key={key} className="cursor-pointer select-none text-xs" onClick={() => handleSort(key)}>
+                              <div className="flex items-center gap-1">
+                                {labels[key]}
+                                {sortKey === key ? (sortDir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3 opacity-30" />}
+                              </div>
+                            </TableHead>
+                          );
+                        })}
+                        <TableHead className="w-10" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {paginatedData.map(pub => {
                         const proc = pub.process_id ? processMap.get(pub.process_id) : null;
                         const client = pub.client_id ? clientMap.get(pub.client_id) : null;
-                        const admin = pub.admin_id ? adminMap.get(pub.admin_id) : null;
-                        const days = getDaysLeft(pub.proximo_prazo_critico);
-                        const urgency = getUrgencyBadge(days);
-                        const stCfg = STATUS_CONFIG[pub.status as PubStatus] || STATUS_CONFIG.depositada;
-                        const isSelected = selectedId === pub.id;
-                        const brandName = proc?.brand_name || (pub as any).brand_name_rpi || '—';
-                        const processNumber = proc?.process_number || (pub as any).process_number_rpi || '—';
+                        const days = pub.proximo_prazo_critico ? differenceInDays(parseISO(pub.proximo_prazo_critico), new Date()) : null;
+                        const brandName = proc?.brand_name || pub.brand_name_rpi || '—';
+                        const processNumber = proc?.process_number || pub.process_number_rpi || null;
                         return (
                           <TableRow
                             key={pub.id}
-                            className={cn('cursor-pointer transition-colors', isSelected && 'bg-accent')}
-                            onClick={() => setSelectedId(isSelected ? null : pub.id)}
+                            className={cn('cursor-pointer', selectedId === pub.id && 'bg-accent')}
+                            onClick={() => setSelectedId(selectedId === pub.id ? null : pub.id)}
                           >
                             <TableCell onClick={e => e.stopPropagation()}>
-                              <Checkbox
-                                checked={selectedIds.has(pub.id)}
-                                onCheckedChange={() => toggleSelect(pub.id)}
-                              />
+                              <Checkbox checked={selectedIds.has(pub.id)} onCheckedChange={() => toggleSelect(pub.id)} />
                             </TableCell>
-                            <TableCell className="text-xs font-medium max-w-[120px] truncate">
-                              {client ? (
-                                <HighlightText text={client.full_name || '—'} search={search} />
-                              ) : (
-                                <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-600 dark:text-amber-400">Sem cliente</Badge>
-                              )}
+                            <TableCell>
+                              <div>
+                                <p className="text-xs font-bold">{brandName}</p>
+                                {processNumber && <p className="text-[10px] text-muted-foreground">{processNumber}</p>}
+                              </div>
                             </TableCell>
-                            <TableCell className="text-xs font-semibold max-w-[140px] truncate">
-                              <HighlightText text={brandName} search={search} />
+                            <TableCell className="text-xs">
+                              {client?.full_name || <span className="text-amber-600 dark:text-amber-400 text-[10px]">Sem cliente</span>}
                             </TableCell>
-                            <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
-                              <HighlightText text={processNumber} search={search} />
+                            <TableCell>
+                              <Badge variant="outline" className={cn('text-[10px]', STATUS_CONFIG[pub.status]?.bg, STATUS_CONFIG[pub.status]?.color)}>
+                                {STATUS_CONFIG[pub.status]?.label}
+                              </Badge>
                             </TableCell>
-                            <TableCell className="text-xs hidden lg:table-cell">
+                            <TableCell className="text-[10px] text-muted-foreground">
                               {pub.data_publicacao_rpi ? format(parseISO(pub.data_publicacao_rpi), 'dd/MM/yy') : '—'}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={urgency.variant} className={cn('text-[10px]', urgency.className)}>
-                                {urgency.label}
-                              </Badge>
+                              {days !== null ? (
+                                <span className={cn('text-[10px] font-semibold', days < 0 ? 'text-red-600' : days <= 7 ? 'text-amber-600' : 'text-muted-foreground')}>
+                                  {days < 0 ? `${Math.abs(days)}d atrasado` : `${days}d`}
+                                </span>
+                              ) : '—'}
                             </TableCell>
                             <TableCell>
-                              <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', stCfg.bg, stCfg.color)}>
-                                {stCfg.label}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground hidden xl:table-cell truncate max-w-[100px]">
-                              {admin?.full_name || '—'}
-                            </TableCell>
-                            <TableCell>
-                              <ChevronRight className={cn('w-4 h-4 text-muted-foreground transition-transform', isSelected && 'rotate-90')} />
+                              <Button variant="ghost" size="icon" className="h-6 w-6">
+                                <Eye className="w-3 h-3" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         );
@@ -1169,31 +1150,16 @@ export default function PublicacaoTab() {
                     </TableBody>
                   </Table>
                 </ScrollArea>
-
-                {/* Pagination (#10) */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between px-4 py-3 border-t">
-                    <p className="text-xs text-muted-foreground">
-                      {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} de {filtered.length}
-                    </p>
+                  <div className="flex items-center justify-between px-4 py-2 border-t">
+                    <span className="text-[10px] text-muted-foreground">{filtered.length} processos</span>
                     <div className="flex items-center gap-1">
                       <Button variant="outline" size="sm" className="h-7 px-2" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
                         <ChevronLeft className="w-3 h-3" />
                       </Button>
-                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                        let page: number;
-                        if (totalPages <= 5) page = i + 1;
-                        else if (currentPage <= 3) page = i + 1;
-                        else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
-                        else page = currentPage - 2 + i;
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, currentPage - 3), currentPage + 2).map(page => {
                         return (
-                          <Button
-                            key={page}
-                            variant={currentPage === page ? 'default' : 'outline'}
-                            size="sm"
-                            className="h-7 w-7 px-0 text-xs"
-                            onClick={() => setCurrentPage(page)}
-                          >
+                          <Button key={page} variant={currentPage === page ? 'default' : 'outline'} size="sm" className="h-7 w-7 px-0 text-[10px]" onClick={() => setCurrentPage(page)}>
                             {page}
                           </Button>
                         );
@@ -1204,10 +1170,10 @@ export default function PublicacaoTab() {
                     </div>
                   </div>
                 )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {/* ─── DETALHES / TIMELINE ─── */}
         <AnimatePresence mode="wait">
