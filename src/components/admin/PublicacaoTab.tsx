@@ -290,6 +290,7 @@ export default function PublicacaoTab() {
   const [showClientSheet, setShowClientSheet] = useState(false);
   const [showProcessDetailFromSheet, setShowProcessDetailFromSheet] = useState(false);
   const [showInvoiceFromPub, setShowInvoiceFromPub] = useState(false);
+  const [sheetPubId, setSheetPubId] = useState<string | null>(null);
 
   // ─── Create dialog state ────
   const [createProcessId, setCreateProcessId] = useState('');
@@ -737,17 +738,20 @@ export default function PublicacaoTab() {
 
   const selected = useMemo(() => publicacoes.find(p => p.id === selectedId) || null, [publicacoes, selectedId]);
 
-  // Build ClientWithProcess for the ClientDetailSheet — always returns an object (empty if no client)
-  const selectedClientForSheet = useMemo<ClientWithProcess | null>(() => {
-    if (!selected) return null;
-    const proc = selected.process_id ? processMap.get(selected.process_id) : null;
-    const brandName = proc?.brand_name || (selected as any).brand_name_rpi || '';
-    const processNumber = proc?.process_number || (selected as any).process_number_rpi || null;
+  // The pub used for building the ClientDetailSheet (uses sheetPubId, NOT selectedId)
+  const sheetPub = useMemo(() => publicacoes.find(p => p.id === sheetPubId) || null, [publicacoes, sheetPubId]);
 
-    if (selected.client_id) {
-      const client = clientMap.get(selected.client_id);
+  // Build ClientWithProcess for the ClientDetailSheet — uses sheetPub (independent of side panel)
+  const selectedClientForSheet = useMemo<ClientWithProcess | null>(() => {
+    if (!sheetPub) return null;
+    const proc = sheetPub.process_id ? processMap.get(sheetPub.process_id) : null;
+    const brandName = proc?.brand_name || (sheetPub as any).brand_name_rpi || '';
+    const processNumber = proc?.process_number || (sheetPub as any).process_number_rpi || null;
+
+    if (sheetPub.client_id) {
+      const client = clientMap.get(sheetPub.client_id);
       if (client) {
-        const clientProcesses = processes.filter(p => p.user_id === selected.client_id);
+        const clientProcesses = processes.filter(p => p.user_id === sheetPub.client_id);
         const firstProc = clientProcesses[0];
         return {
           id: client.id,
@@ -795,7 +799,7 @@ export default function PublicacaoTab() {
       cpf_cnpj: undefined,
       brands: proc ? [{ id: proc.id, brand_name: proc.brand_name, process_number: proc.process_number, pipeline_stage: proc.pipeline_stage }] : [],
     } as ClientWithProcess;
-  }, [selected, clientMap, processMap, processes]);
+  }, [sheetPub, clientMap, processMap, processes]);
 
   // ─── Alert toast on mount ────
   useEffect(() => {
@@ -1356,9 +1360,10 @@ export default function PublicacaoTab() {
               clientMap={clientMap}
               adminMap={adminMap}
               onSelect={id => {
-                setSelectedId(id);
-                // Always open ClientDetailSheet (empty if no client)
+                // Only open the blue ClientDetailSheet — do NOT set selectedId (which triggers the white side panel)
+                setSheetPubId(id);
                 setShowClientSheet(true);
+                setShowProcessDetailFromSheet(true);
               }}
               selectedId={selectedId}
               onStatusChange={handleKanbanStatusChange}
@@ -1401,8 +1406,12 @@ export default function PublicacaoTab() {
                         return (
                           <TableRow
                             key={pub.id}
-                            className={cn('cursor-pointer', selectedId === pub.id && 'bg-accent')}
-                            onClick={() => setSelectedId(selectedId === pub.id ? null : pub.id)}
+                            className={cn('cursor-pointer', sheetPubId === pub.id && 'bg-accent')}
+                            onClick={() => {
+                              setSheetPubId(pub.id);
+                              setShowClientSheet(true);
+                              setShowProcessDetailFromSheet(true);
+                            }}
                           >
                             <TableCell onClick={e => e.stopPropagation()}>
                               <Checkbox checked={selectedIds.has(pub.id)} onCheckedChange={() => toggleSelect(pub.id)} />
@@ -1467,9 +1476,9 @@ export default function PublicacaoTab() {
           )}
         </div>
 
-        {/* ─── DETALHES / TIMELINE ─── */}
+        {/* ─── DETALHES / TIMELINE ─── (hidden when ClientDetailSheet is open) */}
         <AnimatePresence mode="wait">
-          {selected && (
+          {selected && !showClientSheet && (
             <motion.div
               key={selected.id}
               initial={{ opacity: 0, x: 20 }}
@@ -1901,7 +1910,7 @@ export default function PublicacaoTab() {
         <ClientDetailSheet
           client={selectedClientForSheet}
           open={showClientSheet}
-          onOpenChange={(open) => { setShowClientSheet(open); if (!open) setShowProcessDetailFromSheet(false); }}
+          onOpenChange={(open) => { setShowClientSheet(open); if (!open) { setShowProcessDetailFromSheet(false); setSheetPubId(null); } }}
           onUpdate={() => queryClient.invalidateQueries({ queryKey: ['profiles-pub'] })}
           initialShowProcessDetails={showProcessDetailFromSheet}
         />
