@@ -1,109 +1,65 @@
 
 
-## Melhorias Finais para o Modulo "Publicacao" Ficar 100% Premium
+## Sincronizacao Automatica RPI -> Publicacoes
 
-### O Que Ja Esta Implementado (14/14 Completo)
+### Problema Atual
+O admin precisa clicar em "Sincronizar com Revistas" manualmente. O usuario quer que isso seja automatico ao carregar a aba Publicacoes.
 
-Todas as 14 melhorias do plano anterior estao implementadas: KPI dashboard, notificacoes reais, upload de documento, link RPI, atribuicao de responsavel, campos extras no create, exclusao, auto-populate RPI, alertas agendados, coluna responsavel, indicadores RPI/documento, contagem por status, tipo no edit dialog.
+### Solucao
 
-### O Que Falta Para Ficar Insano e Premium (10 Melhorias)
+Substituir o botao manual por um `useEffect` que roda automaticamente quando o componente carrega e os dados estao prontos (`rpiEntries`, `publicacoes`, `processes`, `clients`).
 
-#### 1. Ordenacao por Coluna na Tabela
+### Logica Automatica
 
-Atualmente a tabela nao permite ordenar clicando nos cabecalhos. Adicionar sort por Cliente, Marca, Data Publicacao, Prazo e Status com indicador visual de direcao.
-
-#### 2. Graficos e Estatisticas Visuais
-
-Os KPIs sao apenas numeros. Adicionar mini-graficos:
-- AreaChart de publicacoes por mes (ultimos 6 meses)
-- PieChart de distribuicao por status
-Usar Recharts (ja instalado no projeto).
-
-#### 3. Filtro por Periodo de Datas
-
-Adicionar na sidebar um filtro de intervalo de datas (data inicio / data fim) para filtrar por data de deposito ou data de publicacao RPI.
-
-#### 4. Acoes em Lote (Bulk Operations)
-
-Adicionar checkboxes na tabela para selecionar multiplos processos e executar acoes em massa:
-- Alterar status em lote
-- Gerar lembretes em lote
-- Exportar selecionados
-
-#### 5. Visualizacao em Kanban (Alternativa)
-
-Adicionar toggle entre "Lista" e "Kanban" na lista de processos. O Kanban agrupa por status com cards arrastando entre colunas (depositada -> publicada -> oposicao -> deferida etc).
-
-#### 6. Exportacao PDF com Relatorio Formatado
-
-Alem do CSV, adicionar botao "Exportar PDF" que gera um relatorio formatado com logo, data, filtros aplicados e tabela estilizada. Usar jsPDF (ja instalado).
-
-#### 7. Acesso do Cliente (RLS + Painel Cliente)
-
-Adicionar policy RLS para clientes verem apenas seus proprios registros. Criar componente no painel do cliente mostrando seus processos de publicacao com timeline (somente leitura).
-
-#### 8. Realtime Updates
-
-Ativar realtime na tabela `publicacoes_marcas` para que alteracoes feitas por outros admins aparecam instantaneamente sem refresh.
-
-#### 9. Campo de Busca Avancada com Highlight
-
-Destacar visualmente na tabela os termos buscados (highlight amarelo) para facilitar identificacao.
-
-#### 10. Paginacao na Lista
-
-Adicionar paginacao (20 por pagina) com navegacao para listas grandes, mantendo os filtros ativos.
+```text
+useEffect (quando rpiEntries + publicacoes + processes + clients carregam):
+  1. Filtra rpi_entries com matched_process_id ou matched_client_id
+  2. Para cada entrada:
+     a. Busca o process_id correspondente (matched_process_id ou via brand_processes)
+     b. Verifica se ja existe publicacao para esse process_id -> skip se sim
+     c. Identifica client_id via matched_client_id ou brand_processes.user_id
+     d. Deduplica cliente por CPF/email (se matched_client_id aponta para perfil diferente mas com mesmo CPF/email, usa o existente)
+     e. Cria publicacao com dados da RPI (dispatch_code como rpi_number, publication_date, status baseado no dispatch)
+  3. Se houve novas criações, exibe toast: "X publicacoes sincronizadas automaticamente, Y ignoradas (ja existiam)"
+  4. Invalida query para atualizar a lista
+  5. Usa um ref (hasSynced) para garantir que roda apenas 1 vez por montagem do componente
+```
 
 ### Detalhes Tecnicos
 
-#### Arquivos a Criar
-
-| Arquivo | Descricao |
-|---------|-----------|
-| `src/components/admin/publicacao/PublicacaoCharts.tsx` | Graficos AreaChart + PieChart |
-| `src/components/admin/publicacao/PublicacaoKanban.tsx` | Visualizacao Kanban por status |
-| `src/components/admin/publicacao/PublicacaoPDFExport.tsx` | Gerador de relatorio PDF |
-| `src/components/admin/publicacao/BulkActionsBar.tsx` | Barra de acoes em lote |
-| `src/components/cliente/PublicacoesCliente.tsx` | Visualizacao do cliente |
-| Migracao SQL | RLS para clientes + realtime |
-
-#### Arquivos a Editar
+#### Arquivo a Editar
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `src/components/admin/PublicacaoTab.tsx` | Ordenacao, paginacao, highlight, toggle kanban, bulk select, integrar componentes novos |
-| `src/pages/cliente/Processos.tsx` | Integrar componente de publicacoes do cliente |
+| `src/components/admin/PublicacaoTab.tsx` | Remover botao "Sincronizar com Revistas", adicionar useEffect com logica automatica, usar ref para evitar execucoes duplicadas |
 
-#### Migracao SQL
+#### Mudancas Especificas
 
-```text
--- RLS para clientes verem seus proprios registros
-CREATE POLICY "Clients can view own publicacoes"
-  ON public.publicacoes_marcas FOR SELECT
-  TO authenticated
-  USING (client_id = auth.uid());
+1. Adicionar `hasSyncedRef = useRef(false)` para controlar execucao unica
+2. Expandir a query de `rpi_entries` para incluir tambem entradas com `matched_client_id` (atualmente so busca `matched_process_id`)
+3. Adicionar `useEffect` que:
+   - Verifica se os dados ja carregaram e `hasSyncedRef.current === false`
+   - Compara `rpi_entries` com `publicacoes` existentes
+   - Insere publicacoes novas em batch
+   - Exibe toast com resumo
+   - Seta `hasSyncedRef.current = true`
+4. Remover o botao manual de sincronizacao (se existir na UI)
+5. Buscar `profiles` com campo `cpf` e `email` para deduplicacao de clientes
 
--- Ativar realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.publicacoes_marcas;
-```
+#### Deduplicacao por CPF/Email
 
-#### Nenhum Impacto em Outras Funcionalidades
+Ao identificar o `client_id` para uma nova publicacao:
+- Se `matched_client_id` existe, buscar o perfil e verificar CPF/email
+- Se ja existe uma publicacao para outro `client_id` com o mesmo CPF ou email, usar o `client_id` existente
+- Isso garante que o cliente X com marcas X, Y, Z tenha todas agrupadas sob o mesmo ID
 
-- Todas as novas features sao aditivas
-- Componentes isolados em subpasta `publicacao/`
-- RLS adiciona permissao, nao altera existente
-- Zero alteracao em tabelas existentes
+#### Nenhuma Migracao SQL
 
-### Prioridade de Implementacao
+Todos os campos necessarios ja existem nas tabelas. A logica e puramente frontend com INSERT via Supabase client.
 
-1. Ordenacao por coluna + Paginacao (fundamentos de UX)
-2. Graficos e estatisticas visuais (impacto visual premium)
-3. Filtro por periodo de datas (funcionalidade essencial)
-4. Exportacao PDF (valor para o usuario)
-5. Acoes em lote (produtividade)
-6. Kanban view (experiencia diferenciada)
-7. Acesso do cliente + RLS (completude do sistema)
-8. Realtime updates (modernidade)
-9. Busca com highlight (polimento)
-10. Todas integradas no PublicacaoTab.tsx
+#### Zero Impacto em Outras Funcionalidades
 
+- A sincronizacao e aditiva (apenas INSERT, nunca UPDATE/DELETE)
+- Verifica existencia antes de inserir (evita duplicatas)
+- Roda apenas 1 vez por carregamento da aba
+- Nao altera dados existentes
