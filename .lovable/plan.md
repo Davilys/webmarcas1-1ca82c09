@@ -1,93 +1,94 @@
 
 
-## Edicao de Dados do Processo + Notificacoes Recorrentes a Cada 5 Dias
+## Correcao: Identificacao de Dados dos Processos na Revista INPI
 
-### Contexto
+### Problema Identificado
 
-Na aba Revista INPI, quando o painel de detalhes de um processo e expandido, os campos (Marca, N. Processo, Classe NCL, Titular) sao exibidos como texto estatico. Quando a IA nao identifica corretamente (ex: "Marca nao identificada"), o admin nao consegue corrigir. Alem disso, ao vincular um cliente, nao existe lembrete recorrente ate a publicacao ser resolvida.
+Ha um **bug critico** na funcao `extractAttorneyBlocks` no arquivo `supabase/functions/process-rpi/index.ts` que causa perda de dados dos processos.
 
-### Funcionalidade 1: Campos Editaveis no Painel Expandido
+### Causa Raiz
 
-**O que muda visualmente:**
-- Na coluna "Dados do Processo" do painel expandido, os campos Marca, N. Processo, Classe NCL e Titular passam a ter um botao de edicao (icone de lapis)
-- Ao clicar, o campo vira um input editavel inline
-- Botoes "Salvar" e "Cancelar" aparecem abaixo dos campos
-- Ao salvar, os dados sao atualizados diretamente na tabela `rpi_entries`
+Na linha 90-98 do `process-rpi/index.ts`, o codigo faz o seguinte:
 
-**Arquivo:** `src/pages/admin/RevistaINPI.tsx`
-
-Alteracoes:
-1. Adicionar estados para controlar o modo de edicao:
-   - `editingEntryId` (string | null) - qual entrada esta em edicao
-   - `editForm` (objeto com brand_name, process_number, ncl_classes, holder_name)
-
-2. Criar funcao `handleSaveEntryEdit` que faz UPDATE na tabela `rpi_entries` com os campos editados
-
-3. Na secao "Dados do Processo" (linhas 811-825), substituir os `DetailRow` estaticos por campos condicionais:
-   - Se `editingEntryId === entry.id`: renderiza Inputs editaveis
-   - Senao: mantem o DetailRow atual com um botao de editar
-
-4. Adicionar botao "Editar" (icone Pencil) no cabecalho da coluna "Dados do Processo"
-
-### Funcionalidade 2: Notificacoes Recorrentes a Cada 5 Dias
-
-**Logica:**
-- Quando um processo e vinculado a um cliente (handleAssignClient), salvar a data de vinculacao como referencia
-- Uma funcao agendada (cron job) roda diariamente verificando entradas com `matched_client_id` preenchido e `tag` diferente de `resolvido`
-- A cada 5 dias desde a vinculacao (ou ultima notificacao), envia notificacao para o cliente E para o admin
-
-**Alteracoes:**
-
-1. **Nova coluna na tabela `rpi_entries`:**
-   - `last_reminder_sent_at` (timestamp) - quando o ultimo lembrete foi enviado
-   - `linked_at` (timestamp) - quando foi vinculado ao cliente
-
-2. **Atualizar `handleAssignClient`** para salvar `linked_at` ao vincular
-
-3. **Nova Edge Function: `check-rpi-reminders/index.ts`**
-   - Consulta `rpi_entries` onde:
-     - `matched_client_id IS NOT NULL`
-     - `tag NOT IN ('resolvido', 'arquivado', 'prazo_encerrado')`
-     - `last_reminder_sent_at IS NULL OR last_reminder_sent_at < now() - interval '5 days'`
-   - Para cada entrada encontrada:
-     - Insere notificacao para o cliente: "Lembrete: A publicacao do processo X ainda aguarda regularizacao. Prazo em andamento."
-     - Insere notificacao para os admins: "Lembrete: Publicacao RPI do processo X vinculada ao cliente Y ainda nao foi resolvida."
-     - Atualiza `last_reminder_sent_at = now()`
-
-4. **Cron job** agendado para rodar diariamente chamando a Edge Function
-
-### Detalhes Tecnicos
-
-**Migracao SQL:**
 ```text
-ALTER TABLE rpi_entries
-  ADD COLUMN IF NOT EXISTS last_reminder_sent_at timestamptz,
-  ADD COLUMN IF NOT EXISTS linked_at timestamptz;
+const normalized = normalizeText(text);   // texto modificado (sem acentos, espacos colapsados)
+// ...
+const start = Math.max(0, idx - 5000);
+const end = Math.min(text.length, idx + ...);
+const block = text.slice(start, end);     // usa indices do NORMALIZED no TEXT ORIGINAL
 ```
 
-**Edge Function `check-rpi-reminders`:**
-- Busca entries pendentes com intervalo > 5 dias
-- Insere em `notifications` para cliente e admin
-- Atualiza `last_reminder_sent_at`
+O `idx` e calculado sobre o texto **normalizado** (sem acentos, espacos colapsados), mas o `text.slice(start, end)` e aplicado sobre o texto **original**. Como a normalizacao muda o comprimento do texto (remove acentos compostos, colapsa espacos e quebras de linha), os indices ficam **desalinhados**. Resultado: os blocos enviados para a IA contem texto cortado no lugar errado, perdendo numeros de processo, marca, titular etc.
 
-**Cron job (via pg_cron):**
-- Executa diariamente as 09:00 (horario de Brasilia)
-- Chama `check-rpi-reminders` via HTTP POST
+Alem disso:
+- O **max_tokens: 6000** na chamada da IA e baixo demais quando ha muitos processos num unico lote, causando respostas truncadas (JSON incompleto que e descartado)
+- A **deduplicacao de blocos** (linha 100) pode pular blocos validos por coincidencia de substring
 
-### Arquivos a Criar/Editar
+### Solucao
 
-| Arquivo | Tipo | Alteracao |
-|---------|------|-----------|
-| `src/pages/admin/RevistaINPI.tsx` | Editar | Adicionar edicao inline dos campos do processo |
-| `supabase/functions/check-rpi-reminders/index.ts` | Criar | Edge Function para verificar e enviar lembretes |
-| Migracao SQL | Criar | Adicionar colunas `last_reminder_sent_at` e `linked_at` |
-| Cron job SQL | Inserir | Agendar execucao diaria |
+Alterar a funcao `extractAttorneyBlocks` para usar os indices no texto **normalizado** e tambem fatiar o texto **normalizado** (ja que a IA nao precisa de acentos para identificar dados). Alternativamente, buscar no texto original em lowercase. Vou usar a segunda abordagem para manter fidelidade dos dados.
+
+### Alteracoes no Arquivo
+
+**Arquivo:** `supabase/functions/process-rpi/index.ts`
+
+#### 1. Corrigir `extractAttorneyBlocks` - Alinhar indices
+
+Em vez de buscar no texto normalizado e fatiar o original, buscar diretamente no texto original convertido para lowercase (sem remover acentos nem colapsar espacos). Assim os indices correspondem exatamente:
+
+```text
+function extractAttorneyBlocks(text: string): string[] {
+  const blocks: string[] = [];
+  const lower = text.toLowerCase();
+  let idx = 0;
+
+  while ((idx = lower.indexOf(ATTORNEY_SEARCH_TERM, idx)) !== -1) {
+    const start = Math.max(0, idx - 5000);
+    const end = Math.min(text.length, idx + ATTORNEY_SEARCH_TERM.length + 5000);
+    const block = text.slice(start, end);
+
+    // Deduplicacao melhorada: verificar se o indice central ja esta coberto
+    const isDuplicate = blocks.some((b) => {
+      const overlap = block.substring(4900, 5100);
+      return overlap.length > 50 && b.includes(overlap);
+    });
+
+    if (!isDuplicate) {
+      blocks.push(block);
+    }
+    idx += ATTORNEY_SEARCH_TERM.length;
+  }
+
+  return blocks;
+}
+```
+
+#### 2. Aumentar max_tokens da IA
+
+Mudar `max_tokens` de **6000** para **16000** para evitar respostas truncadas quando ha muitos processos num unico lote.
+
+#### 3. Melhorar o prompt da IA
+
+Adicionar instrucao mais enfatica para a IA preencher TODOS os campos, especialmente `process_number`, `brand_name`, `ncl_classes` e `holder_name`, mesmo que precise inferir do contexto. Adicionar instrucao para nunca retornar campos vazios se a informacao estiver presente no texto.
+
+#### 4. Reduzir batch size
+
+Mudar `batchSize` de **10** para **5** para dar mais contexto por processo e reduzir risco de truncamento.
+
+### Resumo das Mudancas
+
+| O que | Antes | Depois |
+|-------|-------|--------|
+| Indices de fatiamento | Calculados no texto normalizado, aplicados no original (BUG) | Calculados e aplicados no mesmo texto (lowercase) |
+| max_tokens | 6000 | 16000 |
+| batchSize | 10 | 5 |
+| Prompt IA | Generico | Instrucoes explicitas para preencher todos os campos |
+| Deduplicacao | Substring fragil (100-200) | Verificacao central mais robusta |
 
 ### Seguranca
 
-- Nenhuma tabela existente e alterada estruturalmente (apenas 2 colunas novas nullable adicionadas)
-- RLS existente da `rpi_entries` continua intacta (apenas admins podem editar)
-- Notificacoes usam a tabela `notifications` existente
+- Nenhuma tabela e alterada
 - Nenhum fluxo existente e quebrado
-- A edicao so funciona para admins autenticados (mesma permissao do update de TAG)
+- A funcionalidade de edicao inline recentemente adicionada continua intacta
+- Apenas a logica de extracao de texto e melhorada
 
