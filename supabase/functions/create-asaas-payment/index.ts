@@ -1085,6 +1085,53 @@ serve(async (req) => {
     }
 
     // ========================================
+    // STEP 7.5: Generate signature link and send notification
+    // ========================================
+    if (contractData?.id) {
+      try {
+        // Generate signature link (also triggers CRM + SMS + WhatsApp notification)
+        const linkRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-signature-link`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            contractId: contractData.id,
+            expiresInDays: 7,
+            baseUrl: 'https://webmarcas.net',
+          }),
+        });
+        const linkData = await linkRes.json();
+        console.log('Generated signature link:', linkData?.data?.url);
+
+        // Send formal email with signature link
+        if (linkData?.success) {
+          await fetch(`${SUPABASE_URL}/functions/v1/send-signature-request`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({
+              contractId: contractData.id,
+              channels: ['email'],
+              baseUrl: 'https://webmarcas.net',
+              overrideContact: {
+                email: personalData.email,
+                phone: personalData.phone || '',
+                name: personalData.fullName,
+              },
+            }),
+          });
+          console.log('Sent signature request email');
+        }
+      } catch (linkError) {
+        console.error('Error generating/sending signature link:', linkError);
+      }
+    }
+
+    // ========================================
     // STEP 8: Return response
     // ========================================
     const response = {
