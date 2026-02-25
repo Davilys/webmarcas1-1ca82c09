@@ -735,35 +735,65 @@ export default function PublicacaoTab() {
 
   const selected = useMemo(() => publicacoes.find(p => p.id === selectedId) || null, [publicacoes, selectedId]);
 
-  // Build ClientWithProcess for the ClientDetailSheet
+  // Build ClientWithProcess for the ClientDetailSheet — always returns an object (empty if no client)
   const selectedClientForSheet = useMemo<ClientWithProcess | null>(() => {
-    if (!selected?.client_id) return null;
-    const client = clientMap.get(selected.client_id);
-    if (!client) return null;
-    const clientProcesses = processes.filter(p => p.user_id === selected.client_id);
-    const firstProc = clientProcesses[0];
+    if (!selected) return null;
+    const proc = selected.process_id ? processMap.get(selected.process_id) : null;
+    const brandName = proc?.brand_name || (selected as any).brand_name_rpi || '';
+    const processNumber = proc?.process_number || (selected as any).process_number_rpi || null;
+
+    if (selected.client_id) {
+      const client = clientMap.get(selected.client_id);
+      if (client) {
+        const clientProcesses = processes.filter(p => p.user_id === selected.client_id);
+        const firstProc = clientProcesses[0];
+        return {
+          id: client.id,
+          full_name: client.full_name || '',
+          email: client.email || '',
+          phone: (client as any).phone || null,
+          company_name: (client as any).company_name || null,
+          priority: (client as any).priority || 'medium',
+          origin: (client as any).origin || 'site',
+          pipeline_stage: firstProc?.pipeline_stage || 'protocolado',
+          brand_name: firstProc?.brand_name || brandName,
+          business_area: firstProc?.business_area || null,
+          process_id: firstProc?.id || null,
+          process_status: null,
+          process_number: firstProc?.process_number || processNumber,
+          contract_value: (client as any).contract_value || 0,
+          created_at: (client as any).created_at || '',
+          last_contact: (client as any).last_contact || null,
+          assigned_to: (client as any).assigned_to || null,
+          cpf_cnpj: (client as any).cpf_cnpj || undefined,
+          brands: clientProcesses.map(p => ({ id: p.id, brand_name: p.brand_name, process_number: p.process_number, pipeline_stage: p.pipeline_stage })),
+        } as ClientWithProcess;
+      }
+    }
+
+    // No client linked — return a "clean" placeholder so the sheet still opens
     return {
-      id: client.id,
-      full_name: client.full_name || '',
-      email: client.email || '',
-      phone: (client as any).phone || null,
-      company_name: (client as any).company_name || null,
-      priority: (client as any).priority || 'medium',
-      origin: (client as any).origin || 'site',
-      pipeline_stage: firstProc?.pipeline_stage || 'protocolado',
-      brand_name: firstProc?.brand_name || '',
-      business_area: firstProc?.business_area || null,
-      process_id: firstProc?.id || null,
+      id: '',
+      full_name: 'Sem cliente vinculado',
+      email: '',
+      phone: null,
+      company_name: null,
+      priority: 'medium',
+      origin: 'site',
+      pipeline_stage: 'protocolado',
+      brand_name: brandName,
+      business_area: null,
+      process_id: proc?.id || null,
       process_status: null,
-      process_number: firstProc?.process_number || null,
-      contract_value: (client as any).contract_value || 0,
-      created_at: (client as any).created_at || '',
-      last_contact: (client as any).last_contact || null,
-      assigned_to: (client as any).assigned_to || null,
-      cpf_cnpj: (client as any).cpf_cnpj || undefined,
-      brands: clientProcesses.map(p => ({ id: p.id, brand_name: p.brand_name, process_number: p.process_number, pipeline_stage: p.pipeline_stage })),
+      process_number: processNumber,
+      contract_value: 0,
+      created_at: '',
+      last_contact: null,
+      assigned_to: null,
+      cpf_cnpj: undefined,
+      brands: proc ? [{ id: proc.id, brand_name: proc.brand_name, process_number: proc.process_number, pipeline_stage: proc.pipeline_stage }] : [],
     } as ClientWithProcess;
-  }, [selected, clientMap, processes]);
+  }, [selected, clientMap, processMap, processes]);
 
   // ─── Alert toast on mount ────
   useEffect(() => {
@@ -1324,16 +1354,9 @@ export default function PublicacaoTab() {
               clientMap={clientMap}
               adminMap={adminMap}
               onSelect={id => {
-                const pub = publicacoes.find(p => p.id === id);
                 setSelectedId(id);
-                if (pub?.client_id) {
-                  // Has client → open ClientDetailSheet
-                  setShowClientSheet(true);
-                } else {
-                  // No client → open process details directly
-                  setShowClientSheet(false);
-                  setShowProcessDetailFromSheet(true);
-                }
+                // Always open ClientDetailSheet (empty if no client)
+                setShowClientSheet(true);
               }}
               selectedId={selectedId}
               onStatusChange={handleKanbanStatusChange}
