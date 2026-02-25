@@ -296,6 +296,32 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
     if (!client) return;
     setLoading(true);
     try {
+      const isOrphan = client.id === '';
+
+      if (isOrphan) {
+        // Orphan: fetch brand_process by process_id, skip user-dependent queries
+        if (client.process_id) {
+          const { data } = await supabase.from('brand_processes')
+            .select('id, brand_name, business_area, process_number, pipeline_stage, status, created_at, updated_at, ncl_classes')
+            .eq('id', client.process_id);
+          setClientBrands(data || []);
+        } else {
+          setClientBrands(client.brands?.map(b => ({ ...b, business_area: null, status: null, created_at: null, updated_at: null, ncl_classes: null })) || []);
+        }
+        setNotes([]); setAppointments([]); setDocuments([]); setInvoices([]);
+        setProfileData(null);
+
+        // Still fetch admin users list for assignment
+        const { data: roles } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
+        if (roles && roles.length > 0) {
+          const { data: adminProfiles } = await supabase.from('profiles').select('id, full_name, email').in('id', roles.map(r => r.user_id));
+          if (adminProfiles) setAdminUsersList(adminProfiles);
+        }
+
+        setLoading(false);
+        return;
+      }
+
       const [notesRes, appointmentsRes, docsRes, invoicesRes, profileRes, contractRes, brandsRes] = await Promise.all([
         supabase.from('client_notes').select('*').eq('user_id', client.id).order('created_at', { ascending: false }),
         supabase.from('client_appointments').select('*').eq('user_id', client.id).order('scheduled_at', { ascending: true }),
@@ -615,14 +641,26 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
       case 'excluir': setShowDeleteConfirm(true); break;
       case 'processo':
         if (client) {
-          // Fetch all lifecycle data in parallel
+          const isOrphanProc = client.id === '';
+          // Fetch all lifecycle data in parallel - use process_id for orphans
+          const pubsQuery = isOrphanProc && client.process_id
+            ? supabase.from('publicacoes_marcas').select('*').eq('process_id', client.process_id).order('proximo_prazo_critico', { ascending: true, nullsFirst: false })
+            : supabase.from('publicacoes_marcas').select('*').eq('client_id', client.id).order('proximo_prazo_critico', { ascending: true, nullsFirst: false });
+
+          const eventsQuery = client.process_id
+            ? supabase.from('process_events').select('*').eq('process_id', client.process_id).order('event_date', { ascending: false })
+            : Promise.resolve({ data: [] as any[] });
+
+          const contractsQuery = !isOrphanProc
+            ? supabase.from('contracts').select('id, subject, signature_status, signed_at, created_at, contract_value, payment_method, blockchain_hash, signatory_name').eq('user_id', client.id).order('created_at', { ascending: false })
+            : Promise.resolve({ data: [] as any[] });
+
+          const invoicesQuery2 = !isOrphanProc
+            ? supabase.from('invoices').select('id, description, amount, status, due_date, payment_date, payment_method, created_at').eq('user_id', client.id).order('created_at', { ascending: false })
+            : Promise.resolve({ data: [] as any[] });
+
           const [pubsRes, contractsRes, invoicesRes2, eventsRes] = await Promise.all([
-            supabase.from('publicacoes_marcas').select('*').eq('client_id', client.id).order('proximo_prazo_critico', { ascending: true, nullsFirst: false }),
-            supabase.from('contracts').select('id, subject, signature_status, signed_at, created_at, contract_value, payment_method, blockchain_hash, signatory_name').eq('user_id', client.id).order('created_at', { ascending: false }),
-            supabase.from('invoices').select('id, description, amount, status, due_date, payment_date, payment_method, created_at').eq('user_id', client.id).order('created_at', { ascending: false }),
-            client.process_id
-              ? supabase.from('process_events').select('*').eq('process_id', client.process_id).order('event_date', { ascending: false })
-              : Promise.resolve({ data: [] as any[] }),
+            pubsQuery, contractsQuery, invoicesQuery2, eventsQuery,
           ]);
           setProcessPublicacoes(pubsRes.data || []);
           setProcessContracts(contractsRes.data || []);
