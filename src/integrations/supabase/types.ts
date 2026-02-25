@@ -2244,6 +2244,7 @@ export type Database = {
           descricao_prazo: string | null
           documento_rpi_url: string | null
           id: string
+          last_notification_sent_at: string | null
           oposicao_data: string | null
           oposicao_protocolada: boolean | null
           prazo_oposicao: string | null
@@ -2271,6 +2272,7 @@ export type Database = {
           descricao_prazo?: string | null
           documento_rpi_url?: string | null
           id?: string
+          last_notification_sent_at?: string | null
           oposicao_data?: string | null
           oposicao_protocolada?: boolean | null
           prazo_oposicao?: string | null
@@ -2298,6 +2300,7 @@ export type Database = {
           descricao_prazo?: string | null
           documento_rpi_url?: string | null
           id?: string
+          last_notification_sent_at?: string | null
           oposicao_data?: string | null
           oposicao_protocolada?: boolean | null
           prazo_oposicao?: string | null

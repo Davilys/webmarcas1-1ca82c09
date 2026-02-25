@@ -279,6 +279,7 @@ export default function PublicacaoTab() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
+  const [filterAdmin, setFilterAdmin] = useState<string>('todos');
 
   // ─── Create dialog state ────
   const [createProcessId, setCreateProcessId] = useState('');
@@ -552,19 +553,50 @@ export default function PublicacaoTab() {
         await supabase.from('publicacao_logs').insert(logEntries);
       }
 
-      // Auto-notify client on status change
-      if (computed.status && computed.status !== original.status && (changes.client_id || original.client_id)) {
-        const clientId = (changes.client_id || original.client_id) as string;
+      // Auto-notify client on status change (with dedup)
+      if (computed.status && computed.status !== original.status) {
+        const clientId = (changes.client_id || original.client_id) as string | null;
         const proc = (changes.process_id || original.process_id) ? processMap.get((changes.process_id || original.process_id) as string) : null;
         const brandName = proc?.brand_name || (original as any).brand_name_rpi || 'Marca';
         const statusLabel = STATUS_CONFIG[computed.status as PubStatus]?.label || computed.status;
-        await supabase.from('notifications').insert({
-          user_id: clientId,
-          title: `📋 Atualização: ${brandName}`,
-          message: `O status da publicação da marca "${brandName}" foi alterado para "${statusLabel}".`,
-          type: 'info',
-          link: '/cliente/processos',
-        });
+
+        // Dedup: only notify if last notification was >1h ago
+        const lastNotif = (original as any).last_notification_sent_at;
+        const canNotify = !lastNotif || (Date.now() - new Date(lastNotif).getTime()) > 3600000;
+
+        if (clientId && canNotify) {
+          await supabase.from('notifications').insert({
+            user_id: clientId,
+            title: `📋 Atualização: ${brandName}`,
+            message: `O status da publicação da marca "${brandName}" foi alterado para "${statusLabel}".`,
+            type: 'info',
+            link: '/cliente/processos',
+          });
+          // Update dedup timestamp
+          await supabase.from('publicacoes_marcas').update({ last_notification_sent_at: new Date().toISOString() } as any).eq('id', id);
+        }
+
+        // Sync reverso: update brand_processes pipeline_stage
+        const processId = (changes.process_id || original.process_id) as string | null;
+        if (processId) {
+          const stageMap: Record<string, string> = {
+            depositada: 'protocolado',
+            publicada: 'protocolado',
+            oposicao: 'oposicao',
+            deferida: 'deferimento',
+            certificada: 'certificados',
+            indeferida: 'indeferimento',
+            arquivada: 'distrato',
+            renovacao_pendente: 'renovacao',
+          };
+          const newStage = stageMap[computed.status as string];
+          if (newStage) {
+            await supabase.from('brand_processes').update({
+              pipeline_stage: newStage,
+              updated_at: new Date().toISOString(),
+            }).eq('id', processId);
+          }
+        }
       }
     },
     onSuccess: () => {
@@ -628,6 +660,7 @@ export default function PublicacaoTab() {
       }
       if (filterClient !== 'todos' && pub.client_id !== filterClient) return false;
       if (filterStatus !== 'todos' && pub.status !== filterStatus) return false;
+      if (filterAdmin !== 'todos' && pub.admin_id !== filterAdmin) return false;
       if (filterTipo !== 'todos' && pub.tipo_publicacao !== filterTipo) return false;
       if (filterPrazo !== 'todos') {
         const days = getDaysLeft(pub.proximo_prazo_critico);
@@ -680,7 +713,7 @@ export default function PublicacaoTab() {
     });
 
     return result;
-  }, [publicacoes, search, filterClient, filterStatus, filterPrazo, filterTipo, filterDateFrom, filterDateTo, processMap, clientMap, sortKey, sortDir]);
+  }, [publicacoes, search, filterClient, filterStatus, filterPrazo, filterTipo, filterAdmin, filterDateFrom, filterDateTo, processMap, clientMap, sortKey, sortDir]);
 
   // Pagination (#10)
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -690,7 +723,7 @@ export default function PublicacaoTab() {
   }, [filtered, currentPage]);
 
   // Reset page when filters change
-  useEffect(() => { setCurrentPage(1); }, [search, filterClient, filterStatus, filterPrazo, filterTipo, filterDateFrom, filterDateTo]);
+  useEffect(() => { setCurrentPage(1); }, [search, filterClient, filterStatus, filterPrazo, filterTipo, filterAdmin, filterDateFrom, filterDateTo]);
 
   const selected = useMemo(() => publicacoes.find(p => p.id === selectedId) || null, [publicacoes, selectedId]);
 
@@ -988,7 +1021,7 @@ export default function PublicacaoTab() {
   };
 
   const clearAllFilters = () => {
-    setSearch(''); setFilterClient('todos'); setFilterStatus('todos'); setFilterPrazo('todos'); setFilterTipo('todos');
+    setSearch(''); setFilterClient('todos'); setFilterStatus('todos'); setFilterPrazo('todos'); setFilterTipo('todos'); setFilterAdmin('todos');
     setFilterDateFrom(''); setFilterDateTo('');
   };
 
@@ -1112,6 +1145,16 @@ export default function PublicacaoTab() {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Responsável</Label>
+                <Select value={filterAdmin} onValueChange={setFilterAdmin}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os responsáveis</SelectItem>
+                    {admins.map(a => <SelectItem key={a.id} value={a.id}>{a.full_name || a.email}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
               <Separator />
               <div>
                 <Label className="text-xs text-muted-foreground flex items-center gap-1">
@@ -1149,7 +1192,7 @@ export default function PublicacaoTab() {
               <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setShowFilters(true)}>
                 <Filter className="w-3.5 h-3.5" />
                 Filtros
-                {(filterClient !== 'todos' || filterStatus !== 'todos' || filterPrazo !== 'todos' || filterTipo !== 'todos' || search || filterDateFrom || filterDateTo) && (
+                {(filterClient !== 'todos' || filterStatus !== 'todos' || filterPrazo !== 'todos' || filterTipo !== 'todos' || filterAdmin !== 'todos' || search || filterDateFrom || filterDateTo) && (
                   <Badge variant="default" className="h-4 w-4 p-0 text-[9px] rounded-full flex items-center justify-center ml-0.5">
                     !
                   </Badge>

@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.check-rpi-reminders]
 verify_jwt = false
+
+[functions.check-publicacao-deadlines]
+verify_jwt = false
