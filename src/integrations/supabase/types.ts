@@ -2232,7 +2232,8 @@ export type Database = {
       publicacoes_marcas: {
         Row: {
           admin_id: string | null
-          client_id: string
+          brand_name_rpi: string | null
+          client_id: string | null
           comentarios_internos: string | null
           created_at: string
           data_certificado: string | null
@@ -2246,8 +2247,10 @@ export type Database = {
           oposicao_data: string | null
           oposicao_protocolada: boolean | null
           prazo_oposicao: string | null
-          process_id: string
+          process_id: string | null
+          process_number_rpi: string | null
           proximo_prazo_critico: string | null
+          rpi_entry_id: string | null
           rpi_link: string | null
           rpi_number: string | null
           status: string
@@ -2256,7 +2259,8 @@ export type Database = {
         }
         Insert: {
           admin_id?: string | null
-          client_id: string
+          brand_name_rpi?: string | null
+          client_id?: string | null
           comentarios_internos?: string | null
           created_at?: string
           data_certificado?: string | null
@@ -2270,8 +2274,10 @@ export type Database = {
           oposicao_data?: string | null
           oposicao_protocolada?: boolean | null
           prazo_oposicao?: string | null
-          process_id: string
+          process_id?: string | null
+          process_number_rpi?: string | null
           proximo_prazo_critico?: string | null
+          rpi_entry_id?: string | null
           rpi_link?: string | null
           rpi_number?: string | null
           status?: string
@@ -2280,7 +2286,8 @@ export type Database = {
         }
         Update: {
           admin_id?: string | null
-          client_id?: string
+          brand_name_rpi?: string | null
+          client_id?: string | null
           comentarios_internos?: string | null
           created_at?: string
           data_certificado?: string | null
@@ -2294,8 +2301,10 @@ export type Database = {
           oposicao_data?: string | null
           oposicao_protocolada?: boolean | null
           prazo_oposicao?: string | null
-          process_id?: string
+          process_id?: string | null
+          process_number_rpi?: string | null
           proximo_prazo_critico?: string | null
+          rpi_entry_id?: string | null
           rpi_link?: string | null
           rpi_number?: string | null
           status?: string

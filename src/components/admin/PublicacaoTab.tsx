@@ -43,8 +43,8 @@ type ViewMode = 'lista' | 'kanban';
 
 interface Publicacao {
   id: string;
-  process_id: string;
-  client_id: string;
+  process_id: string | null;
+  client_id: string | null;
   admin_id: string | null;
   status: PubStatus;
   tipo_publicacao: PubTipo;
@@ -62,6 +62,9 @@ interface Publicacao {
   documento_rpi_url: string | null;
   rpi_number: string | null;
   rpi_link: string | null;
+  rpi_entry_id: string | null;
+  brand_name_rpi: string | null;
+  process_number_rpi: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -110,7 +113,29 @@ function getUrgencyBadge(days: number | null) {
   return { label: `${days}d restantes`, variant: 'outline' as const, className: 'text-emerald-700 dark:text-emerald-400' };
 }
 
-function calcAutoFields(pub: Partial<Publicacao>): Partial<Publicacao> {
+function calcDeadlineFromDispatch(dispatchText: string | null, publicationDate: string | null): { days: number | null; desc: string } | null {
+  if (!publicationDate || !dispatchText) return null;
+  const text = dispatchText.toLowerCase();
+
+  if (text.includes('arquiv') || text.includes('art. 219'))
+    return { days: null, desc: 'Processo encerrado' };
+  if (text.includes('5 dias') || text.includes('cinco dias'))
+    return { days: 5, desc: 'Exigência formal - 5 dias' };
+  if (text.includes('oposição') || text.includes('oposicao'))
+    return { days: 60, desc: 'Prazo para oposição' };
+  if (text.includes('exigência') || text.includes('exigencia') || text.includes('cumpra'))
+    return { days: 60, desc: 'Cumprimento de exigência' };
+  if (text.includes('recurso'))
+    return { days: 60, desc: 'Prazo para recurso' };
+  if (text.includes('deferido') || text.includes('deferimento'))
+    return { days: 60, desc: 'Pagamento de taxas (deferimento)' };
+  if (text.includes('indeferido') || text.includes('indeferimento'))
+    return { days: 60, desc: 'Prazo para recurso (indeferimento)' };
+
+  return { days: 30, desc: 'Prazo padrão - 30 dias' };
+}
+
+function calcAutoFields(pub: Partial<Publicacao>, dispatchText?: string | null): Partial<Publicacao> {
   const out = { ...pub };
   if (out.data_publicacao_rpi) {
     out.prazo_oposicao = format(addDays(parseISO(out.data_publicacao_rpi), 60), 'yyyy-MM-dd');
@@ -118,6 +143,24 @@ function calcAutoFields(pub: Partial<Publicacao>): Partial<Publicacao> {
   if (out.data_certificado) {
     out.data_renovacao = format(addYears(parseISO(out.data_certificado), 10), 'yyyy-MM-dd');
   }
+
+  // Auto-calculate deadline from dispatch_text if not manually set
+  if (!out.proximo_prazo_critico && out.data_publicacao_rpi && dispatchText) {
+    const deadline = calcDeadlineFromDispatch(dispatchText, out.data_publicacao_rpi);
+    if (deadline) {
+      if (deadline.days !== null) {
+        out.proximo_prazo_critico = format(addDays(parseISO(out.data_publicacao_rpi), deadline.days), 'yyyy-MM-dd');
+      }
+      out.descricao_prazo = deadline.desc;
+    }
+  }
+
+  // Fallback: if still no proximo_prazo_critico but has publication date, use 30 days
+  if (!out.proximo_prazo_critico && out.data_publicacao_rpi) {
+    out.proximo_prazo_critico = format(addDays(parseISO(out.data_publicacao_rpi), 30), 'yyyy-MM-dd');
+    if (!out.descricao_prazo) out.descricao_prazo = 'Prazo padrão - 30 dias';
+  }
+
   const futureDates = [out.prazo_oposicao, out.data_renovacao, out.proximo_prazo_critico]
     .filter(Boolean)
     .map(d => parseISO(d!))
@@ -294,8 +337,7 @@ export default function PublicacaoTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('rpi_entries')
-        .select('id, matched_process_id, matched_client_id, publication_date, dispatch_code, dispatch_text, process_number, brand_name')
-        .or('matched_process_id.not.is.null,matched_client_id.not.is.null');
+        .select('id, matched_process_id, matched_client_id, publication_date, dispatch_code, dispatch_text, process_number, brand_name');
       if (error) return [];
       return data || [];
     },
@@ -324,13 +366,15 @@ export default function PublicacaoTab() {
   // ─── Auto-sync RPI entries → Publicações ────
   useEffect(() => {
     if (hasSyncedRef.current) return;
-    if (isLoading || rpiEntries.length === 0 || processes.length === 0 || clients.length === 0) return;
+    if (isLoading || rpiEntries.length === 0) return;
 
     const doSync = async () => {
       hasSyncedRef.current = true;
 
       // Build lookup maps
-      const existingProcessIds = new Set(publicacoes.map(p => p.process_id));
+      const existingRpiIds = new Set(
+        publicacoes.filter(p => (p as any).rpi_entry_id).map(p => (p as any).rpi_entry_id)
+      );
       const clientByCpf = new Map<string, string>();
       const clientByEmail = new Map<string, string>();
       clients.forEach((c: any) => {
@@ -338,7 +382,6 @@ export default function PublicacaoTab() {
         if (c.email) clientByEmail.set(c.email.toLowerCase(), c.id);
       });
 
-      // Find processes by user_id for matched_client_id lookups
       const processesByUserId = new Map<string, typeof processes>();
       processes.forEach(p => {
         if (p.user_id) {
@@ -348,61 +391,46 @@ export default function PublicacaoTab() {
         }
       });
 
+      const processMap = new Map(processes.map(p => [p.id, p]));
+      const processByNumber = new Map(processes.filter(p => p.process_number).map(p => [p.process_number!, p]));
+
       const toInsert: any[] = [];
       let skipped = 0;
 
       for (const entry of rpiEntries) {
-        // Determine process_id
-        let processId = entry.matched_process_id;
-        let clientId = entry.matched_client_id;
+        // Skip if already synced via rpi_entry_id
+        if (existingRpiIds.has(entry.id)) {
+          skipped++;
+          continue;
+        }
+
+        // Try to resolve process_id
+        let processId = entry.matched_process_id || null;
+        let clientId = entry.matched_client_id || null;
+
+        if (!processId && entry.process_number) {
+          const proc = processByNumber.get(entry.process_number);
+          if (proc) {
+            processId = proc.id;
+            if (!clientId) clientId = proc.user_id || null;
+          }
+        }
 
         if (!processId && clientId) {
-          // Find processes for this client
           const clientProcesses = processesByUserId.get(clientId) || [];
-          // Try matching by process_number
           if (entry.process_number) {
             const match = clientProcesses.find(p => p.process_number === entry.process_number);
             if (match) processId = match.id;
           }
-          // If no match by process_number, use first process of client
           if (!processId && clientProcesses.length > 0) {
             processId = clientProcesses[0].id;
           }
         }
 
-        if (!processId) {
-          skipped++;
-          continue;
-        }
-
-        // Skip if publicacao already exists for this process
-        if (existingProcessIds.has(processId)) {
-          skipped++;
-          continue;
-        }
-
-        // Resolve client_id
-        if (!clientId) {
-          const proc = processes.find(p => p.id === processId);
+        // Resolve client_id from process if possible
+        if (!clientId && processId) {
+          const proc = processMap.get(processId);
           clientId = proc?.user_id || null;
-        }
-
-        if (!clientId) {
-          skipped++;
-          continue;
-        }
-
-        // Deduplicate by CPF/email
-        const clientProfile = clients.find((c: any) => c.id === clientId);
-        if (clientProfile) {
-          const cpfMatch = (clientProfile as any).cpf ? clientByCpf.get((clientProfile as any).cpf) : null;
-          const emailMatch = clientProfile.email ? clientByEmail.get(clientProfile.email.toLowerCase()) : null;
-          // Use existing client if found by CPF/email
-          if (cpfMatch && cpfMatch !== clientId) {
-            clientId = cpfMatch;
-          } else if (emailMatch && emailMatch !== clientId) {
-            clientId = emailMatch;
-          }
         }
 
         // Determine status from dispatch
@@ -420,22 +448,31 @@ export default function PublicacaoTab() {
           tipo_publicacao: 'publicacao_rpi' as PubTipo,
           rpi_number: entry.dispatch_code || null,
           data_publicacao_rpi: entry.publication_date || null,
-        });
+          rpi_entry_id: entry.id,
+          brand_name_rpi: entry.brand_name || null,
+          process_number_rpi: entry.process_number || null,
+        } as any, entry.dispatch_text);
 
         toInsert.push(pubData);
-        existingProcessIds.add(processId); // Prevent duplicates within same batch
       }
 
       if (toInsert.length > 0) {
-        const { error } = await supabase.from('publicacoes_marcas').insert(toInsert);
-        if (error) {
-          console.error('Auto-sync error:', error);
-          toast.error('Erro na sincronização automática com revistas');
-          return;
+        // Insert in batches of 50 to avoid payload limits
+        const batchSize = 50;
+        let inserted = 0;
+        for (let i = 0; i < toInsert.length; i += batchSize) {
+          const batch = toInsert.slice(i, i + batchSize);
+          const { error } = await supabase.from('publicacoes_marcas').insert(batch);
+          if (error) {
+            console.error('Auto-sync error:', error);
+            toast.error(`Erro na sincronização (lote ${Math.floor(i / batchSize) + 1})`);
+            continue;
+          }
+          inserted += batch.length;
         }
         queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
         toast.success(
-          `✅ ${toInsert.length} publicação(ões) sincronizada(s) automaticamente${skipped > 0 ? `, ${skipped} ignorada(s) (já existiam)` : ''}`,
+          `✅ ${inserted} publicação(ões) sincronizada(s) automaticamente${skipped > 0 ? `, ${skipped} já existiam` : ''}`,
           { duration: 5000 }
         );
       }
@@ -530,12 +567,12 @@ export default function PublicacaoTab() {
   // ─── Filtering + Sorting + Pagination ────
   const filtered = useMemo(() => {
     let result = publicacoes.filter(pub => {
-      const proc = processMap.get(pub.process_id);
-      const client = clientMap.get(pub.client_id);
+      const proc = pub.process_id ? processMap.get(pub.process_id) : null;
+      const client = pub.client_id ? clientMap.get(pub.client_id) : null;
       if (search) {
         const q = search.toLowerCase();
-        const matchName = proc?.brand_name?.toLowerCase().includes(q);
-        const matchProc = proc?.process_number?.toLowerCase().includes(q);
+        const matchName = proc?.brand_name?.toLowerCase().includes(q) || (pub as any).brand_name_rpi?.toLowerCase().includes(q);
+        const matchProc = proc?.process_number?.toLowerCase().includes(q) || (pub as any).process_number_rpi?.toLowerCase().includes(q);
         const matchClient = client?.full_name?.toLowerCase().includes(q);
         if (!matchName && !matchProc && !matchClient) return false;
       }
@@ -564,17 +601,17 @@ export default function PublicacaoTab() {
     // Sorting (#1)
     result.sort((a, b) => {
       let cmp = 0;
-      const procA = processMap.get(a.process_id);
-      const procB = processMap.get(b.process_id);
-      const clientA = clientMap.get(a.client_id);
-      const clientB = clientMap.get(b.client_id);
+      const procA = a.process_id ? processMap.get(a.process_id) : null;
+      const procB = b.process_id ? processMap.get(b.process_id) : null;
+      const clientA = a.client_id ? clientMap.get(a.client_id) : null;
+      const clientB = b.client_id ? clientMap.get(b.client_id) : null;
 
       switch (sortKey) {
         case 'cliente':
           cmp = (clientA?.full_name || '').localeCompare(clientB?.full_name || '');
           break;
         case 'marca':
-          cmp = (procA?.brand_name || '').localeCompare(procB?.brand_name || '');
+          cmp = (procA?.brand_name || (a as any).brand_name_rpi || '').localeCompare(procB?.brand_name || (b as any).brand_name_rpi || '');
           break;
         case 'data_pub':
           cmp = (a.data_publicacao_rpi || '').localeCompare(b.data_publicacao_rpi || '');
@@ -665,8 +702,8 @@ export default function PublicacaoTab() {
     const pubs = publicacoes.filter(p => selectedIds.has(p.id));
     const notifications: any[] = [];
     pubs.forEach(pub => {
-      const proc = processMap.get(pub.process_id);
-      const brandName = proc?.brand_name || 'Marca';
+      const proc = pub.process_id ? processMap.get(pub.process_id) : null;
+      const brandName = proc?.brand_name || (pub as any).brand_name_rpi || 'Marca';
       notifications.push({
         user_id: user.id,
         title: `🔔 Lembrete: ${brandName}`,
@@ -792,8 +829,8 @@ export default function PublicacaoTab() {
 
   // ─── Real notification insert ────
   const handleGenerateReminder = async (pub: Publicacao) => {
-    const proc = processMap.get(pub.process_id);
-    const brandName = proc?.brand_name || 'Marca';
+    const proc = pub.process_id ? processMap.get(pub.process_id) : null;
+    const brandName = proc?.brand_name || (pub as any).brand_name_rpi || 'Marca';
     const prazoStr = pub.proximo_prazo_critico ? format(parseISO(pub.proximo_prazo_critico), 'dd/MM/yyyy') : 'N/A';
     const user = currentUserQuery.data;
     const notifications: any[] = [];
@@ -1073,13 +1110,15 @@ export default function PublicacaoTab() {
                     </TableHeader>
                     <TableBody>
                       {paginatedData.map(pub => {
-                        const proc = processMap.get(pub.process_id);
-                        const client = clientMap.get(pub.client_id);
+                        const proc = pub.process_id ? processMap.get(pub.process_id) : null;
+                        const client = pub.client_id ? clientMap.get(pub.client_id) : null;
                         const admin = pub.admin_id ? adminMap.get(pub.admin_id) : null;
                         const days = getDaysLeft(pub.proximo_prazo_critico);
                         const urgency = getUrgencyBadge(days);
                         const stCfg = STATUS_CONFIG[pub.status as PubStatus] || STATUS_CONFIG.depositada;
                         const isSelected = selectedId === pub.id;
+                        const brandName = proc?.brand_name || (pub as any).brand_name_rpi || '—';
+                        const processNumber = proc?.process_number || (pub as any).process_number_rpi || '—';
                         return (
                           <TableRow
                             key={pub.id}
@@ -1093,13 +1132,17 @@ export default function PublicacaoTab() {
                               />
                             </TableCell>
                             <TableCell className="text-xs font-medium max-w-[120px] truncate">
-                              <HighlightText text={client?.full_name || '—'} search={search} />
+                              {client ? (
+                                <HighlightText text={client.full_name || '—'} search={search} />
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-600 dark:text-amber-400">Sem cliente</Badge>
+                              )}
                             </TableCell>
                             <TableCell className="text-xs font-semibold max-w-[140px] truncate">
-                              <HighlightText text={proc?.brand_name || '—'} search={search} />
+                              <HighlightText text={brandName} search={search} />
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
-                              <HighlightText text={proc?.process_number || '—'} search={search} />
+                              <HighlightText text={processNumber} search={search} />
                             </TableCell>
                             <TableCell className="text-xs hidden lg:table-cell">
                               {pub.data_publicacao_rpi ? format(parseISO(pub.data_publicacao_rpi), 'dd/MM/yy') : '—'}
@@ -1185,10 +1228,19 @@ export default function PublicacaoTab() {
                     </button>
                   </div>
                   <div className="mt-2">
-                    <p className="font-bold text-base">{processMap.get(selected.process_id)?.brand_name || '—'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {processMap.get(selected.process_id)?.process_number || 'Sem número'} · {clientMap.get(selected.client_id)?.full_name || '—'}
+                    <p className="font-bold text-base">
+                      {(selected.process_id ? processMap.get(selected.process_id)?.brand_name : null) || (selected as any).brand_name_rpi || '—'}
                     </p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selected.process_id ? processMap.get(selected.process_id)?.process_number : null) || (selected as any).process_number_rpi || 'Sem número'}
+                      {' · '}
+                      {selected.client_id ? (clientMap.get(selected.client_id)?.full_name || '—') : (
+                        <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-600 dark:text-amber-400 ml-1">Sem cliente</Badge>
+                      )}
+                    </p>
+                    {selected.descricao_prazo && (
+                      <p className="text-xs text-primary font-medium mt-1">{selected.descricao_prazo}</p>
+                    )}
                     {selected.admin_id && adminMap.get(selected.admin_id) && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                         <Users className="w-3 h-3" /> Resp: {adminMap.get(selected.admin_id)?.full_name}
@@ -1403,6 +1455,26 @@ export default function PublicacaoTab() {
                   <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(TIPO_CONFIG).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Manual client assignment */}
+              <div>
+                <Label className="text-xs">Cliente (vincular manualmente)</Label>
+                <Select value={editData.client_id || ''} onValueChange={v => setEditData(d => ({ ...d, client_id: v || null }))}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Selecione um cliente" /></SelectTrigger>
+                  <SelectContent>
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name || c.email}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Manual process assignment */}
+              <div>
+                <Label className="text-xs">Processo (vincular manualmente)</Label>
+                <Select value={editData.process_id || ''} onValueChange={v => setEditData(d => ({ ...d, process_id: v || null }))}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="Selecione um processo" /></SelectTrigger>
+                  <SelectContent>
+                    {processes.map(p => <SelectItem key={p.id} value={p.id}>{p.brand_name} {p.process_number ? `(${p.process_number})` : ''}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

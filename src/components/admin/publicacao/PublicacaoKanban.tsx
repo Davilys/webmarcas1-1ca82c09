@@ -21,12 +21,14 @@ const STATUS_CONFIG: Record<PubStatus, { label: string; color: string; bg: strin
 
 interface Publicacao {
   id: string;
-  process_id: string;
-  client_id: string;
+  process_id: string | null;
+  client_id: string | null;
   admin_id: string | null;
   status: PubStatus;
   proximo_prazo_critico: string | null;
   data_publicacao_rpi: string | null;
+  brand_name_rpi?: string | null;
+  process_number_rpi?: string | null;
 }
 
 interface Props {
@@ -63,10 +65,12 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
           <ScrollArea className="h-[calc(100vh-500px)]">
             <div className="space-y-2 p-2">
               {columns[status].map(pub => {
-                const proc = processMap.get(pub.process_id);
-                const client = clientMap.get(pub.client_id);
+                const proc = pub.process_id ? processMap.get(pub.process_id) : null;
+                const client = pub.client_id ? clientMap.get(pub.client_id) : null;
                 const admin = pub.admin_id ? adminMap.get(pub.admin_id) : null;
                 const days = pub.proximo_prazo_critico ? differenceInDays(parseISO(pub.proximo_prazo_critico), new Date()) : null;
+                const brandName = proc?.brand_name || pub.brand_name_rpi || '—';
+                const processNumber = proc?.process_number || pub.process_number_rpi || null;
 
                 return (
                   <Card
@@ -77,10 +81,12 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                     )}
                     onClick={() => onSelect(pub.id)}
                   >
-                    <p className="text-xs font-bold truncate">{proc?.brand_name || '—'}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{client?.full_name || '—'}</p>
-                    {proc?.process_number && (
-                      <p className="text-[10px] text-muted-foreground">{proc.process_number}</p>
+                    <p className="text-xs font-bold truncate">{brandName}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {client?.full_name || <span className="text-amber-600 dark:text-amber-400">Sem cliente</span>}
+                    </p>
+                    {processNumber && (
+                      <p className="text-[10px] text-muted-foreground">{processNumber}</p>
                     )}
                     <div className="flex items-center justify-between mt-2">
                       {days !== null && (
