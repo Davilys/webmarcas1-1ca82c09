@@ -702,6 +702,14 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate }: Clie
                   initialName={client.full_name || ''}
                   accountId={adminEmailAccount?.id || null}
                   accountEmail={adminEmailAccount?.email_address}
+                  hideClientSearch={true}
+                  initialClientData={{
+                    id: client.id,
+                    full_name: client.full_name || '',
+                    email: client.email || '',
+                    brand_name: client.brand_name,
+                    process_number: client.process_number,
+                  }}
                 />
               </div>
             </div>
