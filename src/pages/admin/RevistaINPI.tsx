@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import PublicacaoTab from '@/components/admin/PublicacaoTab';
+// PublicacaoTab moved to its own page at /admin/publicacao
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface RpiUpload {
@@ -525,10 +525,7 @@ export default function RevistaINPI() {
               <Clock className="h-4 w-4" />
               Histórico
             </TabsTrigger>
-            <TabsTrigger value="publicacoes" className="gap-2 rounded-lg data-[state=active]:shadow-sm">
-              <Newspaper className="h-4 w-4" />
-              Publicações
-            </TabsTrigger>
+            {/* Publicações tab removed — now has its own page at /admin/publicacao */}
           </TabsList>
 
           {/* ─── TAB: Busca Remota ─── */}
@@ -1156,10 +1153,7 @@ export default function RevistaINPI() {
             )}
           </TabsContent>
 
-          {/* ─── TAB: Publicações ─── */}
-          <TabsContent value="publicacoes" className="space-y-4">
-            <PublicacaoTab />
-          </TabsContent>
+          {/* Publicações tab removed — now at /admin/publicacao */}
         </Tabs>
 
         {/* Loading */}

@@ -48,6 +48,7 @@ import AdminNotificacoes from "./pages/admin/Notificacoes";
 import AdminConfiguracoes from "./pages/admin/Configuracoes";
 import AdminRecursosINPI from "./pages/admin/RecursosINPI";
 import AdminRevistaINPI from "./pages/admin/RevistaINPI";
+import AdminPublicacoes from "./pages/admin/Publicacoes";
 
 import AdminEmails from "./pages/admin/Emails";
 import AdminChatAoVivo from "./pages/admin/ChatAoVivo";
@@ -106,6 +107,7 @@ const App = () => (
               <Route path="/admin/notificacoes" element={<AdminNotificacoes />} />
               <Route path="/admin/recursos-inpi" element={<AdminRecursosINPI />} />
               <Route path="/admin/revista-inpi" element={<AdminRevistaINPI />} />
+              <Route path="/admin/publicacao" element={<AdminPublicacoes />} />
               <Route path="/admin/configuracoes" element={<AdminConfiguracoes />} />
               
               <Route path="/admin/emails" element={<AdminEmails />} />

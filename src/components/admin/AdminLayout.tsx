@@ -16,6 +16,7 @@ import {
   LogOut,
   Shield,
   Scale,
+  Newspaper,
   BookOpen,
   UserPlus,
   FileSignature,
@@ -163,6 +164,15 @@ const menuItems: MenuItem[] = [
     iconColor: 'text-cyan-500',
     iconBg: 'bg-cyan-100 dark:bg-cyan-900/30',
     permissionKey: 'inpi_magazine'
+  },
+  { 
+    icon: Newspaper, 
+    label: 'Publicação', 
+    subtitle: 'Prazos e gestão de marcas',
+    href: '/admin/publicacao',
+    iconColor: 'text-rose-500',
+    iconBg: 'bg-rose-100 dark:bg-rose-900/30',
+    permissionKey: 'publications'
   },
   { 
     icon: Scale, 
