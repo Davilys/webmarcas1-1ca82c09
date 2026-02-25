@@ -40,6 +40,14 @@ interface EmailComposeProps {
   initialBody?: string;
   accountId?: string | null;
   accountEmail?: string;
+  hideClientSearch?: boolean;
+  initialClientData?: {
+    id: string;
+    full_name: string;
+    email: string;
+    brand_name?: string;
+    process_number?: string;
+  };
 }
 
 
@@ -143,7 +151,7 @@ function replaceTemplateVariables(text: string, client: ClientWithProcess | null
     .replace(/\{\{link_portal\}\}/g, 'https://webmarcas1.lovable.app/cliente');
 }
 
-export function EmailCompose({ onClose, replyTo, initialTo, initialName, initialBody, accountId, accountEmail }: EmailComposeProps) {
+export function EmailCompose({ onClose, replyTo, initialTo, initialName, initialBody, accountId, accountEmail, hideClientSearch, initialClientData }: EmailComposeProps) {
   const queryClient = useQueryClient();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -175,6 +183,13 @@ export function EmailCompose({ onClose, replyTo, initialTo, initialName, initial
   const [scheduledAt, setScheduledAt] = useState('');
   const [isScheduled, setIsScheduled] = useState(false);
   const [lgpdOptIn, setLgpdOptIn] = useState(true);
+
+  // Auto-set client from initialClientData (used in client detail sheet)
+  useEffect(() => {
+    if (initialClientData && !selectedClient) {
+      setSelectedClient(initialClientData);
+    }
+  }, [initialClientData]);
 
   // Debounce search to avoid firing a query on every keystroke
   useEffect(() => {
@@ -466,7 +481,8 @@ export function EmailCompose({ onClose, replyTo, initialTo, initialName, initial
                 exit={{ height: 0, opacity: 0 }}
                 className="border-b border-primary/20 bg-primary/5 px-4 py-3 flex-shrink-0"
               >
-                <div className="grid grid-cols-2 gap-3">
+                <div className={hideClientSearch ? "flex flex-col gap-3" : "grid grid-cols-2 gap-3"}>
+                  {!hideClientSearch && (
                   <div>
                     <label className="text-[10px] font-semibold text-primary uppercase tracking-wider block mb-1">
                       Cliente / Processo
@@ -520,6 +536,7 @@ export function EmailCompose({ onClose, replyTo, initialTo, initialName, initial
                       </PopoverContent>
                     </Popover>
                   </div>
+                  )}
                   <div>
                     <label className="text-[10px] font-semibold text-primary uppercase tracking-wider block mb-1">
                       Tipo de Publicação / Fase
