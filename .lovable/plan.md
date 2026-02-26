@@ -1,57 +1,39 @@
 
+# Auto-vinculacao de Clientes por Nome da Marca
 
-# Correcao do Dropdown + Lista de Processos do Cliente
+## Analise dos Dados
 
-## Problemas identificados
+Foram encontradas **719 publicacoes sem cliente vinculado**. Desses:
+- 428 possuem nome da marca (`brand_name_rpi`)
+- 291 nao possuem nome da marca
+- 719 possuem numero de processo (`process_number_rpi`)
 
-### 1. Dropdown de busca fica atras/cortado
-O dropdown de resultados da busca de clientes (linha 1658) esta dentro de um `Card > CardHeader` que possui `overflow: hidden` implicito pelo `rounded` e pela `ScrollArea` logo abaixo. O `z-50` nao resolve porque o contexto de empilhamento (stacking context) e limitado pelo container pai. O dropdown e renderizado "inline" dentro do CardHeader, e o Card corta o conteudo que ultrapassa seus limites.
+A correspondencia atual por numero de processo resulta em **0 matches** (formatos diferentes ou processos nao cadastrados). Ja a correspondencia por **nome da marca** encontrou **6 matches** imediatos (ex: "BRITTO STUDIO" na publicacao corresponde a "Britto studio" no processo cadastrado).
 
-**Solucao**: Usar um **Popover do Radix** para o dropdown de resultados, que renderiza via portal (fora do DOM do Card), garantindo que fique sempre visivel por cima de qualquer elemento. Alternativamente, usar `position: fixed` calculando a posicao do input para posicionar o dropdown no viewport.
+O numero e baixo porque a maioria das marcas da RPI nao sao clientes do escritorio -- sao publicacoes de terceiros. Porem, o mecanismo e valido e deve ser implementado para vincular automaticamente sempre que possivel.
 
-### 2. Lista de processos do mesmo cliente
-Quando o processo e vinculado a um cliente que ja possui outros processos, exibir uma lista navegavel.
+## Plano de Implementacao
 
----
+### Alteracao unica: `src/components/admin/PublicacaoTab.tsx`
 
-## Alteracoes no arquivo `src/components/admin/PublicacaoTab.tsx`
+Modificar a funcao `handleAutoLinkClients` (linhas 1072-1104) para adicionar uma segunda etapa de matching por nome da marca:
 
-### Correcao 1: Dropdown visivel com Popover
+**Logica atual (manter):**
+1. Busca orfas com `process_number_rpi`
+2. Tenta localizar em `brand_processes` pelo numero de processo
+3. Se encontrar, vincula `client_id` e `process_id`
 
-Substituir o dropdown `absolute z-50` (linhas 1657-1679) por um componente `Popover` do Radix (ja importado no projeto). O `Popover` renderiza o conteudo em um portal, fora da hierarquia DOM do Card, eliminando qualquer problema de overflow/z-index.
+**Nova logica (adicionar apos a etapa 1):**
+4. Para publicacoes que **ainda nao foram vinculadas**, tentar match por nome da marca:
+   - Limpar o `brand_name_rpi` removendo tags XML (`<nome>...</nome>`) e espaços extras
+   - Comparar (case-insensitive) com `brand_name` de todos os `brand_processes` que possuem `user_id`
+   - Se encontrar match, vincular `client_id` (user_id do processo) e `process_id`
+5. Atualizar o toast para mostrar quantos foram vinculados por processo vs por marca
 
-```text
-Estrutura:
-<Popover open={showClientAssignDropdown} onOpenChange={setShowClientAssignDropdown}>
-  <PopoverTrigger asChild>
-    <Input ... />  (campo de busca)
-  </PopoverTrigger>
-  <PopoverContent className="w-80 p-0 max-h-52 overflow-y-auto" align="start">
-    ... lista de clientes filtrados ...
-  </PopoverContent>
-</Popover>
-```
+**Detalhes tecnicos:**
+- Criar um Map invertido: `brandNameNormalized -> process` para busca O(1)
+- Normalizar ambos os lados: `trim().toUpperCase()` + `replace(/<[^>]+>/g, '')`
+- Quando multiplos processos tiverem o mesmo nome de marca, usar o primeiro encontrado (ou o que tiver `user_id`)
+- A funcao continua sendo acionada pelo mesmo botao "Auto-vincular"
 
-Isso garante que os resultados da busca aparecem SEMPRE por cima, independente de Cards, ScrollAreas ou qualquer container.
-
-### Correcao 2: Lista de processos do cliente vinculado
-
-Apos o card verde do cliente vinculado (linhas 1629-1641), adicionar uma secao "Processos deste Cliente":
-
-- Filtra `publicacoes` por `client_id === selected.client_id` (exclui o processo atual)
-- Exibe lista compacta com: nome da marca, numero do processo, badge de status
-- Ao clicar no numero/nome, chama `setSelectedId(pub.id)` para navegar ao processo
-- Max-height com scroll para listas longas
-- Contador de processos no titulo
-
-```text
-Estrutura visual:
-[icone] Processos deste Cliente (3)
-  - [badge DEFERIDA] Nome Marca · 123456789  [clicavel]
-  - [badge PROTOCOLADO] Outra Marca · 987654  [clicavel]
-  - [badge CERTIFICADA] Terceira · 555111222  [clicavel]
-```
-
-### Nenhuma alteracao de banco de dados
-Todos os dados necessarios ja estao disponiveis no estado do componente (arrays `publicacoes`, `processMap`, `clientMap`).
-
+Nenhuma alteracao de banco de dados e necessaria -- a coluna `client_id` e `process_id` ja existem na tabela `publicacoes_marcas`.
