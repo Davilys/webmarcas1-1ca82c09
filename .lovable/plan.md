@@ -1,160 +1,76 @@
 
 
-# Upgrade Completo da Aba Publicacoes
+# Aplicar Validade do Link de Assinatura das Configuracoes
 
-## Diagnostico Atual
+## Problema
 
-O componente `PublicacaoTab.tsx` possui **2.450 linhas** em um unico arquivo monolitico. Ele ja inclui: Kanban, Lista, KPIs, Charts, Timeline, Auto-link, Bulk Actions, Filtros, Exportacao PDF/CSV, Realtime, e sincronizacao RPI. Porem ha lacunas significativas em **usabilidade, inteligencia e performance**.
+A configuracao "Validade do Link de Assinatura" salva na tabela `system_settings` (key: `contracts`) nao esta sendo utilizada. O valor `expiresInDays: 7` esta **hardcoded** em 5 locais:
 
----
+1. `ContractDetailSheet.tsx` (linha 410) - Gerar link
+2. `ContractDetailSheet.tsx` (linha 544) - Regenerar link
+3. `CreateContractDialog.tsx` (linha 882) - Criar contrato
+4. `CreateContractDialog.tsx` (linha 914) - Criar contrato (2o fluxo)
+5. `create-asaas-payment/index.ts` (linha 1101) - Checkout automatico
 
-## Upgrades Propostos (por prioridade)
+## Solucao
 
-### 1. Refatoracao em Componentes Modulares
+### 1. Edge Function `generate-signature-link` - Ler configuracao do banco
 
-O arquivo de 2.450 linhas e dificil de manter. Dividir em subcomponentes:
+Quando `expiresInDays` nao for enviado (ou for o default 7), a funcao consulta `system_settings` para obter o valor configurado:
 
-- `PublicacaoDetailPanel.tsx` -- painel lateral de detalhes (linhas 1600-2090)
-- `PublicacaoListTable.tsx` -- tabela com paginacao e sort (linhas 1520-1600)
-- `PublicacaoToolbar.tsx` -- barra de busca, filtros, toggle view (linhas 1434-1520)
-- `PublicacaoCreateDialog.tsx` -- dialog de criacao (linhas 2092-2150)
-- `PublicacaoEditDialog.tsx` -- dialog de edicao (linhas 2152-2380)
+```
+// Antes de calcular a expiracao:
+const { data: settingsRow } = await supabase
+  .from('system_settings')
+  .select('value')
+  .eq('key', 'contracts')
+  .single();
 
-Isso reduz o arquivo principal para ~800 linhas, mantendo a mesma funcionalidade.
+const configuredDays = settingsRow?.value?.linkValidityDays || 7;
+const finalDays = expiresInDays !== 7 ? expiresInDays : configuredDays;
+```
 
----
+Isso garante que TODOS os chamadores (mesmo os que ainda enviam 7) respeitem a configuracao central.
 
-### 2. Dashboard de Inteligencia com Metricas Avancadas
+### 2. Frontend - Remover hardcode nos 4 arquivos
 
-Adicionar novos KPIs interativos:
+Nos componentes `ContractDetailSheet.tsx` e `CreateContractDialog.tsx`, remover o `expiresInDays: 7` do body da requisicao, deixando a edge function usar o valor do banco:
 
-- **Taxa de Sucesso**: % de publicacoes que passaram de `depositada` para `deferida`/`certificada`
-- **Tempo Medio por Etapa**: media de dias entre cada status (deposito -> publicacao -> decisao)
-- **Publicacoes sem Acao**: processos parados ha mais de 30 dias sem mudanca de status
-- **Proximos Vencimentos (7/15/30d)**: mini-calendario visual com marcacoes de prazo
+- Remover `expiresInDays: 7` de todas as chamadas ao `generate-signature-link`
+- A edge function assume o valor das configuracoes automaticamente
 
----
+### 3. Edge Function `create-asaas-payment` - Remover hardcode
 
-### 3. Filtro Inteligente "Sem Cliente" e "Dados Incompletos"
+Na linha 1101, remover `expiresInDays: 7` do body enviado ao `generate-signature-link`.
 
-Adicionar filtros rapidos no toolbar:
+### 4. Atualizar contratos nao assinados existentes
 
-- **"Orfas"**: publicacoes sem `client_id`
-- **"Dados Incompletos"**: sem `brand_name_rpi`, sem `process_number_rpi`, ou sem `ncl_class`
-- **"Sem Prazo"**: publicacoes sem `proximo_prazo_critico` definido
+Na acao de salvar as configuracoes (`ContractSettings.tsx`), apos salvar no `system_settings`, disparar um UPDATE em massa nos contratos nao assinados para recalcular `signature_expires_at` com base na nova validade:
 
-Isso facilita a gestao de qualidade dos dados importados da RPI.
+```sql
+UPDATE contracts
+SET signature_expires_at = created_at + interval '1 day' * NEW_DAYS
+WHERE signature_status IN ('pending', 'sent')
+  AND signature_expires_at IS NOT NULL;
+```
 
----
+Isso sera feito via uma chamada RPC ou diretamente no frontend apos o save.
 
-### 4. Auto-vinculacao Fuzzy (Similaridade de Texto)
+## Arquivos a Alterar
 
-Atualmente o match por nome da marca exige correspondencia exata (apos normalizacao). Implementar:
+| Arquivo | Alteracao |
+|---------|-----------|
+| `supabase/functions/generate-signature-link/index.ts` | Ler `linkValidityDays` do `system_settings` |
+| `src/components/admin/contracts/ContractDetailSheet.tsx` | Remover `expiresInDays: 7` (2 locais) |
+| `src/components/admin/contracts/CreateContractDialog.tsx` | Remover `expiresInDays: 7` (2 locais) |
+| `supabase/functions/create-asaas-payment/index.ts` | Remover `expiresInDays: 7` |
+| `src/components/admin/settings/ContractSettings.tsx` | Apos salvar, atualizar `signature_expires_at` dos contratos pendentes |
 
-- Algoritmo de similaridade (Levenshtein ou comparacao por tokens) para detectar marcas com grafias ligeiramente diferentes
-- Ex: "BRITTO STUDIO" vs "BRITO STUDIO" (1 caractere de diferenca)
-- Threshold configuravel (ex: 85% de similaridade)
-- Apresentar matches fuzzy como sugestoes para aprovacao manual (nao vincular automaticamente)
+## Resultado
 
----
-
-### 5. Painel de Acoes em Lote Aprimorado
-
-Expandir as acoes em massa:
-
-- **Atribuir admin responsavel** em lote
-- **Definir prazo critico** em lote (util para publicacoes da mesma edicao da RPI)
-- **Mover para status** com confirmacao e notificacao automatica ao cliente
-- **Excluir em massa** publicacoes orfas sem dados relevantes
-
----
-
-### 6. Notificacoes Automaticas Recorrentes
-
-Implementar sistema de alertas agendados:
-
-- Ao definir um prazo critico, criar automaticamente lembretes para 30, 15, 7 e 1 dia antes
-- Enviar notificacao ao admin E ao cliente (se vinculado)
-- Registrar no `notification_logs` para rastreabilidade
-- Badge no KPI mostrando "alertas disparados hoje"
-
----
-
-### 7. Historico de Vinculacao e Auditoria
-
-Expandir o log de alteracoes:
-
-- Mostrar quem vinculou/desvinculou cada cliente, quando e por qual metodo (manual, auto-link por processo, auto-link por marca)
-- Adicionar campo `linking_method` na tabela `publicacoes_marcas` (manual | auto_process | auto_brand | fuzzy)
-- Exibir badge no card do Kanban indicando o metodo de vinculacao
-
----
-
-### 8. Exportacao Avancada e Relatorios
-
-Melhorar as opcoes de exportacao:
-
-- **Excel (XLSX)** alem de CSV e PDF
-- **Filtrar exportacao** pelos mesmos filtros ativos
-- **Relatorio Gerencial**: PDF formatado com graficos, metricas e resumo executivo
-- **Exportar por cliente**: gerar relatorio individual para enviar ao cliente
-
----
-
-### 9. Indicadores Visuais no Kanban
-
-Aprimorar os cards do Kanban:
-
-- **Indicador de vinculacao**: icone verde (vinculado) / vermelho (orfao)
-- **Progresso na timeline**: barra de progresso mostrando quantas etapas foram concluidas
-- **Prioridade visual**: borda colorida baseada na urgencia do prazo
-- **Tooltip rico**: ao hover, mostrar resumo completo sem precisar abrir o detalhe
-
----
-
-### 10. Busca Global com Destaque de Resultados
-
-Melhorar a busca existente:
-
-- Buscar tambem por `descricao_prazo`, `comentarios_internos`, `rpi_number`
-- Manter o highlight amarelo ja implementado (`HighlightText`)
-- Adicionar contador de resultados por categoria (clientes, marcas, processos)
-- Persistir ultima busca ao alternar entre Kanban e Lista
-
----
-
-## Detalhes Tecnicos
-
-### Alteracoes no banco de dados:
-- Nova coluna `linking_method TEXT DEFAULT 'manual'` em `publicacoes_marcas`
-- Nova coluna `stale_since TIMESTAMPTZ` para detectar processos parados
-
-### Arquivos a criar:
-- `src/components/admin/publicacao/PublicacaoDetailPanel.tsx`
-- `src/components/admin/publicacao/PublicacaoListTable.tsx`
-- `src/components/admin/publicacao/PublicacaoToolbar.tsx`
-- `src/components/admin/publicacao/PublicacaoCreateDialog.tsx`
-- `src/components/admin/publicacao/PublicacaoEditDialog.tsx`
-- `src/components/admin/publicacao/PublicacaoIntelligenceDashboard.tsx`
-
-### Arquivo principal refatorado:
-- `src/components/admin/PublicacaoTab.tsx` (reduzido de 2450 para ~800 linhas)
-
-### Nenhuma dependencia nova necessaria
-Todas as funcionalidades utilizam as bibliotecas ja instaladas (date-fns, recharts, framer-motion, jspdf, xlsx).
-
----
-
-## Ordem de Implementacao Sugerida
-
-1. Refatoracao modular (base para tudo)
-2. Filtros inteligentes (rapido, alto impacto)
-3. Dashboard de inteligencia (metricas avancadas)
-4. Indicadores visuais no Kanban
-5. Acoes em lote aprimoradas
-6. Auto-vinculacao fuzzy
-7. Notificacoes recorrentes
-8. Historico de vinculacao
-9. Exportacao avancada
-10. Busca global aprimorada
+- Alterar para 30 dias nas Configuracoes aplica imediatamente a:
+  - Todos os novos contratos gerados
+  - Todos os contratos pendentes/nao assinados (recalcula expiracao)
+  - Checkout automatico (create-asaas-payment)
+  - Regeneracao de links existentes
 
