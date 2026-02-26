@@ -48,9 +48,9 @@ const NAV_GROUPS = [
   {
     label: 'Comunicação',
     items: [
-      { value: 'email-auto', label: 'E-mails Automáticos', icon: Zap,           color: '#f97316', glow: '#f9731618', desc: 'Fluxos automatizados', badge: 'Novo' },
-      { value: 'sms-auto',   label: 'SMS Automático',     icon: Smartphone,     color: '#06b6d4', glow: '#06b6d418', desc: 'Notificações SMS', badge: 'Novo' },
-      { value: 'whatsapp-auto', label: 'WhatsApp Automático', icon: MessageSquare, color: '#10b981', glow: '#10b98118', desc: 'BotConversa', badge: 'Novo' },
+      { value: 'email-auto', label: 'E-mails Relatórios', icon: Zap,           color: '#f97316', glow: '#f9731618', desc: 'Fluxos automatizados', badge: 'Novo' },
+      { value: 'sms-auto',   label: 'SMS Relatórios',     icon: Smartphone,     color: '#06b6d4', glow: '#06b6d418', desc: 'Notificações SMS', badge: 'Novo' },
+      { value: 'whatsapp-auto', label: 'WhatsApp Relatórios', icon: MessageSquare, color: '#10b981', glow: '#10b98118', desc: 'BotConversa', badge: 'Novo' },
       { value: 'email',      label: 'E-mail',             icon: Mail,           color: '#3b82f6', glow: '#3b82f618', desc: 'Contas e SMTP' },
       { value: 'whatsapp',   label: 'WhatsApp',           icon: MessageCircle,  color: '#22c55e', glow: '#22c55e18', desc: 'Integração WhatsApp' },
       { value: 'notificacoes', label: 'Notificações',     icon: Bell,           color: '#f59e0b', glow: '#f59e0b18', desc: 'Alertas do sistema' },

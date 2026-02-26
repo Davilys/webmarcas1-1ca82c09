@@ -229,7 +229,7 @@ export function AutomatedEmailSettings() {
           <Zap className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold">E-mails Automáticos</h2>
+          <h2 className="text-xl font-semibold">E-mails Relatórios</h2>
           <p className="text-sm text-muted-foreground">
             Gerencie os templates e acompanhe o desempenho dos e-mails automáticos
           </p>
