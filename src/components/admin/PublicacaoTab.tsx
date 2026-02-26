@@ -1068,35 +1068,66 @@ export default function PublicacaoTab() {
   const linkedProcessIds = useMemo(() => new Set(publicacoes.map(p => p.process_id)), [publicacoes]);
   const [isAutoLinking, setIsAutoLinking] = useState(false);
 
-  // ─── Auto-link clients via process_number (#autolink) ────
+  // ─── Auto-link clients via process_number + brand_name (#autolink) ────
   const handleAutoLinkClients = async () => {
     setIsAutoLinking(true);
     try {
-      const orphans = publicacoes.filter(p => !p.client_id && p.process_number_rpi);
-      if (orphans.length === 0) {
+      const allOrphans = publicacoes.filter(p => !p.client_id);
+      if (allOrphans.length === 0) {
         toast.info('Todas as publicações já possuem cliente vinculado');
         setIsAutoLinking(false);
         return;
       }
 
+      // Step 1: Match by process_number
       const processByNumber = new Map(processes.filter(p => p.process_number).map(p => [p.process_number!, p]));
-      let linked = 0;
-      let notFound = 0;
+      let linkedByProcess = 0;
+      const stillOrphans: typeof allOrphans = [];
 
-      for (const pub of orphans) {
-        const proc = processByNumber.get(pub.process_number_rpi!);
-        if (proc && proc.user_id) {
-          const updateData: any = { client_id: proc.user_id, process_id: proc.id };
-          const { error } = await supabase.from('publicacoes_marcas').update(updateData).eq('id', pub.id);
-          if (!error) linked++;
-        } else {
-          notFound++;
+      for (const pub of allOrphans) {
+        if (pub.process_number_rpi) {
+          const proc = processByNumber.get(pub.process_number_rpi);
+          if (proc && proc.user_id) {
+            const { error } = await supabase.from('publicacoes_marcas').update({ client_id: proc.user_id, process_id: proc.id }).eq('id', pub.id);
+            if (!error) { linkedByProcess++; continue; }
+          }
+        }
+        stillOrphans.push(pub);
+      }
+
+      // Step 2: Match by brand_name (normalized, case-insensitive)
+      const normalizeBrand = (name: string) => name.replace(/<[^>]+>/g, '').trim().toUpperCase();
+      const brandNameMap = new Map<string, typeof processes[0]>();
+      for (const proc of processes) {
+        if (proc.brand_name && proc.user_id) {
+          const key = normalizeBrand(proc.brand_name);
+          if (key && !brandNameMap.has(key)) brandNameMap.set(key, proc);
         }
       }
 
+      let linkedByBrand = 0;
+      for (const pub of stillOrphans) {
+        if (pub.brand_name_rpi) {
+          const key = normalizeBrand(pub.brand_name_rpi);
+          const proc = brandNameMap.get(key);
+          if (proc && proc.user_id) {
+            const { error } = await supabase.from('publicacoes_marcas').update({ client_id: proc.user_id, process_id: proc.id }).eq('id', pub.id);
+            if (!error) linkedByBrand++;
+          }
+        }
+      }
+
+      const totalLinked = linkedByProcess + linkedByBrand;
+      const notFound = allOrphans.length - totalLinked;
+
       queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
-      if (linked > 0) toast.success(`✅ ${linked} publicação(ões) vinculadas automaticamente`);
-      if (notFound > 0) toast.info(`${notFound} publicação(ões) sem processo correspondente`);
+      if (totalLinked > 0) {
+        const details: string[] = [];
+        if (linkedByProcess > 0) details.push(`${linkedByProcess} por nº processo`);
+        if (linkedByBrand > 0) details.push(`${linkedByBrand} por nome da marca`);
+        toast.success(`✅ ${totalLinked} vinculadas (${details.join(', ')})`);
+      }
+      if (notFound > 0) toast.info(`${notFound} publicação(ões) sem correspondência`);
     } catch (err) {
       toast.error('Erro ao vincular clientes');
     } finally {
