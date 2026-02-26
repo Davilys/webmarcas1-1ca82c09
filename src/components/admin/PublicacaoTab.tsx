@@ -296,6 +296,12 @@ export default function PublicacaoTab() {
   const [clientAssignSearch, setClientAssignSearch] = useState('');
   const [showClientAssignDropdown, setShowClientAssignDropdown] = useState(false);
   const clientAssignRef = useRef<HTMLDivElement>(null);
+  const [selectedAssignProcessId, setSelectedAssignProcessId] = useState<string | null>(null);
+  const [editableBrandName, setEditableBrandName] = useState('');
+  const [editableProcessNumber, setEditableProcessNumber] = useState('');
+  const [editableNclClass, setEditableNclClass] = useState('');
+  const [showEditableFields, setShowEditableFields] = useState(false);
+  const [expandedProcessId, setExpandedProcessId] = useState<string | null>(null);
 
   // ─── Create dialog state ────
   const [createProcessId, setCreateProcessId] = useState('');
@@ -678,11 +684,21 @@ export default function PublicacaoTab() {
 
   // ─── Assign Client Mutation ────
   const assignClientMutation = useMutation({
-    mutationFn: async ({ pubId, clientId, oldClientId, processId }: { pubId: string; clientId: string | null; oldClientId: string | null; processId: string | null }) => {
-      const { error: pubError } = await supabase.from('publicacoes_marcas').update({ client_id: clientId } as any).eq('id', pubId);
+    mutationFn: async ({ pubId, clientId, oldClientId, processId, selectedProcessId, brandName, processNumber, nclClass }: { 
+      pubId: string; clientId: string | null; oldClientId: string | null; processId: string | null;
+      selectedProcessId?: string | null; brandName?: string; processNumber?: string; nclClass?: string;
+    }) => {
+      const updateData: any = { client_id: clientId };
+      if (selectedProcessId) updateData.process_id = selectedProcessId;
+      if (brandName) updateData.brand_name_rpi = brandName;
+      if (processNumber) updateData.process_number_rpi = processNumber;
+      if (nclClass) updateData.ncl_class = nclClass;
+      
+      const { error: pubError } = await supabase.from('publicacoes_marcas').update(updateData).eq('id', pubId);
       if (pubError) throw pubError;
-      if (processId) {
-        await supabase.from('brand_processes').update({ user_id: clientId, updated_at: new Date().toISOString() }).eq('id', processId);
+      const linkProcessId = selectedProcessId || processId;
+      if (linkProcessId) {
+        await supabase.from('brand_processes').update({ user_id: clientId, updated_at: new Date().toISOString() }).eq('id', linkProcessId);
       }
       const user = currentUserQuery.data;
       await supabase.from('publicacao_logs').insert({
@@ -693,13 +709,13 @@ export default function PublicacaoTab() {
         valor_anterior: oldClientId || '',
         valor_novo: clientId || '',
       });
-      if (clientId && processId) {
-        const proc = processMap.get(processId);
-        const brandName = proc?.brand_name || 'Marca';
+      if (clientId && linkProcessId) {
+        const proc = processMap.get(linkProcessId);
+        const bName = brandName || proc?.brand_name || 'Marca';
         await supabase.from('notifications').insert({
           user_id: clientId,
           title: '📋 Processo vinculado',
-          message: `O processo da marca "${brandName}" foi vinculado ao seu painel.`,
+          message: `O processo da marca "${bName}" foi vinculado ao seu painel.`,
           type: 'info',
           link: '/cliente/processos',
         });
@@ -713,6 +729,11 @@ export default function PublicacaoTab() {
       toast.success('Cliente atribuído com sucesso');
       setClientAssignSearch('');
       setShowClientAssignDropdown(false);
+      setSelectedAssignProcessId(null);
+      setEditableBrandName('');
+      setEditableProcessNumber('');
+      setEditableNclClass('');
+      setShowEditableFields(false);
     },
     onError: (e: any) => toast.error(e.message || 'Erro ao atribuir cliente'),
   });
@@ -1538,7 +1559,13 @@ export default function PublicacaoTab() {
                             <TableCell>
                               <div>
                                 <p className="text-xs font-bold">{brandName}</p>
-                                {processNumber && <p className="text-[10px] text-muted-foreground">{processNumber}</p>}
+                                <div className="flex items-center gap-1.5">
+                                  {processNumber && <span className="text-[10px] text-muted-foreground">{processNumber}</span>}
+                                  {(() => {
+                                    const nclClass = (pub as any).ncl_class || proc?.ncl_classes?.join(', ') || null;
+                                    return nclClass ? <span className="text-[9px] text-primary/70 font-medium">NCL {nclClass}</span> : null;
+                                  })()}
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell className="text-xs">
@@ -1624,6 +1651,12 @@ export default function PublicacaoTab() {
                         <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-600 dark:text-amber-400 ml-1">Sem cliente</Badge>
                       )}
                     </p>
+                    {(() => {
+                      const nclClass = (selected as any).ncl_class || (selected.process_id ? processMap.get(selected.process_id)?.ncl_classes?.join(', ') : null);
+                      return nclClass ? (
+                        <p className="text-[10px] text-primary/80 font-medium mt-0.5">Classe Nice: {nclClass}</p>
+                      ) : null;
+                    })()}
                     {selected.descricao_prazo && (
                       <p className="text-xs text-primary font-medium mt-1">{selected.descricao_prazo}</p>
                     )}
@@ -1699,7 +1732,7 @@ export default function PublicacaoTab() {
                             />
                           </div>
                           {showClientAssignDropdown && clientAssignSearch.length >= 2 && (
-                            <div className="fixed z-[9999] w-80 bg-popover border border-border rounded-lg shadow-xl max-h-52 overflow-y-auto"
+                            <div className="fixed z-[9999] w-80 bg-popover border border-border rounded-lg shadow-xl max-h-60 overflow-y-auto"
                               style={{
                                 top: clientAssignRef.current ? clientAssignRef.current.getBoundingClientRect().bottom + 4 : 0,
                                 left: clientAssignRef.current ? clientAssignRef.current.getBoundingClientRect().left : 0,
@@ -1713,57 +1746,156 @@ export default function PublicacaoTab() {
                                   (c.cpf_cnpj?.replace(/\D/g, '').includes(q.replace(/\D/g, '')))
                                 ).slice(0, 12);
                                 if (matches.length === 0) return <p className="text-xs text-muted-foreground p-3 text-center">Nenhum cliente encontrado</p>;
-                                return matches.map(c => (
-                                  <button
-                                    key={c.id}
-                                    onMouseDown={e => e.preventDefault()}
-                                    onClick={() => {
-                                      assignClientMutation.mutate({ pubId: selected.id, clientId: c.id, oldClientId: selected.client_id, processId: selected.process_id });
-                                      setShowClientAssignDropdown(false);
-                                      setClientAssignSearch('');
-                                    }}
-                                    className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b border-border/50 last:border-0"
-                                  >
-                                    <p className="text-xs font-medium truncate">{c.full_name}</p>
-                                    <p className="text-[10px] text-muted-foreground truncate">{c.email}{c.cpf_cnpj ? ` · ${c.cpf_cnpj}` : ''}</p>
-                                  </button>
-                                ));
+                                return matches.map(c => {
+                                  const clientProcs = processes.filter(p => p.user_id === c.id);
+                                  return (
+                                    <div key={c.id} className="border-b border-border/50 last:border-0">
+                                      <div className="px-3 py-2 hover:bg-accent/50 transition-colors">
+                                        <p className="text-xs font-medium truncate">{c.full_name}</p>
+                                        <p className="text-[10px] text-muted-foreground truncate">{c.email}{c.cpf_cnpj ? ` · ${c.cpf_cnpj}` : ''}</p>
+                                      </div>
+                                      {clientProcs.length > 0 ? (
+                                        <div className="px-2 pb-1.5">
+                                          <p className="text-[9px] text-muted-foreground uppercase font-semibold px-1 mb-0.5">Selecione a marca:</p>
+                                          {clientProcs.map(cp => (
+                                            <button
+                                              key={cp.id}
+                                              onMouseDown={e => e.preventDefault()}
+                                              onClick={() => {
+                                                assignClientMutation.mutate({
+                                                  pubId: selected.id, clientId: c.id, oldClientId: selected.client_id,
+                                                  processId: selected.process_id, selectedProcessId: cp.id,
+                                                  brandName: cp.brand_name, processNumber: cp.process_number || undefined,
+                                                  nclClass: cp.ncl_classes?.join(', ') || undefined,
+                                                });
+                                                setShowClientAssignDropdown(false);
+                                                setClientAssignSearch('');
+                                              }}
+                                              className="w-full text-left px-2 py-1.5 rounded hover:bg-accent text-[10px] flex items-center gap-1.5 transition-colors"
+                                            >
+                                              <FileText className="w-3 h-3 text-primary shrink-0" />
+                                              <span className="font-medium truncate">{cp.brand_name}</span>
+                                              {cp.process_number && <span className="text-muted-foreground font-mono">({cp.process_number})</span>}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onMouseDown={e => e.preventDefault()}
+                                          onClick={() => {
+                                            assignClientMutation.mutate({ pubId: selected.id, clientId: c.id, oldClientId: selected.client_id, processId: selected.process_id });
+                                            setShowClientAssignDropdown(false);
+                                            setClientAssignSearch('');
+                                            setShowEditableFields(true);
+                                          }}
+                                          className="w-full text-left px-3 py-1.5 text-[10px] text-primary hover:bg-accent transition-colors"
+                                        >
+                                          Vincular sem processo →
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                });
                               })()}
                             </div>
                           )}
+
+                          {/* Editable fields for missing data */}
+                          <div className="mt-2 space-y-1.5">
+                            <button
+                              onClick={() => setShowEditableFields(!showEditableFields)}
+                              className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                            >
+                              <Edit3 className="w-3 h-3" /> {showEditableFields ? 'Ocultar campos' : 'Preencher dados manualmente'}
+                            </button>
+                            {showEditableFields && (
+                              <div className="space-y-1.5 p-2 rounded-lg border border-border bg-muted/30">
+                                <div>
+                                  <Label className="text-[10px] text-muted-foreground">Nome da Marca</Label>
+                                  <Input className="h-7 text-xs" placeholder="Ex.: MINHA MARCA" value={editableBrandName} onChange={e => setEditableBrandName(e.target.value)} />
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] text-muted-foreground">Nº Processo</Label>
+                                  <Input className="h-7 text-xs" placeholder="Ex.: 123456789" value={editableProcessNumber} onChange={e => setEditableProcessNumber(e.target.value)} />
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] text-muted-foreground">Classe Nice (NCL)</Label>
+                                  <Input className="h-7 text-xs" placeholder="Ex.: 25, 35" value={editableNclClass} onChange={e => setEditableNclClass(e.target.value)} />
+                                </div>
+                                {(editableBrandName || editableProcessNumber || editableNclClass) && (
+                                  <Button size="sm" className="w-full h-7 text-[10px]" onClick={() => {
+                                    const changes: any = {};
+                                    if (editableBrandName) changes.brand_name_rpi = editableBrandName;
+                                    if (editableProcessNumber) changes.process_number_rpi = editableProcessNumber;
+                                    updateMutation.mutate({ id: selected.id, changes, original: selected });
+                                    if (editableNclClass) {
+                                      supabase.from('publicacoes_marcas').update({ ncl_class: editableNclClass } as any).eq('id', selected.id).then(() => {
+                                        queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
+                                      });
+                                    }
+                                    setEditableBrandName('');
+                                    setEditableProcessNumber('');
+                                    setEditableNclClass('');
+                                    setShowEditableFields(false);
+                                  }}>
+                                    Salvar dados
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
 
-                    {/* ─── Processos deste Cliente ─── */}
+                    {/* ─── Processos deste Cliente (collapsed clickable list) ─── */}
                     {selected.client_id && (() => {
-                      const otherProcesses = publicacoes.filter(p => p.client_id === selected.client_id && p.id !== selected.id);
-                      if (otherProcesses.length === 0) return null;
+                      const clientProcessList = processes.filter(p => p.user_id === selected.client_id);
+                      if (clientProcessList.length === 0) return null;
                       return (
                         <div className="mt-3">
                           <Label className="text-xs text-muted-foreground flex items-center gap-1 mb-1.5">
-                            <FileText className="w-3 h-3" /> Processos deste Cliente ({otherProcesses.length})
+                            <FileText className="w-3 h-3" /> Processos deste Cliente ({clientProcessList.length})
                           </Label>
-                          <div className="max-h-40 overflow-y-auto rounded-lg border border-border bg-muted/30">
-                            {otherProcesses.map(op => {
-                              const brandName = (op.process_id ? processMap.get(op.process_id)?.brand_name : null) || (op as any).brand_name_rpi || '—';
-                              const processNumber = (op.process_id ? processMap.get(op.process_id)?.process_number : null) || (op as any).process_number_rpi || '';
-                              const stCfg = STATUS_CONFIG[op.status] || STATUS_CONFIG.depositada;
+                          <div className="rounded-lg border border-border bg-muted/30">
+                            {clientProcessList.map(cp => {
+                              const isExpanded = expandedProcessId === cp.id;
+                              const relatedPub = publicacoes.find(p => p.process_id === cp.id);
                               return (
-                                <button
-                                  key={op.id}
-                                  onClick={() => setSelectedId(op.id)}
-                                  className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b border-border/40 last:border-0 flex items-center gap-2"
-                                >
-                                  <Badge className={cn('text-[9px] px-1.5 py-0 shrink-0', stCfg.bg, stCfg.color)} variant="outline">
-                                    {stCfg.label}
-                                  </Badge>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-xs font-medium truncate">{brandName}</p>
-                                    {processNumber && <p className="text-[10px] text-muted-foreground truncate">{processNumber}</p>}
-                                  </div>
-                                  <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
-                                </button>
+                                <div key={cp.id} className="border-b border-border/40 last:border-0">
+                                  <button
+                                    onClick={() => setExpandedProcessId(isExpanded ? null : cp.id)}
+                                    className="w-full text-left px-3 py-2 hover:bg-accent transition-colors flex items-center gap-2"
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-xs font-medium truncate">{cp.brand_name}</p>
+                                      <div className="flex items-center gap-1.5 mt-0.5">
+                                        {cp.process_number && <span className="text-[10px] text-muted-foreground font-mono">{cp.process_number}</span>}
+                                        {cp.ncl_classes && cp.ncl_classes.length > 0 && <span className="text-[9px] text-primary/70 font-medium">NCL {cp.ncl_classes.join(', ')}</span>}
+                                      </div>
+                                    </div>
+                                    <ChevronRight className={cn('w-3 h-3 text-muted-foreground shrink-0 transition-transform', isExpanded && 'rotate-90')} />
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="px-3 pb-2 space-y-1.5 bg-muted/20">
+                                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                                        {cp.business_area && <div><span className="text-muted-foreground">Ramo:</span> <span className="font-medium">{cp.business_area}</span></div>}
+                                        {cp.pipeline_stage && <div><span className="text-muted-foreground">Etapa:</span> <span className="font-medium">{cp.pipeline_stage}</span></div>}
+                                      </div>
+                                      {relatedPub ? (
+                                        <Button size="sm" variant="outline" className="w-full h-6 text-[10px]" onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedId(relatedPub.id);
+                                          setExpandedProcessId(null);
+                                        }}>
+                                          <Eye className="w-3 h-3 mr-1" /> Ver publicação
+                                        </Button>
+                                      ) : (
+                                        <p className="text-[10px] text-muted-foreground italic">Sem publicação vinculada</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               );
                             })}
                           </div>

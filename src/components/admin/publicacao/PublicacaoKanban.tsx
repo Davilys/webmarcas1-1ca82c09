@@ -189,9 +189,17 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                               : <span className="text-amber-600 dark:text-amber-400 font-medium">Sem cliente</span>
                             }
                           </p>
-                          {processNumber && (
-                            <p className="text-[10px] text-muted-foreground/70 font-mono mt-0.5">{processNumber}</p>
-                          )}
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            {processNumber && (
+                              <span className="text-[9px] text-muted-foreground/70 font-mono bg-muted/50 px-1 rounded">{processNumber}</span>
+                            )}
+                            {(() => {
+                              const nclClass = (pub as any).ncl_class || proc?.ncl_classes?.join(', ') || null;
+                              return nclClass ? (
+                                <span className="text-[9px] text-primary/70 font-medium bg-primary/5 px-1 rounded">NCL {nclClass}</span>
+                              ) : null;
+                            })()}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border/40">
