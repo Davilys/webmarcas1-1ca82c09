@@ -266,6 +266,13 @@ function AdminSidebar() {
   const isCollapsed = state === 'collapsed';
   const { permissions, isLoading: loadingPermissions } = useAdminPermissions();
 
+  // Find first permitted route for logo link
+  const firstPermittedRoute = useMemo(() => {
+    if (!permissions) return '/admin/configuracoes';
+    const first = menuItems.find(item => permissions[item.permissionKey]?.can_view === true);
+    return first?.href || '/admin/configuracoes';
+  }, [permissions]);
+
   // Filter menu items based on user permissions
   const filteredMenuItems = useMemo(() => {
     if (!permissions) return []; // Hide all while loading permissions
@@ -281,7 +288,7 @@ function AdminSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
       <SidebarHeader className="border-b border-border/50 p-4">
-        <Link to="/admin/dashboard" className="flex items-center gap-2 group">
+        <Link to={firstPermittedRoute} className="flex items-center gap-2 group">
           {isCollapsed ? (
             <img 
               src={logoIcon} 
@@ -369,13 +376,22 @@ function AdminSidebar() {
 
 function AdminLayoutInner({ children }: AdminLayoutProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { chatMode, setChatMode } = useChatMode();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [adminUserId, setAdminUserId] = useState<string | null>(null);
+  const { permissions, isLoading: loadingPermissions, canAccessPath, isMasterAdmin } = useAdminPermissions();
 
   // Broadcast admin presence
   usePresence(adminUserId);
+
+  // Helper: find first permitted route
+  const getFirstPermittedRoute = useMemo(() => {
+    if (!permissions) return '/admin/configuracoes';
+    const first = menuItems.find(item => permissions[item.permissionKey]?.can_view === true);
+    return first?.href || '/admin/configuracoes';
+  }, [permissions]);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -386,7 +402,6 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
         return;
       }
 
-      // Usar RPC has_role para verificação server-side segura
       const { data: isAdminRole, error } = await supabase.rpc('has_role', {
         _user_id: user.id,
         _role: 'admin'
@@ -405,12 +420,38 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
     checkAdmin();
   }, [navigate]);
 
-  if (isAdmin === null) {
+  // Centralized permission guard: redirect if user can't access current route
+  useEffect(() => {
+    if (isAdmin && !loadingPermissions && permissions) {
+      if (!canAccessPath(location.pathname)) {
+        navigate(getFirstPermittedRoute, { replace: true });
+      }
+    }
+  }, [isAdmin, loadingPermissions, permissions, location.pathname, canAccessPath, navigate, getFirstPermittedRoute]);
+
+  if (isAdmin === null || loadingPermissions) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
           <p className="text-muted-foreground">Verificando permissões...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If no permissions at all and not master admin, show restricted
+  if (!isMasterAdmin && permissions && !menuItems.some(item => permissions[item.permissionKey]?.can_view === true)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <Shield className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground">Acesso Restrito</h2>
+          <p className="text-sm text-muted-foreground text-center max-w-md">
+            Você não tem permissão para acessar nenhuma seção. Entre em contato com o administrador master.
+          </p>
         </div>
       </div>
     );
@@ -446,7 +487,7 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
             )}
 
             {/* Brand identity — HUD style */}
-            <Link to="/admin/dashboard" className="flex items-center gap-2 group select-none">
+            <Link to={getFirstPermittedRoute} className="flex items-center gap-2 group select-none">
               {/* Icon orb */}
               <div className="relative flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-xl bg-gradient-to-br from-primary to-primary/60 shadow-[0_0_12px_hsl(var(--primary)/0.35)] group-hover:shadow-[0_0_18px_hsl(var(--primary)/0.5)] transition-shadow duration-300">
                 <Shield className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary-foreground drop-shadow-sm" />

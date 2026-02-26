@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { RevenueChart } from '@/components/admin/dashboard/RevenueChart';
@@ -13,8 +12,6 @@ import { PredictiveIntelligenceSection } from '@/components/admin/dashboard/Pred
 import { MonetizationEngineSection } from '@/components/admin/dashboard/MonetizationEngineSection';
 import { supabase } from '@/integrations/supabase/client';
 import { useCanViewFinancialValues } from '@/hooks/useCanViewFinancialValues';
-import { useAdminPermissions } from '@/hooks/useAdminPermissions';
-import { ShieldAlert } from 'lucide-react';
 import {
   Users, FileText, TrendingUp, Target, CreditCard,
   CheckCircle, Zap, Activity,
@@ -430,9 +427,7 @@ interface Stats {
 // Main Dashboard
 // ─────────────────────────────────────────────────
 export default function AdminDashboard() {
-  const navigate = useNavigate();
   const { isMasterAdmin, isLoading: loadingFinancial } = useCanViewFinancialValues();
-  const { hasPermission, isLoading: loadingPerms } = useAdminPermissions();
   const [stats, setStats] = useState<Stats>({
     totalClients: 0, totalLeads: 0, activeProcesses: 0,
     pendingInvoices: 0, totalRevenue: 0, completedProcesses: 0,
@@ -559,25 +554,6 @@ export default function AdminDashboard() {
       index: 5,
     },
   ];
-
-  // Block non-master admins from accessing dashboard if they don't have permission
-  const canViewDashboard = hasPermission('dashboard', 'can_view');
-  
-  if (!loadingPerms && !canViewDashboard) {
-    return (
-      <AdminLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
-            <ShieldAlert className="h-8 w-8 text-destructive" />
-          </div>
-          <h2 className="text-xl font-bold text-foreground">Acesso Restrito</h2>
-          <p className="text-sm text-muted-foreground text-center max-w-md">
-            Você não tem permissão para acessar o Dashboard. Entre em contato com o administrador master para solicitar acesso.
-          </p>
-        </div>
-      </AdminLayout>
-    );
-  }
 
   return (
     <AdminLayout>

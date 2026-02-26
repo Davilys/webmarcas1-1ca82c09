@@ -44,8 +44,46 @@ export default function AdminLogin() {
           .maybeSingle();
 
         if (roleData) {
-          toast.success('Login de administrador realizado!');
-          navigate('/admin/dashboard');
+          // Master admin goes to dashboard directly
+          const MASTER_ADMIN_EMAIL = 'davillys@gmail.com';
+          if (data.user.email === MASTER_ADMIN_EMAIL) {
+            toast.success('Login de administrador realizado!');
+            navigate('/admin/dashboard');
+          } else {
+            // Fetch permissions to find first allowed route
+            const { data: perms } = await supabase
+              .from('admin_permissions')
+              .select('permission_key, can_view')
+              .eq('user_id', data.user.id)
+              .eq('can_view', true);
+
+            const PATH_MAP: Record<string, string> = {
+              dashboard: '/admin/dashboard',
+              leads: '/admin/leads',
+              clients: '/admin/clientes',
+              contracts: '/admin/contratos',
+              contract_templates: '/admin/modelos-contrato',
+              documents: '/admin/documentos',
+              financial: '/admin/financeiro',
+              emails: '/admin/emails',
+              live_chat: '/admin/chat-ao-vivo',
+              notifications: '/admin/notificacoes',
+              inpi_magazine: '/admin/revista-inpi',
+              publications: '/admin/publicacao',
+              inpi_resources: '/admin/recursos-inpi',
+              awards: '/admin/premiacao',
+              settings: '/admin/configuracoes',
+            };
+
+            // Ordered keys matching menu order
+            const orderedKeys = ['dashboard','leads','clients','contracts','contract_templates','documents','financial','emails','live_chat','notifications','inpi_magazine','publications','inpi_resources','awards','settings'];
+            const permSet = new Set(perms?.map(p => p.permission_key) || []);
+            const firstAllowed = orderedKeys.find(k => permSet.has(k));
+            const targetRoute = firstAllowed ? PATH_MAP[firstAllowed] : '/admin/configuracoes';
+
+            toast.success('Login de administrador realizado!');
+            navigate(targetRoute);
+          }
         } else {
           // Not an admin - sign out and show error
           await supabase.auth.signOut();
