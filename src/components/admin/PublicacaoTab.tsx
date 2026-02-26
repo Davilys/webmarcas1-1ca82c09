@@ -696,6 +696,7 @@ export default function PublicacaoTab() {
       queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
       queryClient.invalidateQueries({ queryKey: ['publicacao-logs'] });
       queryClient.invalidateQueries({ queryKey: ['brand-processes-pub'] });
+      queryClient.invalidateQueries({ queryKey: ['profiles-pub'] });
       toast.success('Cliente atribuído com sucesso');
       setClientAssignSearch('');
       setShowClientAssignDropdown(false);
@@ -2076,9 +2077,76 @@ export default function PublicacaoTab() {
         <ClientDetailSheet
           client={selectedClientForSheet}
           open={showClientSheet}
-          onOpenChange={(open) => { setShowClientSheet(open); if (!open) { setShowProcessDetailFromSheet(false); setSheetPubId(null); } }}
+          onOpenChange={(open) => { setShowClientSheet(open); if (!open) { setShowProcessDetailFromSheet(false); setSheetPubId(null); setClientAssignSearch(''); setShowClientAssignDropdown(false); } }}
           onUpdate={() => queryClient.invalidateQueries({ queryKey: ['profiles-pub'] })}
           initialShowProcessDetails={showProcessDetailFromSheet}
+          extraActions={
+            sheetPub ? (
+              <div className="relative w-full mt-2" ref={clientAssignRef}>
+                {sheetPub.client_id && clientMap.get(sheetPub.client_id) ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30">
+                    <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-emerald-300 truncate">{clientMap.get(sheetPub.client_id)?.full_name}</p>
+                      <p className="text-[10px] text-emerald-400/60 truncate">{clientMap.get(sheetPub.client_id)?.email}</p>
+                    </div>
+                    <button
+                      onClick={() => assignClientMutation.mutate({ pubId: sheetPub.id, clientId: null, oldClientId: sheetPub.client_id, processId: sheetPub.process_id })}
+                      className="p-1 rounded hover:bg-red-500/20 text-emerald-400/60 hover:text-red-400 transition-colors"
+                      title="Desvincular cliente"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="w-3 h-3 text-white/50" />
+                      <span className="text-[10px] text-white/50 font-semibold uppercase tracking-wider">Vincular Cliente</span>
+                    </div>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar por nome, email ou CPF/CNPJ..."
+                        value={clientAssignSearch}
+                        onChange={e => {
+                          setClientAssignSearch(e.target.value);
+                          setShowClientAssignDropdown(e.target.value.length >= 2);
+                        }}
+                        onFocus={() => { if (clientAssignSearch.length >= 2) setShowClientAssignDropdown(true); }}
+                        className="h-8 text-xs pl-8 bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                      />
+                    </div>
+                    {showClientAssignDropdown && clientAssignSearch.length >= 2 && (
+                      <div className="absolute z-[60] w-full mt-1 bg-popover border border-border rounded-lg shadow-xl max-h-52 overflow-y-auto">
+                        {(() => {
+                          const q = clientAssignSearch.toLowerCase();
+                          const matches = clients.filter(c =>
+                            (c.full_name?.toLowerCase().includes(q)) ||
+                            (c.email?.toLowerCase().includes(q)) ||
+                            (c.cpf_cnpj?.replace(/\D/g, '').includes(q.replace(/\D/g, '')))
+                          ).slice(0, 8);
+                          if (matches.length === 0) return <p className="text-xs text-muted-foreground p-3 text-center">Nenhum cliente encontrado</p>;
+                          return matches.map(c => (
+                            <button
+                              key={c.id}
+                              onClick={() => {
+                                assignClientMutation.mutate({ pubId: sheetPub.id, clientId: c.id, oldClientId: sheetPub.client_id, processId: sheetPub.process_id });
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b border-border/50 last:border-0"
+                            >
+                              <p className="text-xs font-medium truncate">{c.full_name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{c.email}{c.cpf_cnpj ? ` · ${c.cpf_cnpj}` : ''}</p>
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : undefined
+          }
         />
       )}
 
