@@ -480,10 +480,20 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
               .replace(/\{\{email\}\}/g, 'joao@exemplo.com')
               .replace(/\{\{empresa\}\}/g, 'Empresa XYZ');
 
-            // Simulate WhatsApp summary: truncate to ~150 chars
-            const waPreview = previewBody.length <= 200
-              ? `WebMarcas: Olá João Silva! ${previewBody}`
-              : `WebMarcas: Olá João Silva! ${previewBody.substring(0, 120).replace(/\s+\S*$/, '')}...`;
+            // Build WhatsApp preview: subject context + key message points
+            const cleanSubject = previewSubject
+              .replace(/[⚠️🔥💼🏷️🎯📢✅⏰👉💡]/g, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            // Extract first 2-3 meaningful lines from body (skip greeting)
+            const bodyLines = previewBody
+              .split('\n')
+              .map(l => l.trim())
+              .filter(l => l.length > 10 && !l.startsWith('Olá') && !l.startsWith('Conte com') && !l.startsWith('Equipe') && !l.startsWith('www.') && !l.startsWith('Um abraço') && !l.startsWith('Abraços') && !l.startsWith('Nosso time') && !l.startsWith('Estamos aqui'));
+            
+            const keyPoints = bodyLines.slice(0, 2).join(' ').substring(0, 180);
+            const waPreview = `WebMarcas: Olá João Silva! ${cleanSubject}. ${keyPoints}${keyPoints.length >= 180 ? '...' : ''}\n\nFale conosco: (11) 91112-0225`;
 
             return (
               <div className="space-y-3">

@@ -92,9 +92,9 @@ async function sendEmailNow(
   }
 }
 
-async function summarizeForWhatsApp(message: string, nome: string): Promise<string> {
-  if (message.length <= 200) {
-    return `WebMarcas: Olá ${nome}! ${message}`;
+async function summarizeForWhatsApp(message: string, nome: string, assunto: string): Promise<string> {
+  if (message.length <= 250) {
+    return `WebMarcas: Olá ${nome}! ${message}\n\nFale conosco: (11) 91112-0225`;
   }
 
   try {
@@ -112,33 +112,37 @@ async function summarizeForWhatsApp(message: string, nome: string): Promise<stri
         messages: [
           {
             role: "system",
-            content: `Você é um compressor de mensagens WhatsApp profissional. Resuma a mensagem em no máximo 150 caracteres.
-REGRAS OBRIGATÓRIAS:
-- Comece sempre com "WebMarcas:"
-- Use o nome "${nome}" na saudação
-- Preserve valores monetários (R$)
-- Preserve nomes de marcas/produtos
-- Tom profissional e amigável
-- Não use aspas, apenas o texto resumido`,
+            content: `Você resume mensagens de marketing para WhatsApp. Crie uma versão condensada entre 200 e 350 caracteres.
+REGRAS:
+- Comece com "WebMarcas: Olá ${nome}!"
+- Use o ASSUNTO do e-mail como gancho principal da mensagem
+- Mantenha os 2-3 pontos mais importantes do corpo original
+- Preserve valores monetários (R$) e nomes de marcas
+- Tom profissional e amigável, como uma conversa WhatsApp
+- Termine com "Fale conosco: (11) 91112-0225"
+- NÃO use emojis em excesso (máximo 2-3)
+- NÃO use aspas, apenas o texto final`,
           },
-          { role: "user", content: message },
+          { role: "user", content: `ASSUNTO: ${assunto}\n\nMENSAGEM:\n${message}` },
         ],
-        max_tokens: 80,
-        temperature: 0.2,
+        max_tokens: 200,
+        temperature: 0.3,
       }),
     });
 
     if (res.ok) {
       const data = await res.json();
       const summary = data?.choices?.[0]?.message?.content?.trim();
-      if (summary && summary.length > 10) return summary;
+      if (summary && summary.length > 20) return summary;
     }
   } catch (e) {
     console.error("AI summarize error:", e);
   }
 
-  const truncated = message.substring(0, 120).replace(/\s+\S*$/, "");
-  return `WebMarcas: Olá ${nome}! ${truncated}...`;
+  // Fallback: subject + first meaningful lines
+  const lines = message.split('\n').filter(l => l.trim().length > 10);
+  const keyContent = lines.slice(0, 3).join(' ').substring(0, 200);
+  return `WebMarcas: Olá ${nome}! ${assunto}. ${keyContent}...\n\nFale conosco: (11) 91112-0225`;
 }
 
 async function sendWhatsAppNow(
@@ -235,7 +239,7 @@ Deno.serve(async (req) => {
 
       // WhatsApp test
       if (lead.phone) {
-        const waMessage = await summarizeForWhatsApp(testBody, lead.full_name || "");
+        const waMessage = await summarizeForWhatsApp(testBody, lead.full_name || "", testSubject);
         results.whatsapp = await sendWhatsAppNow(supabase, lead.phone, lead.full_name, waMessage);
         if (results.whatsapp.success) {
           await supabase.from("lead_activities").insert({
