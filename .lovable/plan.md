@@ -1,76 +1,132 @@
 
-# Correcao Urgente: Permissoes Nao Funcionando + Dashboard Acessivel
+# Leads CRM Premium - Kanban + Funil de Vendas + Remarketing Automatico
 
-## Problemas Identificados
+## Visao Geral
 
-1. **Login sempre redireciona para `/admin/dashboard`** - mesmo que o usuario nao tenha permissao de dashboard
-2. **Logo e header sempre linkam para `/admin/dashboard`** - ao clicar na logo, todos vao para o dashboard
-3. **Nao existe guarda centralizada de permissoes** - cada pagina precisaria ter seu proprio check, mas apenas Dashboard.tsx tem um (e com bug de timing)
-4. **Race condition no carregamento** - enquanto as permissoes carregam, o conteudo aparece brevemente antes de ser bloqueado
+Transformar a aba Leads em um CRM completo e premium com modo Kanban drag-and-drop, funil de vendas visual, ficha detalhada do lead e sistema de remarketing automatico (individual e em massa).
 
-## Dados do Banco (confirmados)
+---
 
-- **Camila** e **Caroline**: NAO possuem `dashboard` na tabela `admin_permissions`, logo nao deveriam ver o Dashboard
-- Porem, ambas conseguem acessar `/admin/dashboard` porque o login redireciona para la e nao ha guarda efetiva
+## 1. Banco de Dados - Novas Colunas e Tabelas
 
-## Solucao: Guarda Centralizada no AdminLayout
+### Tabela `leads` - Novas colunas:
+- `lead_score` (integer, default 0) - Pontuacao do lead (0-100)
+- `lead_temperature` (text, default 'frio') - frio/morno/quente
+- `last_activity_at` (timestamptz) - Ultima atividade
+- `remarketing_count` (integer, default 0) - Quantas vezes recebeu remarketing
+- `tags` (text[], default '{}') - Tags personalizadas
 
-Em vez de adicionar checks em cada pagina individualmente, a solucao sera implementar uma **guarda centralizada** no `AdminLayoutInner` que:
+### Nova tabela `lead_activities`:
+- `id`, `lead_id` (FK leads), `admin_id`, `activity_type` (text: nota/email/ligacao/whatsapp/remarketing), `content` (text), `created_at`
+- RLS: apenas admins
 
-1. Apos carregar as permissoes do usuario, verifica se ele tem acesso a rota atual
-2. Se NAO tiver, redireciona automaticamente para a **primeira secao permitida**
-3. Se nao tiver permissao para NENHUMA secao, mostra tela de acesso restrito
+### Nova tabela `lead_remarketing_campaigns`:
+- `id`, `name`, `type` (text: abandono_carrinho/promocao/reengajamento/personalizado), `subject`, `body` (html), `target_status` (text[]), `target_origin` (text[]), `scheduled_at`, `sent_at`, `total_sent` (int), `total_opened` (int), `created_by`, `status` (rascunho/agendada/enviando/enviada), `created_at`
+- RLS: apenas admins
 
-### Mudancas nos Arquivos
+---
 
-**1. `src/components/admin/AdminLayout.tsx`**
+## 2. Componentes Novos
 
-- Importar `useAdminPermissions` no `AdminLayoutInner` (ja esta no sidebar)
-- Apos confirmar que e admin E permissoes carregaram:
-  - Verificar se a rota atual esta permitida via `canAccessPath(location.pathname)`
-  - Se nao estiver, calcular a primeira rota permitida e redirecionar via `navigate()`
-- Alterar os 2 links da logo (sidebar header linha 284 e header linha 449) para navegar para a primeira rota permitida em vez de `/admin/dashboard` hardcoded
-- O master admin continua com acesso total (FULL_ACCESS_MAP ja resolve isso)
+### `LeadKanbanBoard.tsx`
+- Board Kanban com colunas por status: Novo > Em Contato > Qualificado > Proposta > Negociacao > Convertido > Perdido
+- Drag-and-drop via HTML5 drag API (sem lib extra)
+- Cards com: avatar, nome, empresa, valor estimado, temperatura (icone fogo), tags, origem
+- Ao arrastar entre colunas: atualiza status no banco automaticamente
+- Contagem e valor total por coluna
 
-**2. `src/pages/admin/Login.tsx`**
+### `LeadDetailSheet.tsx` (Sheet lateral)
+- Abre ao clicar no card/linha do lead
+- Abas: **Dados** | **Atividades** | **Remarketing**
+- **Dados**: Todos os campos editaveis inline, score, temperatura, tags
+- **Atividades**: Timeline de interacoes (notas, emails enviados, ligacoes registradas)
+- **Remarketing Individual**: Botao "Enviar Remarketing" com selector de template, preview do email e envio direto via `trigger-email-automation`
+- Botao "Converter em Cliente" em destaque
 
-- Apos confirmar que o usuario e admin, buscar as permissoes antes de redirecionar
-- Navegar para a primeira secao que o usuario tem `can_view: true`
-- Fallback: se nao tiver nenhuma permissao, navegar para `/admin/configuracoes` (ou mostrar erro)
+### `LeadSalesFunnel.tsx`
+- Funil visual (trapezio/piramide invertida) mostrando a conversao entre cada estagio
+- Percentuais de conversao entre etapas
+- Animacao com framer-motion
+- Cores gradientes por estagio
 
-**3. `src/pages/admin/Dashboard.tsx`**
+### `LeadRemarketingPanel.tsx`
+- Painel para disparo em massa de remarketing
+- Filtros: por status, origem, temperatura, data de criacao, tags
+- Opcoes de campanha: Abandono de Carrinho, Promocao, Reengajamento
+- Editor de mensagem com variaveis (nome, marca, link)
+- Preview antes do envio
+- Historico de campanhas enviadas com metricas
 
-- Remover o check de permissao local (sera tratado pelo AdminLayout centralizado)
-- Manter apenas a restricao de valores financeiros para nao-master
+---
 
-### Logica da Guarda Centralizada
+## 3. Pagina Leads Atualizada (`Leads.tsx`)
 
-```text
-AdminLayoutInner:
-  1. checkAdmin() -> confirma role admin
-  2. useAdminPermissions() -> carrega permissoes
-  3. Se ambos carregados:
-     a. Obter permissionKey da rota atual
-     b. Se permissionKey existe E can_view === false:
-        - Encontrar primeira rota com can_view === true
-        - navigate(primeiraRotaPermitida)
-     c. Se nenhuma rota permitida -> mostrar "Acesso Restrito"
-  4. Enquanto carrega -> mostrar spinner (ja existe)
-```
+### Layout com Tabs:
+- **Lista** (tabela atual melhorada)
+- **Kanban** (novo board drag-and-drop)
+- **Funil** (funil de vendas visual)
+- **Remarketing** (painel de campanhas)
 
-### Logica do Link da Logo
+### Header mantido com KPIs + Pipeline Bar existente
 
-```text
-Logo onClick:
-  1. Encontrar primeiro item do menu que o usuario tem can_view
-  2. Navegar para esse href
-  3. Fallback: /admin/configuracoes
-```
+### Melhorias na tabela:
+- Coluna de temperatura (emoji fogo)
+- Coluna de score
+- Ao clicar na linha, abre `LeadDetailSheet`
 
-### Resultado Esperado
+---
 
-- Ao logar, Camila sera redirecionada para `/admin/leads` (primeira secao com permissao)
-- Ao clicar na logo, ira para `/admin/leads` tambem
-- Se digitar `/admin/dashboard` na URL, sera redirecionada automaticamente
-- Todas as restricoes de permissoes definidas na tela de Seguranca passam a funcionar em TODAS as paginas automaticamente
-- Master admin continua com acesso total e irrestrito
+## 4. Automacao de Captura de Leads
+
+### Formulario do site (Registrar.tsx / Index.tsx):
+- Ao preencher dados pessoais e NAO seguir ate assinatura, o lead ja e criado (isso ja funciona via `trigger-email-automation` com evento `form_started`)
+- Verificar que o status permanece "novo" e o lead aparece corretamente no Kanban
+
+---
+
+## 5. Edge Function: `send-lead-remarketing`
+
+Nova funcao para enviar remarketing:
+- Recebe: `lead_ids[]`, `campaign_id` ou `subject + body` customizado
+- Para cada lead: substitui variaveis, envia via Resend, loga em `email_logs`
+- Atualiza `remarketing_count` no lead
+- Registra atividade em `lead_activities`
+- Rate limit: 5 emails/segundo para evitar spam
+
+---
+
+## 6. Arquivos a Criar
+
+| Arquivo | Descricao |
+|---|---|
+| `src/components/admin/leads/LeadKanbanBoard.tsx` | Board Kanban drag-and-drop |
+| `src/components/admin/leads/LeadDetailSheet.tsx` | Ficha detalhada do lead (Sheet) |
+| `src/components/admin/leads/LeadSalesFunnel.tsx` | Funil de vendas visual |
+| `src/components/admin/leads/LeadRemarketingPanel.tsx` | Painel de remarketing em massa |
+| `supabase/functions/send-lead-remarketing/index.ts` | Edge function de disparo |
+
+## 7. Arquivos a Editar
+
+| Arquivo | Mudanca |
+|---|---|
+| `src/pages/admin/Leads.tsx` | Refatorar com Tabs (Lista/Kanban/Funil/Remarketing), integrar novos componentes, sheet de detalhes |
+| `src/components/admin/leads/LeadImportExportDialog.tsx` | Adicionar campo de tags na importacao |
+
+## 8. Migracao SQL
+
+- Adicionar colunas na tabela `leads`
+- Criar tabela `lead_activities` com RLS
+- Criar tabela `lead_remarketing_campaigns` com RLS
+- Sem alteracao em tabelas existentes (aditivo apenas)
+
+---
+
+## Resultado Final
+
+- CRM de Leads completo com 4 visualizacoes (Lista, Kanban, Funil, Remarketing)
+- Drag-and-drop no Kanban atualiza status em tempo real
+- Ficha do lead com timeline de atividades e remarketing individual
+- Campanhas de remarketing em massa com filtros inteligentes
+- Automacao de abandono de carrinho (ja existe, sera integrada na UI)
+- Import/Export mantido e melhorado
+- Tudo funcional, premium e moderno com animacoes framer-motion
