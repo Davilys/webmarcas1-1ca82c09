@@ -285,7 +285,7 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
           subject,
           body,
           target_status: filterStatus,
-          status: sendNow ? 'agendada' : 'agendada',
+          status: sendNow ? 'em_andamento' : 'agendada',
           total_sent: 0,
           channels: getSelectedChannels(),
         } as any)

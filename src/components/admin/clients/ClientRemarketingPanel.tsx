@@ -315,7 +315,7 @@ export function ClientRemarketingPanel({ clients, onRefresh }: ClientRemarketing
           subject,
           body,
           target_status: filterPipeline,
-          status: 'agendada',
+          status: sendNow ? 'em_andamento' : 'agendada',
           total_sent: 0,
           channels: getSelectedChannels(),
         } as any)
