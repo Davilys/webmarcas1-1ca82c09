@@ -1,82 +1,47 @@
 
 
-# Sincronizacao de Status de Faturas Asaas -> Financeiro
+# Filtro de Faturas por Admin - Cada um ve apenas seus clientes
 
-## Problema Identificado
+## Problema
+Atualmente, todos os admins veem **todas** as faturas no Financeiro. O correto e que cada admin veja apenas as faturas dos clientes atribuidos a ele (`assigned_to`) ou criados por ele (`created_by`). Somente o admin master ve tudo.
 
-As faturas estao todas como "pending" no banco de dados, mesmo estando pagas no Asaas. A causa raiz e que **o webhook do Asaas nunca esta sendo chamado** (zero logs na edge function `asaas-webhook`). Isso significa que o Asaas nao esta configurado para enviar notificacoes de pagamento para o sistema.
+## Solucao
 
-Existem 2 solucoes complementares que precisam ser implementadas:
+### Arquivo: `src/pages/admin/Financeiro.tsx`
 
-1. **Configurar o webhook no Asaas** (acao manual do usuario no painel Asaas)
-2. **Criar um botao "Sincronizar com Asaas"** que consulta a API do Asaas e atualiza os status das faturas pendentes (solucao imediata + fallback permanente)
+Modificar a funcao `fetchInvoices` para filtrar por admin:
 
-## Solucao Tecnica
+1. Obter o usuario atual e verificar se e master admin
+2. Se **NAO** for master admin:
+   - Buscar os IDs dos clientes onde `assigned_to = uid` OU `created_by = uid` na tabela `profiles`
+   - Filtrar as faturas usando `.in('user_id', clientIds)` 
+3. Se for master admin: manter o comportamento atual (ve tudo)
 
-### 1. Nova Edge Function: `sync-asaas-invoices`
+Mesma logica para `fetchClients` - admin secundario so ve seus proprios clientes no dropdown de criacao de fatura.
 
-Criar uma edge function que:
-- Busca todas as faturas com status `pending` no banco de dados que possuem `asaas_invoice_id`
-- Para cada uma, consulta `GET /v3/payments/{id}` na API do Asaas
-- Compara o status retornado e atualiza o banco local
-- Mapeia os status: `RECEIVED`/`CONFIRMED` -> `paid`, `OVERDUE` -> `overdue`, etc.
-- Atualiza tambem o `payment_date` quando confirmado
-- Retorna um resumo: quantas atualizadas, quantas ja estavam corretas
+E para `fetchProcesses` - filtrar processos apenas dos clientes atribuidos.
 
-### 2. Botao "Sincronizar Asaas" na pagina Financeiro
-
-Adicionar no header da pagina `src/pages/admin/Financeiro.tsx`:
-- Um botao ao lado de "Atualizar" com icone de sync
-- Ao clicar, invoca `sync-asaas-invoices`
-- Mostra loading e toast com resultado ("5 faturas atualizadas")
-- Recarrega a lista apos sincronizacao
-
-### 3. Configuracao do Webhook (instrucao para o usuario)
-
-O usuario precisa acessar o painel do Asaas e configurar o webhook:
-- URL: `https://afuqrzecokubogopgfgt.supabase.co/functions/v1/asaas-webhook`
-- Eventos: `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED`, `PAYMENT_OVERDUE`, `PAYMENT_REFUNDED`
-
-Isso sera exibido como instrucao apos a sincronizacao.
-
-## Detalhes Tecnicos
-
-### Edge Function `sync-asaas-invoices`
+### Detalhes Tecnicos
 
 ```text
-Fluxo:
-1. SELECT * FROM invoices WHERE status = 'pending' AND asaas_invoice_id IS NOT NULL
-2. Para cada fatura:
-   GET https://api.asaas.com/v3/payments/{asaas_invoice_id}
-3. Se status Asaas != PENDING:
-   UPDATE invoices SET status = mapeado, payment_date = data
-4. Retornar { synced: N, total: M }
+fetchInvoices (admin secundario):
+1. SELECT id FROM profiles WHERE assigned_to = uid OR created_by = uid
+2. SELECT * FROM invoices WHERE user_id IN (clientIds)
+
+fetchClients (admin secundario):
+1. SELECT * FROM profiles WHERE assigned_to = uid OR created_by = uid
+
+fetchProcesses (admin secundario):  
+1. SELECT * FROM brand_processes WHERE user_id IN (clientIds)
 ```
 
-Mapeamento de status:
-- `RECEIVED`, `CONFIRMED`, `RECEIVED_IN_CASH` -> `received` / `confirmed`
-- `OVERDUE` -> `overdue`
-- `REFUNDED` -> `refunded`
-- `PENDING` -> manter `pending`
+O hook `useCanViewFinancialValues` ja retorna `isMasterAdmin`, que sera reutilizado para decidir se filtra ou nao. Tambem sera importado o estado do usuario atual para obter o `uid`.
 
-### Mudancas nos arquivos:
+### Resumo das mudancas
 
-1. **`supabase/functions/sync-asaas-invoices/index.ts`** (novo)
-   - Edge function que consulta Asaas e atualiza faturas
-   - Usa `ASAAS_API_KEY` (ja configurada)
-   - Processamento em lote com rate limiting
+| Arquivo | Mudanca |
+|---|---|
+| `src/pages/admin/Financeiro.tsx` | Adicionar logica de filtragem por admin nas 3 funcoes de fetch (invoices, clients, processes). Usar `isMasterAdmin` do hook existente para decidir se aplica filtro. |
 
-2. **`supabase/config.toml`** (adicionar)
-   - `[functions.sync-asaas-invoices]` com `verify_jwt = false`
-
-3. **`src/pages/admin/Financeiro.tsx`**
-   - Novo botao "Sincronizar Asaas" no header
-   - Estado `syncing` para loading
-   - Funcao `handleSyncAsaas` que invoca a edge function
-   - Toast com resultado da sincronizacao
-
-### Seguranca
-- A edge function usa `SUPABASE_SERVICE_ROLE_KEY` para updates
-- A API do Asaas e consultada com `ASAAS_API_KEY`
-- Ambos secrets ja estao configurados
+Nenhuma mudanca no banco de dados e necessaria - as colunas `assigned_to` e `created_by` ja existem na tabela `profiles`.
 
