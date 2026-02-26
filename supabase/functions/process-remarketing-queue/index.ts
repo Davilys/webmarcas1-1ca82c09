@@ -54,10 +54,6 @@ async function sendEmail(
 }
 
 async function summarizeForWhatsApp(message: string, nome: string, assunto: string): Promise<string> {
-  if (message.length <= 250) {
-    return `WebMarcas: Olá ${nome}! ${message}\n\nFale conosco: (11) 91112-0225`;
-  }
-
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
@@ -73,20 +69,23 @@ async function summarizeForWhatsApp(message: string, nome: string, assunto: stri
         messages: [
           {
             role: "system",
-            content: `Você resume mensagens de marketing para WhatsApp. Crie uma versão condensada entre 200 e 350 caracteres.
-REGRAS:
-- Comece com "WebMarcas: Olá ${nome}!"
-- Use o ASSUNTO do e-mail como gancho principal da mensagem
-- Mantenha os 2-3 pontos mais importantes do corpo original
-- Preserve valores monetários (R$) e nomes de marcas
-- Tom profissional e amigável, como uma conversa WhatsApp
-- Termine com "Fale conosco: (11) 91112-0225"
-- NÃO use emojis em excesso (máximo 2-3)
-- NÃO use aspas, apenas o texto final`,
+            content: `Você cria mensagens curtas de WhatsApp para remarketing. Gere uma mensagem entre 200 e 400 caracteres.
+REGRAS OBRIGATÓRIAS:
+- Comece com "Olá ${nome}!" (mencione o nome UMA ÚNICA VEZ, nunca repita)
+- Use o ASSUNTO do e-mail como gancho
+- Resuma os 2-3 pontos mais importantes
+- NÃO inclua número de telefone (a mensagem já é enviada pelo WhatsApp da empresa)
+- Termine com um CTA conversacional, exemplo: "Posso te ligar para explicar melhor ou prefere continuar por aqui?" ou "Quer agendar uma ligação ou prefere tirar dúvidas por aqui?"
+- Inclua o link do site: www.webmarcas.net
+- Use no máximo 2 emojis
+- Tom amigável e direto, como conversa de WhatsApp
+- NÃO use "WebMarcas:" no início
+- NÃO use aspas
+- NÃO repita saudação ou nome do cliente`,
           },
           { role: "user", content: `ASSUNTO: ${assunto}\n\nMENSAGEM:\n${message}` },
         ],
-        max_tokens: 200,
+        max_tokens: 250,
         temperature: 0.3,
       }),
     });
@@ -101,8 +100,8 @@ REGRAS:
   }
 
   const lines = message.split('\n').filter(l => l.trim().length > 10);
-  const keyContent = lines.slice(0, 3).join(' ').substring(0, 200);
-  return `WebMarcas: Olá ${nome}! ${assunto}. ${keyContent}...\n\nFale conosco: (11) 91112-0225`;
+  const keyContent = lines.slice(0, 2).join(' ').substring(0, 180);
+  return `Olá ${nome}! ${assunto}. ${keyContent}...\n\n👉 Acesse: www.webmarcas.net\n\nPosso te ligar ou prefere continuar por aqui?`;
 }
 
 async function sendWhatsApp(

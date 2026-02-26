@@ -480,20 +480,19 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
               .replace(/\{\{email\}\}/g, 'joao@exemplo.com')
               .replace(/\{\{empresa\}\}/g, 'Empresa XYZ');
 
-            // Build WhatsApp preview: subject context + key message points
+            // Build WhatsApp preview: subject context + key points + CTA
             const cleanSubject = previewSubject
               .replace(/[⚠️🔥💼🏷️🎯📢✅⏰👉💡]/g, '')
               .replace(/\s+/g, ' ')
               .trim();
 
-            // Extract first 2-3 meaningful lines from body (skip greeting)
             const bodyLines = previewBody
               .split('\n')
               .map(l => l.trim())
               .filter(l => l.length > 10 && !l.startsWith('Olá') && !l.startsWith('Conte com') && !l.startsWith('Equipe') && !l.startsWith('www.') && !l.startsWith('Um abraço') && !l.startsWith('Abraços') && !l.startsWith('Nosso time') && !l.startsWith('Estamos aqui'));
             
-            const keyPoints = bodyLines.slice(0, 2).join(' ').substring(0, 180);
-            const waPreview = `WebMarcas: Olá João Silva! ${cleanSubject}. ${keyPoints}${keyPoints.length >= 180 ? '...' : ''}\n\nFale conosco: (11) 91112-0225`;
+            const keyPoints = bodyLines.slice(0, 2).join(' ').substring(0, 150);
+            const waPreview = `Olá João Silva! ${cleanSubject}.\n\n${keyPoints}${keyPoints.length >= 150 ? '...' : ''}\n\n👉 Acesse: www.webmarcas.net\n\nPosso te ligar para explicar melhor ou prefere continuar por aqui?`;
 
             return (
               <div className="space-y-3">
