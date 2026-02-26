@@ -474,13 +474,65 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
             </Button>
           )}
 
-          {showPreview && body && (
-            <div className="p-4 rounded-xl bg-background border border-border/50">
-              <p className="text-xs font-bold text-muted-foreground mb-2">Preview:</p>
-              <p className="text-xs font-semibold mb-1">{subject}</p>
-              <div className="text-sm text-foreground whitespace-pre-wrap">{previewBody}</div>
-            </div>
-          )}
+          {showPreview && body && (() => {
+            const previewSubject = subject
+              .replace(/\{\{nome\}\}/g, 'João Silva')
+              .replace(/\{\{email\}\}/g, 'joao@exemplo.com')
+              .replace(/\{\{empresa\}\}/g, 'Empresa XYZ');
+
+            // Simulate WhatsApp summary: truncate to ~150 chars
+            const waPreview = previewBody.length <= 200
+              ? `WebMarcas: Olá João Silva! ${previewBody}`
+              : `WebMarcas: Olá João Silva! ${previewBody.substring(0, 120).replace(/\s+\S*$/, '')}...`;
+
+            return (
+              <div className="space-y-3">
+                {/* Email Preview */}
+                {channelEmail && (
+                  <div className="rounded-xl border border-blue-200 dark:border-blue-800 overflow-hidden">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-800">
+                      <Mail className="h-4 w-4 text-blue-500" />
+                      <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Preview E-mail</span>
+                    </div>
+                    <div className="p-4 bg-background">
+                      <div className="text-[10px] text-muted-foreground mb-1">De: Webmarcas &lt;noreply@webmarcas.net&gt;</div>
+                      <div className="text-[10px] text-muted-foreground mb-2">Assunto: <strong className="text-foreground">{previewSubject}</strong></div>
+                      <hr className="border-border/50 mb-3" />
+                      <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{previewBody}</div>
+                      <hr className="border-border/30 my-3" />
+                      <p className="text-[10px] text-muted-foreground">Webmarcas - Registro de Marcas</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* WhatsApp Preview */}
+                {channelWhatsApp && (
+                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 overflow-hidden">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/40 border-b border-emerald-200 dark:border-emerald-800">
+                      <MessageCircle className="h-4 w-4 text-emerald-500" />
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">Preview WhatsApp</span>
+                      <Badge variant="outline" className="ml-auto text-[9px] border-emerald-300 text-emerald-600 dark:text-emerald-400">
+                        Resumida por IA
+                      </Badge>
+                    </div>
+                    <div className="p-4 bg-[#e5ddd5] dark:bg-[#0b141a]">
+                      <div className="max-w-[85%] ml-auto">
+                        <div className="bg-[#dcf8c6] dark:bg-[#005c4b] rounded-lg rounded-tr-none p-3 shadow-sm">
+                          <p className="text-sm text-[#111b21] dark:text-[#e9edef] leading-relaxed">{waPreview}</p>
+                          <p className="text-[9px] text-[#667781] dark:text-[#8696a0] text-right mt-1">
+                            10:00 ✓✓
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-center text-muted-foreground mt-3 italic">
+                        A mensagem será resumida automaticamente por IA para evitar banimentos
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Test button */}
           <Button
