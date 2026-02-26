@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Search, Plus, RefreshCw, UserPlus, MoreHorizontal,
@@ -16,12 +17,16 @@ import {
   Target, TrendingUp, Zap, Star, ArrowUpRight,
   Phone, Mail, Building2, Calendar, ChevronRight,
   Tag, X, Loader2, Activity, CheckCircle2, AlertCircle,
-  Sparkles, BarChart3, Globe
+  Sparkles, BarChart3, Globe, LayoutGrid, List, TrendingDown, Megaphone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { LeadImportExportDialog } from '@/components/admin/leads/LeadImportExportDialog';
+import { LeadKanbanBoard } from '@/components/admin/leads/LeadKanbanBoard';
+import { LeadSalesFunnel } from '@/components/admin/leads/LeadSalesFunnel';
+import { LeadDetailSheet } from '@/components/admin/leads/LeadDetailSheet';
+import { LeadRemarketingPanel } from '@/components/admin/leads/LeadRemarketingPanel';
 import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────
@@ -550,6 +555,10 @@ export default function AdminLeads() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [activeTab, setActiveTab] = useState('lista');
+  const [detailLead, setDetailLead] = useState<Lead | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
   useEffect(() => { fetchLeads(); }, []);
 
   const fetchLeads = async () => {
@@ -557,7 +566,7 @@ export default function AdminLeads() {
     try {
       const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      setLeads(data || []);
+      setLeads((data as any[]) || []);
     } catch { toast.error('Erro ao carregar leads'); }
     finally { setLoading(false); }
   };
@@ -731,220 +740,203 @@ export default function AdminLeads() {
           {/* ── PIPELINE BAR ─────────────────── */}
           <PipelineBar leads={leads} />
 
-          {/* ── SEARCH + FILTER ──────────────── */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="flex flex-col sm:flex-row gap-3"
-          >
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome, email, empresa ou telefone..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-10 h-10 border-border/50 bg-card/60 backdrop-blur-sm rounded-xl focus:border-primary/50 text-sm"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48 h-10 border-border/50 bg-card/60 backdrop-blur-sm rounded-xl text-sm">
-                <Filter className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-                <SelectValue placeholder="Filtrar status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                {Object.entries(STATUS_CONFIG).map(([val, cfg]) => (
-                  <SelectItem key={val} value={val}>{cfg.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </motion.div>
+          {/* ── TABS ─────────────────────────── */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="w-full grid grid-cols-4 h-11 rounded-xl bg-muted/40 border border-border/30">
+              <TabsTrigger value="lista" className="gap-1.5 text-xs font-bold rounded-lg">
+                <List className="h-3.5 w-3.5" /> Lista
+              </TabsTrigger>
+              <TabsTrigger value="kanban" className="gap-1.5 text-xs font-bold rounded-lg">
+                <LayoutGrid className="h-3.5 w-3.5" /> Kanban
+              </TabsTrigger>
+              <TabsTrigger value="funil" className="gap-1.5 text-xs font-bold rounded-lg">
+                <TrendingDown className="h-3.5 w-3.5" /> Funil
+              </TabsTrigger>
+              <TabsTrigger value="remarketing" className="gap-1.5 text-xs font-bold rounded-lg">
+                <Megaphone className="h-3.5 w-3.5" /> Remarketing
+              </TabsTrigger>
+            </TabsList>
 
-          {/* ── LEADS TABLE ───────────────────── */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.45 }}
-            className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-xl overflow-hidden"
-          >
-            {/* Table header */}
-            <div className="px-4 py-3 border-b border-border/40 bg-muted/20 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Leads
-                </span>
-                <span className="text-[11px] text-muted-foreground/60">
-                  · {filteredLeads.length} {filteredLeads.length !== leads.length && `de ${leads.length}`}
-                </span>
-              </div>
-              {selectedIds.length > 0 && (
-                <span className="text-[11px] font-semibold text-primary">
-                  {selectedIds.length} selecionados
-                </span>
-              )}
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/30 bg-muted/10">
-                    <th className="px-3 py-2.5 w-10">
-                      <Checkbox
-                        checked={selectedIds.length === filteredLeads.length && filteredLeads.length > 0}
-                        onCheckedChange={c => {
-                          if (c) setSelectedIds(filteredLeads.map(l => l.id));
-                          else setSelectedIds([]);
-                        }}
-                        className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                      />
-                    </th>
-                    {['Nome / Email', 'Telefone', 'Empresa', 'Status', 'Origem', 'Valor', 'Data', ''].map(h => (
-                      <th key={h} className={cn(
-                        'px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground',
-                        h === 'Telefone' && 'hidden md:table-cell',
-                        h === 'Empresa' && 'hidden lg:table-cell',
-                        h === 'Origem' && 'hidden xl:table-cell',
-                        h === 'Valor' && 'hidden lg:table-cell',
-                        h === 'Data' && 'hidden xl:table-cell',
-                      )}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <tr key={i} className="border-b border-border/20">
-                        <td colSpan={9} className="px-3 py-3">
-                          <div className="h-4 rounded-lg bg-muted/60 animate-pulse" style={{ width: `${60 + (i * 7) % 30}%` }} />
-                        </td>
-                      </tr>
-                    ))
-                  ) : filteredLeads.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="py-20 text-center">
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="flex flex-col items-center gap-3"
-                        >
-                          <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-muted/40 border border-border/40">
-                            <Target className="h-8 w-8 text-muted-foreground/40" />
-                          </div>
-                          <p className="text-muted-foreground text-sm font-medium">
-                            {search || statusFilter !== 'all' ? 'Nenhum lead encontrado para os filtros aplicados' : 'Nenhum lead cadastrado ainda'}
-                          </p>
-                          {!search && statusFilter === 'all' && (
-                            <button
-                              onClick={() => { setEditingLead(null); setDialogOpen(true); }}
-                              className="text-primary text-sm font-semibold hover:underline"
-                            >
-                              + Criar primeiro lead
-                            </button>
-                          )}
-                        </motion.div>
-                      </td>
-                    </tr>
-                  ) : (
-                    <AnimatePresence>
-                      {filteredLeads.map((lead, i) => (
-                        <LeadRow
-                          key={lead.id}
-                          lead={lead}
-                          index={i}
-                          selected={selectedIds.includes(lead.id)}
-                          onSelect={(id, c) => {
-                            if (c) setSelectedIds(p => [...p, id]);
-                            else setSelectedIds(p => p.filter(x => x !== id));
-                          }}
-                          onEdit={lead => { setEditingLead(lead); setDialogOpen(true); }}
-                          onDelete={handleDelete}
-                          onConvert={handleConvert}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Footer */}
-            {!loading && filteredLeads.length > 0 && (
-              <div className="px-4 py-2.5 border-t border-border/30 bg-muted/10 flex items-center justify-between">
-                <span className="text-[10px] text-muted-foreground">
-                  Mostrando {filteredLeads.length} leads
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <motion.div
-                    animate={{ opacity: [1, 0.4, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="w-1.5 h-1.5 rounded-full bg-emerald-500"
+            {/* ── TAB: LISTA ── */}
+            <TabsContent value="lista" className="space-y-4 mt-4">
+              {/* Search + Filter */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome, email, empresa ou telefone..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-10 h-10 border-border/50 bg-card/60 backdrop-blur-sm rounded-xl focus:border-primary/50 text-sm"
                   />
-                  <span className="text-[10px] text-muted-foreground font-mono">Dados em tempo real</span>
+                  {search && (
+                    <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-48 h-10 border-border/50 bg-card/60 backdrop-blur-sm rounded-xl text-sm">
+                    <Filter className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                    <SelectValue placeholder="Filtrar status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os status</SelectItem>
+                    {Object.entries(STATUS_CONFIG).map(([val, cfg]) => (
+                      <SelectItem key={val} value={val}>{cfg.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </motion.div>
 
-          {/* ── STATUS QUICK STATS ────────────── */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.55 }}
-            className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2"
-          >
-            {Object.entries(STATUS_CONFIG).map(([key, cfg], i) => {
-              const count = leads.filter(l => l.status === key).length;
-              const Icon = cfg.icon;
-              return (
-                <motion.button
-                  key={key}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.6 + i * 0.04 }}
-                  whileHover={{ y: -3 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setStatusFilter(statusFilter === key ? 'all' : key)}
-                  className={cn(
-                    'relative flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all duration-200 text-center',
-                    statusFilter === key
-                      ? 'border-[var(--glow)] bg-card/80 shadow-lg'
-                      : 'border-border/40 bg-card/40 hover:bg-card/60'
-                  )}
-                  style={{
-                    ['--glow' as string]: `${cfg.glow}50`,
-                    boxShadow: statusFilter === key ? `0 0 20px ${cfg.glow}20` : undefined,
-                  }}
-                >
-                  <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-br', cfg.color)}>
-                    <Icon className="h-3.5 w-3.5 text-white" />
+              {/* Table */}
+              <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-border/40 bg-muted/20 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Leads</span>
+                    <span className="text-[11px] text-muted-foreground/60">
+                      · {filteredLeads.length} {filteredLeads.length !== leads.length && `de ${leads.length}`}
+                    </span>
                   </div>
-                  <span className="text-base font-black text-foreground leading-none">
-                    <AnimCount to={count} />
-                  </span>
-                  <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight">
-                    {cfg.label}
-                  </span>
-                  {statusFilter === key && (
-                    <motion.div
-                      layoutId="status-indicator"
-                      className={cn('absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-gradient-to-r', cfg.color)}
-                    />
+                  {selectedIds.length > 0 && (
+                    <span className="text-[11px] font-semibold text-primary">{selectedIds.length} selecionados</span>
                   )}
-                </motion.button>
-              );
-            })}
-          </motion.div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border/30 bg-muted/10">
+                        <th className="px-3 py-2.5 w-10">
+                          <Checkbox
+                            checked={selectedIds.length === filteredLeads.length && filteredLeads.length > 0}
+                            onCheckedChange={c => {
+                              if (c) setSelectedIds(filteredLeads.map(l => l.id));
+                              else setSelectedIds([]);
+                            }}
+                            className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          />
+                        </th>
+                        {['Nome / Email', 'Telefone', 'Empresa', 'Status', 'Origem', 'Valor', 'Data', ''].map(h => (
+                          <th key={h} className={cn(
+                            'px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground',
+                            h === 'Telefone' && 'hidden md:table-cell',
+                            h === 'Empresa' && 'hidden lg:table-cell',
+                            h === 'Origem' && 'hidden xl:table-cell',
+                            h === 'Valor' && 'hidden lg:table-cell',
+                            h === 'Data' && 'hidden xl:table-cell',
+                          )}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                          <tr key={i} className="border-b border-border/20">
+                            <td colSpan={9} className="px-3 py-3">
+                              <div className="h-4 rounded-lg bg-muted/60 animate-pulse" style={{ width: `${60 + (i * 7) % 30}%` }} />
+                            </td>
+                          </tr>
+                        ))
+                      ) : filteredLeads.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="py-20 text-center">
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-muted/40 border border-border/40">
+                                <Target className="h-8 w-8 text-muted-foreground/40" />
+                              </div>
+                              <p className="text-muted-foreground text-sm font-medium">
+                                {search || statusFilter !== 'all' ? 'Nenhum lead encontrado' : 'Nenhum lead cadastrado ainda'}
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        <AnimatePresence>
+                          {filteredLeads.map((lead, i) => (
+                            <LeadRow
+                              key={lead.id}
+                              lead={lead}
+                              index={i}
+                              selected={selectedIds.includes(lead.id)}
+                              onSelect={(id, c) => {
+                                if (c) setSelectedIds(p => [...p, id]);
+                                else setSelectedIds(p => p.filter(x => x !== id));
+                              }}
+                              onEdit={lead => { setDetailLead(lead); setDetailOpen(true); }}
+                              onDelete={handleDelete}
+                              onConvert={handleConvert}
+                            />
+                          ))}
+                        </AnimatePresence>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {!loading && filteredLeads.length > 0 && (
+                  <div className="px-4 py-2.5 border-t border-border/30 bg-muted/10 flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">Mostrando {filteredLeads.length} leads</span>
+                    <div className="flex items-center gap-1.5">
+                      <motion.div animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] text-muted-foreground font-mono">Dados em tempo real</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Status Quick Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                {Object.entries(STATUS_CONFIG).map(([key, cfg], i) => {
+                  const count = leads.filter(l => l.status === key).length;
+                  const Icon = cfg.icon;
+                  return (
+                    <motion.button
+                      key={key}
+                      whileHover={{ y: -3 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setStatusFilter(statusFilter === key ? 'all' : key)}
+                      className={cn(
+                        'relative flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all duration-200 text-center',
+                        statusFilter === key ? 'border-primary/40 bg-card/80 shadow-lg' : 'border-border/40 bg-card/40 hover:bg-card/60'
+                      )}
+                    >
+                      <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-br', cfg.color)}>
+                        <Icon className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      <span className="text-base font-black text-foreground leading-none">
+                        <AnimCount to={count} />
+                      </span>
+                      <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight">
+                        {cfg.label}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </TabsContent>
+
+            {/* ── TAB: KANBAN ── */}
+            <TabsContent value="kanban" className="mt-4">
+              <LeadKanbanBoard
+                leads={leads as any}
+                onRefresh={fetchLeads}
+                onLeadClick={(lead) => { setDetailLead(lead as any); setDetailOpen(true); }}
+              />
+            </TabsContent>
+
+            {/* ── TAB: FUNIL ── */}
+            <TabsContent value="funil" className="mt-4">
+              <LeadSalesFunnel leads={leads} />
+            </TabsContent>
+
+            {/* ── TAB: REMARKETING ── */}
+            <TabsContent value="remarketing" className="mt-4">
+              <LeadRemarketingPanel leads={leads as any} onRefresh={fetchLeads} />
+            </TabsContent>
+          </Tabs>
 
         </div>
       </div>
@@ -962,6 +954,13 @@ export default function AdminLeads() {
         onOpenChange={setImportExportOpen}
         leads={leads}
         onImportComplete={fetchLeads}
+      />
+
+      <LeadDetailSheet
+        lead={detailLead}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onRefresh={fetchLeads}
       />
 
       <AnimatePresence>

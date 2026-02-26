@@ -1693,6 +1693,92 @@ export type Database = {
           },
         ]
       }
+      lead_activities: {
+        Row: {
+          activity_type: string
+          admin_id: string | null
+          content: string | null
+          created_at: string
+          id: string
+          lead_id: string
+        }
+        Insert: {
+          activity_type: string
+          admin_id?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          lead_id: string
+        }
+        Update: {
+          activity_type?: string
+          admin_id?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_remarketing_campaigns: {
+        Row: {
+          body: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          scheduled_at: string | null
+          sent_at: string | null
+          status: string
+          subject: string | null
+          target_origin: string[] | null
+          target_status: string[] | null
+          total_opened: number | null
+          total_sent: number | null
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+          target_origin?: string[] | null
+          target_status?: string[] | null
+          total_opened?: number | null
+          total_sent?: number | null
+          type?: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+          target_origin?: string[] | null
+          target_status?: string[] | null
+          total_opened?: number | null
+          total_sent?: number | null
+          type?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           address: string | null
@@ -1709,12 +1795,17 @@ export type Database = {
           form_started_at: string | null
           full_name: string
           id: string
+          last_activity_at: string | null
           last_reminder_sent_at: string | null
+          lead_score: number | null
+          lead_temperature: string | null
           notes: string | null
           origin: string | null
           phone: string | null
+          remarketing_count: number | null
           state: string | null
           status: string
+          tags: string[] | null
           updated_at: string
           zip_code: string | null
         }
@@ -1733,12 +1824,17 @@ export type Database = {
           form_started_at?: string | null
           full_name: string
           id?: string
+          last_activity_at?: string | null
           last_reminder_sent_at?: string | null
+          lead_score?: number | null
+          lead_temperature?: string | null
           notes?: string | null
           origin?: string | null
           phone?: string | null
+          remarketing_count?: number | null
           state?: string | null
           status?: string
+          tags?: string[] | null
           updated_at?: string
           zip_code?: string | null
         }
@@ -1757,12 +1853,17 @@ export type Database = {
           form_started_at?: string | null
           full_name?: string
           id?: string
+          last_activity_at?: string | null
           last_reminder_sent_at?: string | null
+          lead_score?: number | null
+          lead_temperature?: string | null
           notes?: string | null
           origin?: string | null
           phone?: string | null
+          remarketing_count?: number | null
           state?: string | null
           status?: string
+          tags?: string[] | null
           updated_at?: string
           zip_code?: string | null
         }
