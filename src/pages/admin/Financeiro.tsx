@@ -116,6 +116,29 @@ export default function AdminFinanceiro() {
   }, []);
 
   const [stats, setStats] = useState({ total: 0, pending: 0, paid: 0, overdue: 0, pendingCount: 0, paidCount: 0, overdueCount: 0 });
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncAsaas = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-asaas-invoices');
+      if (error) throw error;
+      if (data?.success) {
+        if (data.synced > 0) {
+          toast.success(`${data.synced} fatura(s) sincronizada(s) com o Asaas`);
+        } else {
+          toast.info(data.message || 'Todas as faturas já estão atualizadas');
+        }
+        fetchInvoices();
+      } else {
+        throw new Error(data?.error || 'Erro na sincronização');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao sincronizar com Asaas');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => { fetchInvoices(); fetchClients(); fetchProcesses(); }, []);
 
@@ -256,6 +279,16 @@ export default function AdminFinanceiro() {
               </div>
             </div>
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncAsaas}
+                disabled={syncing}
+                className="gap-2 border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10"
+              >
+                {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                {syncing ? 'Sincronizando...' : 'Sincronizar Asaas'}
+              </Button>
               <Button variant="outline" size="sm" onClick={fetchInvoices} className="gap-2 border-border/60">
                 <RefreshCw className="h-4 w-4" /> Atualizar
               </Button>
