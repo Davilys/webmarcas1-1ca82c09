@@ -1,0 +1,268 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const BRT_OFFSET = -3;
+const WORK_START = 10;
+const WORK_END = 17;
+const EMAIL_BATCH = 15; // ~100/day across 7 hours
+const WA_BATCH = 1;     // 1 per 10min run = ~6/hour, max 10/day
+
+function toBRT(d: Date): Date {
+  return new Date(d.getTime() + BRT_OFFSET * 3600000);
+}
+
+function isBusinessHours(): boolean {
+  const brt = toBRT(new Date());
+  const day = brt.getUTCDay();
+  const hour = brt.getUTCHours();
+  return day >= 1 && day <= 5 && hour >= WORK_START && hour < WORK_END;
+}
+
+async function sendEmail(
+  resendApiKey: string,
+  to: string,
+  subject: string,
+  body: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "Webmarcas <noreply@webmarcas.net>",
+        to: [to],
+        subject,
+        html: `<div style="font-family:Arial,sans-serif;padding:20px;max-width:600px;margin:0 auto;">
+          <p>${body.replace(/\n/g, "<br/>")}</p>
+          <hr style="margin:20px 0;border:none;border-top:1px solid #eee;"/>
+          <p style="font-size:11px;color:#999;">Webmarcas - Registro de Marcas</p>
+        </div>`,
+      }),
+    });
+    return res.ok ? { success: true } : { success: false, error: `HTTP ${res.status}` };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+async function sendWhatsApp(
+  supabase: any,
+  phone: string,
+  nome: string,
+  message: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { data: botRow } = await supabase
+    .from("system_settings")
+    .select("value")
+    .eq("key", "botconversa")
+    .maybeSingle();
+
+  const settings = (botRow?.value as Record<string, unknown>) || {};
+  if (!settings.enabled) return { success: false, error: "WhatsApp desativado" };
+
+  const webhookUrl = (settings.webhook_url as string) || "";
+  if (!webhookUrl) return { success: false, error: "Webhook não configurado" };
+
+  const normalized = phone.replace(/\D/g, "").replace(/^0/, "");
+  const finalPhone = normalized.startsWith("55") ? normalized : `55${normalized}`;
+
+  const payload = { telefone: finalPhone, nome: nome || "Cliente", mensagem: message };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const authToken = (settings.auth_token as string) || "";
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
+  try {
+    const res = await fetch(webhookUrl, { method: "POST", headers, body: JSON.stringify(payload) });
+    const text = await res.text();
+    return res.ok ? { success: true } : { success: false, error: `HTTP ${res.status}: ${text}` };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    if (!isBusinessHours()) {
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "Fora do horário comercial (Seg-Sex 10h-17h BRT)" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
+
+    // Check daily limits
+    const today = toBRT(new Date());
+    today.setUTCHours(0, 0, 0, 0);
+    const todayUTC = new Date(today.getTime() - BRT_OFFSET * 3600000).toISOString();
+
+    const { count: emailsSentToday } = await supabase
+      .from("lead_remarketing_queue")
+      .select("*", { count: "exact", head: true })
+      .eq("channel", "email")
+      .eq("status", "sent")
+      .gte("sent_at", todayUTC);
+
+    const { count: waSentToday } = await supabase
+      .from("lead_remarketing_queue")
+      .select("*", { count: "exact", head: true })
+      .eq("channel", "whatsapp")
+      .eq("status", "sent")
+      .gte("sent_at", todayUTC);
+
+    const emailsRemaining = Math.max(0, 100 - (emailsSentToday || 0));
+    const waRemaining = Math.max(0, 10 - (waSentToday || 0));
+
+    const emailLimit = Math.min(EMAIL_BATCH, emailsRemaining);
+    const waLimit = Math.min(WA_BATCH, waRemaining);
+
+    let processed = 0;
+
+    // Process emails
+    if (emailLimit > 0) {
+      const { data: emailItems } = await supabase
+        .from("lead_remarketing_queue")
+        .select("*, leads!inner(id, full_name, email, phone, company_name)")
+        .eq("status", "pending")
+        .eq("channel", "email")
+        .lte("scheduled_for", new Date().toISOString())
+        .order("scheduled_for", { ascending: true })
+        .limit(emailLimit);
+
+      for (const item of emailItems || []) {
+        const lead = item.leads;
+        if (!lead?.email) {
+          await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: "Sem e-mail" }).eq("id", item.id);
+          continue;
+        }
+
+        const result = await sendEmail(resendApiKey, lead.email, item.subject || "", item.body || "");
+
+        if (result.success) {
+          await supabase.from("lead_remarketing_queue").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", item.id);
+          await supabase.from("email_logs").insert({
+            from_email: "noreply@webmarcas.net",
+            to_email: lead.email,
+            subject: item.subject,
+            body: item.body,
+            status: "sent",
+            trigger_type: "remarketing",
+            related_lead_id: lead.id,
+          });
+          await supabase.from("lead_activities").insert({
+            lead_id: lead.id,
+            activity_type: "remarketing",
+            content: `Remarketing e-mail enviado: ${item.subject}`,
+          });
+          processed++;
+        } else {
+          await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: result.error }).eq("id", item.id);
+        }
+      }
+    }
+
+    // Process WhatsApp
+    if (waLimit > 0) {
+      const { data: waItems } = await supabase
+        .from("lead_remarketing_queue")
+        .select("*, leads!inner(id, full_name, email, phone, company_name)")
+        .eq("status", "pending")
+        .eq("channel", "whatsapp")
+        .lte("scheduled_for", new Date().toISOString())
+        .order("scheduled_for", { ascending: true })
+        .limit(waLimit);
+
+      for (const item of waItems || []) {
+        const lead = item.leads;
+        if (!lead?.phone) {
+          await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: "Sem telefone" }).eq("id", item.id);
+          continue;
+        }
+
+        const result = await sendWhatsApp(supabase, lead.phone, lead.full_name, item.body || "");
+
+        if (result.success) {
+          await supabase.from("lead_remarketing_queue").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", item.id);
+          await supabase.from("lead_activities").insert({
+            lead_id: lead.id,
+            activity_type: "remarketing",
+            content: `Remarketing WhatsApp enviado para ${lead.phone}`,
+          });
+          processed++;
+        } else {
+          await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: result.error }).eq("id", item.id);
+        }
+      }
+    }
+
+    // Update campaign counters
+    const { data: campaigns } = await supabase
+      .from("lead_remarketing_queue")
+      .select("campaign_id")
+      .eq("status", "sent")
+      .not("campaign_id", "is", null);
+
+    const campaignIds = [...new Set((campaigns || []).map((c: any) => c.campaign_id))];
+
+    for (const cid of campaignIds) {
+      const { count: sent } = await supabase
+        .from("lead_remarketing_queue")
+        .select("*", { count: "exact", head: true })
+        .eq("campaign_id", cid)
+        .eq("status", "sent");
+
+      const { count: total } = await supabase
+        .from("lead_remarketing_queue")
+        .select("*", { count: "exact", head: true })
+        .eq("campaign_id", cid);
+
+      const { count: pending } = await supabase
+        .from("lead_remarketing_queue")
+        .select("*", { count: "exact", head: true })
+        .eq("campaign_id", cid)
+        .eq("status", "pending");
+
+      await supabase
+        .from("lead_remarketing_campaigns")
+        .update({
+          total_sent: sent || 0,
+          status: (pending || 0) === 0 ? "concluida" : "em_andamento",
+          sent_at: (pending || 0) === 0 ? new Date().toISOString() : null,
+        })
+        .eq("id", cid);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        processed,
+        limits: { emailsRemaining, waRemaining },
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  } catch (error: any) {
+    console.error("Error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});

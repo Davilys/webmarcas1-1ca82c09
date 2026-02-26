@@ -12,7 +12,8 @@ import { cn } from '@/lib/utils';
 import {
   Send, Rocket, Filter, Eye, Users, Mail,
   Loader2, CheckCircle2, Clock, AlertCircle,
-  ShoppingCart, Megaphone, RefreshCw, Flame
+  ShoppingCart, Megaphone, RefreshCw, Flame,
+  MessageCircle, TestTube2, Info
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -21,6 +22,7 @@ interface Lead {
   id: string;
   full_name: string;
   email: string | null;
+  phone?: string | null;
   status: string;
   origin: string | null;
   lead_temperature?: string | null;
@@ -36,6 +38,8 @@ interface Campaign {
   status: string;
   total_sent: number;
   total_opened: number;
+  total_queued?: number;
+  channels?: string[];
   sent_at: string | null;
   created_at: string;
 }
@@ -138,7 +142,6 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
 
-  // New campaign form
   const [campaignName, setCampaignName] = useState('');
   const [campaignType, setCampaignType] = useState('personalizado');
   const [subject, setSubject] = useState('');
@@ -146,7 +149,12 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterTemp, setFilterTemp] = useState('all');
   const [sending, setSending] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+
+  // Channel selection
+  const [channelEmail, setChannelEmail] = useState(true);
+  const [channelWhatsApp, setChannelWhatsApp] = useState(true);
 
   useEffect(() => { fetchCampaigns(); }, []);
 
@@ -173,16 +181,67 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
   };
 
   const filteredLeads = leads.filter(l => {
-    if (!l.email) return false;
+    if (!l.email && !l.phone) return false;
+    if (channelEmail && !channelWhatsApp && !l.email) return false;
+    if (channelWhatsApp && !channelEmail && !l.phone) return false;
     if (filterStatus.length > 0 && !filterStatus.includes(l.status)) return false;
     if (filterTemp !== 'all' && l.lead_temperature !== filterTemp) return false;
     return true;
   });
 
+  const leadsWithEmail = filteredLeads.filter(l => l.email).length;
+  const leadsWithPhone = filteredLeads.filter(l => l.phone).length;
+
   const toggleStatusFilter = (status: string) => {
     setFilterStatus(prev =>
       prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
     );
+  };
+
+  const getSelectedChannels = () => {
+    const ch: string[] = [];
+    if (channelEmail) ch.push('email');
+    if (channelWhatsApp) ch.push('whatsapp');
+    return ch;
+  };
+
+  const handleTestSend = async () => {
+    if (!subject || !body) {
+      toast.error('Preencha assunto e corpo antes de testar');
+      return;
+    }
+    if (filteredLeads.length === 0) {
+      toast.error('Nenhum lead disponível para teste');
+      return;
+    }
+
+    setTesting(true);
+    try {
+      const testLead = filteredLeads[0];
+      const { data, error } = await supabase.functions.invoke('send-lead-remarketing', {
+        body: {
+          test: true,
+          lead_ids: [testLead.id],
+          subject,
+          body,
+        },
+      });
+
+      if (error) throw error;
+
+      const results = data?.results || {};
+      const emailOk = results.email?.success;
+      const waOk = results.whatsapp?.success;
+
+      toast.success(
+        `Teste enviado para ${testLead.full_name}: E-mail=${emailOk ? '✅' : '❌'} | WhatsApp=${waOk ? '✅' : '❌'}`,
+        { duration: 6000 }
+      );
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao enviar teste');
+    } finally {
+      setTesting(false);
+    }
   };
 
   const handleSendCampaign = async () => {
@@ -191,13 +250,16 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
       return;
     }
     if (filteredLeads.length === 0) {
-      toast.error('Nenhum lead com e-mail encontrado para os filtros selecionados');
+      toast.error('Nenhum lead encontrado para os filtros selecionados');
+      return;
+    }
+    if (!channelEmail && !channelWhatsApp) {
+      toast.error('Selecione pelo menos um canal de envio');
       return;
     }
 
     setSending(true);
     try {
-      // Create campaign record
       const { data: campaign, error: cErr } = await supabase
         .from('lead_remarketing_campaigns')
         .insert({
@@ -206,32 +268,37 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
           subject,
           body,
           target_status: filterStatus,
-          status: 'enviando',
+          status: 'agendada',
           total_sent: 0,
+          channels: getSelectedChannels(),
         } as any)
         .select()
         .single();
       if (cErr) throw cErr;
 
-      // Send via edge function
-      const { error } = await supabase.functions.invoke('send-lead-remarketing', {
+      const { data, error } = await supabase.functions.invoke('send-lead-remarketing', {
         body: {
           lead_ids: filteredLeads.map(l => l.id),
           campaign_id: (campaign as any).id,
           subject,
           body,
+          channels: getSelectedChannels(),
         },
       });
       if (error) throw error;
 
-      toast.success(`Campanha enviada para ${filteredLeads.length} leads!`);
+      const queued = data?.queued || 0;
+      toast.success(
+        `${queued} envios agendados! Serão distribuídos em horário comercial (Seg-Sex, 10h-17h).`,
+        { duration: 6000 }
+      );
       setCampaignName('');
       setSubject('');
       setBody('');
       fetchCampaigns();
       onRefresh();
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao enviar campanha');
+      toast.error(err.message || 'Erro ao criar campanha');
     } finally {
       setSending(false);
     }
@@ -241,6 +308,16 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
     .replace(/\{\{nome\}\}/g, 'João Silva')
     .replace(/\{\{email\}\}/g, 'joao@exemplo.com')
     .replace(/\{\{empresa\}\}/g, 'Empresa XYZ');
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'agendada': return { label: 'Agendada', color: 'text-blue-500', icon: Clock };
+      case 'em_andamento': return { label: 'Em Andamento', color: 'text-amber-500', icon: Loader2 };
+      case 'concluida': return { label: 'Concluída', color: 'text-emerald-500', icon: CheckCircle2 };
+      case 'enviada': return { label: 'Enviada', color: 'text-emerald-500', icon: CheckCircle2 };
+      default: return { label: status, color: 'text-muted-foreground', icon: AlertCircle };
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -253,6 +330,15 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
         <div className="flex items-center gap-2">
           <Rocket className="h-5 w-5 text-primary" />
           <h3 className="text-lg font-black text-foreground">Nova Campanha</h3>
+        </div>
+
+        {/* Limits info */}
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-primary/5 border border-primary/10">
+          <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            <strong className="text-foreground">Limites:</strong> E-mail: 100/dia · WhatsApp: 10/dia (intervalo 10min) · 
+            Horário: Seg-Sex 10h–17h. Os envios são distribuídos automaticamente.
+          </p>
         </div>
 
         <div className="space-y-3">
@@ -276,6 +362,23 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Channel selection */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground">Canais de Envio</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox checked={channelEmail} onCheckedChange={(v) => setChannelEmail(!!v)} />
+                <Mail className="h-3.5 w-3.5 text-blue-500" />
+                <span className="text-xs">E-mail</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox checked={channelWhatsApp} onCheckedChange={(v) => setChannelWhatsApp(!!v)} />
+                <MessageCircle className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-xs">WhatsApp</span>
+              </label>
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -340,11 +443,21 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
               </Select>
             </div>
 
-            <div className="flex items-center gap-2 pt-1">
-              <Users className="h-3.5 w-3.5 text-primary" />
-              <span className="text-xs font-bold text-primary">
-                {filteredLeads.length} leads selecionados
-              </span>
+            <div className="flex flex-col gap-1 pt-1">
+              <div className="flex items-center gap-2">
+                <Users className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-bold text-primary">
+                  {filteredLeads.length} leads selecionados
+                </span>
+              </div>
+              <div className="flex gap-3 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Mail className="h-3 w-3" /> {leadsWithEmail} com e-mail
+                </span>
+                <span className="flex items-center gap-1">
+                  <MessageCircle className="h-3 w-3" /> {leadsWithPhone} com telefone
+                </span>
+              </div>
             </div>
           </div>
 
@@ -369,15 +482,29 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
             </div>
           )}
 
+          {/* Test button */}
+          <Button
+            variant="outline"
+            onClick={handleTestSend}
+            disabled={testing || !subject || !body || filteredLeads.length === 0}
+            className="w-full rounded-xl gap-2 text-xs border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+          >
+            {testing ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando teste...</>
+            ) : (
+              <><TestTube2 className="h-3.5 w-3.5" /> Enviar Teste (1 e-mail + 1 WhatsApp)</>
+            )}
+          </Button>
+
           <Button
             onClick={handleSendCampaign}
-            disabled={sending || filteredLeads.length === 0}
+            disabled={sending || filteredLeads.length === 0 || (!channelEmail && !channelWhatsApp)}
             className="w-full rounded-xl gap-2 bg-gradient-to-r from-violet-600 to-purple-500 border-0"
           >
             {sending ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> Agendando...</>
             ) : (
-              <><Send className="h-4 w-4" /> Enviar para {filteredLeads.length} Leads</>
+              <><Send className="h-4 w-4" /> Agendar Campanha ({filteredLeads.length} Leads)</>
             )}
           </Button>
         </div>
@@ -408,36 +535,49 @@ export function LeadRemarketingPanel({ leads, onRefresh }: LeadRemarketingPanelP
             {campaigns.map(c => {
               const typeConfig = CAMPAIGN_TYPES.find(t => t.value === c.type);
               const TypeIcon = typeConfig?.icon || Mail;
-              const statusIcon = c.status === 'enviada' ? CheckCircle2
-                : c.status === 'enviando' ? Loader2 : AlertCircle;
-              const statusColor = c.status === 'enviada' ? 'text-emerald-500'
-                : c.status === 'enviando' ? 'text-amber-500' : 'text-muted-foreground';
+              const statusInfo = getStatusLabel(c.status);
+              const StatusIcon = statusInfo.icon;
+              const totalQueued = (c as any).total_queued || 0;
+              const channels = (c as any).channels || ['email'];
 
               return (
                 <div key={c.id} className="p-3 rounded-xl border border-border/30 bg-muted/20">
                   <div className="flex items-center gap-2 mb-2">
                     <TypeIcon className={cn('h-4 w-4', typeConfig?.color)} />
                     <span className="text-sm font-bold text-foreground truncate">{c.name}</span>
-                    <span className={cn('ml-auto flex items-center gap-1 text-[10px] font-bold', statusColor)}>
-                      {statusIcon === Loader2 ? (
+                    <span className={cn('ml-auto flex items-center gap-1 text-[10px] font-bold', statusInfo.color)}>
+                      {c.status === 'em_andamento' ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
-                        <CheckCircle2 className="h-3 w-3" />
+                        <StatusIcon className="h-3 w-3" />
                       )}
-                      {c.status}
+                      {statusInfo.label}
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <Send className="h-3 w-3" /> {c.total_sent} enviados
+                      <Send className="h-3 w-3" /> {c.total_sent}/{totalQueued || c.total_sent}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Eye className="h-3 w-3" /> {c.total_opened} abertos
-                    </span>
+                    {channels.includes('email') && (
+                      <Mail className="h-3 w-3 text-blue-500" />
+                    )}
+                    {channels.includes('whatsapp') && (
+                      <MessageCircle className="h-3 w-3 text-emerald-500" />
+                    )}
                     <span className="ml-auto">
                       {format(new Date(c.created_at), 'dd/MM/yy', { locale: ptBR })}
                     </span>
                   </div>
+                  {totalQueued > 0 && c.total_sent < totalQueued && (
+                    <div className="mt-2">
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all"
+                          style={{ width: `${Math.min(100, (c.total_sent / totalQueued) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

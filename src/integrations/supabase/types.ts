@@ -1731,6 +1731,7 @@ export type Database = {
       lead_remarketing_campaigns: {
         Row: {
           body: string | null
+          channels: string[] | null
           created_at: string
           created_by: string | null
           id: string
@@ -1742,11 +1743,13 @@ export type Database = {
           target_origin: string[] | null
           target_status: string[] | null
           total_opened: number | null
+          total_queued: number | null
           total_sent: number | null
           type: string
         }
         Insert: {
           body?: string | null
+          channels?: string[] | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1758,11 +1761,13 @@ export type Database = {
           target_origin?: string[] | null
           target_status?: string[] | null
           total_opened?: number | null
+          total_queued?: number | null
           total_sent?: number | null
           type?: string
         }
         Update: {
           body?: string | null
+          channels?: string[] | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1774,8 +1779,51 @@ export type Database = {
           target_origin?: string[] | null
           target_status?: string[] | null
           total_opened?: number | null
+          total_queued?: number | null
           total_sent?: number | null
           type?: string
+        }
+        Relationships: []
+      }
+      lead_remarketing_queue: {
+        Row: {
+          body: string | null
+          campaign_id: string | null
+          channel: string
+          created_at: string
+          error_message: string | null
+          id: string
+          lead_id: string
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          body?: string | null
+          campaign_id?: string | null
+          channel?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          body?: string | null
+          campaign_id?: string | null
+          channel?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          subject?: string | null
         }
         Relationships: []
       }
