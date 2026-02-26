@@ -1,9 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -64,35 +63,6 @@ const ORIGIN_OPTIONS = [
   { value: 'outro', label: 'Outro', icon: Tag },
 ];
 
-// ─── Fixed particles ──────────────────────────────
-const PARTICLES = Array.from({ length: 30 }).map((_, i) => ({
-  id: i,
-  x: (i * 37.3 + 11) % 100,
-  y: (i * 53.7 + 7) % 100,
-  size: 1 + (i % 5) * 0.35,
-  dur: 8 + (i % 7),
-  delay: (i * 0.33) % 6,
-  op: 0.04 + (i % 4) * 0.02,
-}));
-
-// ─── Animated counter ─────────────────────────────
-function AnimCount({ to, prefix = '' }: { to: number; prefix?: string }) {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (to === 0) { setVal(0); return; }
-    let start = 0;
-    const step = to / 50;
-    const raf = () => {
-      start = Math.min(start + step, to);
-      setVal(start);
-      if (start < to) requestAnimationFrame(raf);
-    };
-    const t = setTimeout(() => requestAnimationFrame(raf), 120);
-    return () => clearTimeout(t);
-  }, [to]);
-  return <>{prefix}{Math.round(val).toLocaleString('pt-BR')}</>;
-}
-
 // ─── Status Badge ────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG['novo'];
@@ -112,37 +82,23 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ─── KPI Card ────────────────────────────────────
-function KpiCard({ title, value, prefix = '', icon: Icon, gradient, glow, accent, trend, index }: {
+// ─── KPI Card (static) ──────────────────────────
+function KpiCard({ title, value, prefix = '', icon: Icon, gradient, glow, accent, trend }: {
   title: string; value: number; prefix?: string;
   icon: React.ElementType; gradient: string; glow: string; accent: string;
-  trend?: number; index: number;
+  trend?: number;
 }) {
   const isPos = (trend ?? 0) >= 0;
+  const formatted = prefix + value.toLocaleString('pt-BR');
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 28, scale: 0.93 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.5, delay: index * 0.07, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ y: -5, transition: { duration: 0.2 } }}
-      className="group relative"
-    >
-      <div
-        className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"
-        style={{ background: `radial-gradient(ellipse at center, ${glow}22 0%, transparent 70%)` }}
-      />
-      <div className="relative rounded-2xl overflow-hidden border bg-card/60 backdrop-blur-xl border-border/50 shadow-[0_4px_24px_hsl(var(--foreground)/0.05)]">
+    <div className="group relative">
+      <div className="relative rounded-2xl overflow-hidden border bg-card/60 backdrop-blur-xl border-border/50 shadow-[0_4px_24px_hsl(var(--foreground)/0.05)] hover:shadow-md transition-shadow">
         <div className={cn('absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r', gradient)} />
-        <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-10" style={{ background: glow }} />
         <div className="relative p-4">
           <div className="flex items-start justify-between mb-3">
-            <motion.div
-              className={cn('w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br shadow-lg', gradient)}
-              whileHover={{ rotate: 12, scale: 1.15 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-            >
+            <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br shadow-lg', gradient)}>
               <Icon className="h-5 w-5 text-white" />
-            </motion.div>
+            </div>
             {trend !== undefined && (
               <span className={cn('text-[10px] font-bold flex items-center gap-0.5', isPos ? 'text-emerald-500' : 'text-rose-500')}>
                 <ArrowUpRight className={cn('h-3 w-3', !isPos && 'rotate-90')} />
@@ -150,17 +106,15 @@ function KpiCard({ title, value, prefix = '', icon: Icon, gradient, glow, accent
               </span>
             )}
           </div>
-          <p className="text-2xl font-black tracking-tight text-foreground leading-none">
-            <AnimCount to={value} prefix={prefix} />
-          </p>
+          <p className="text-2xl font-black tracking-tight text-foreground leading-none">{formatted}</p>
           <p className="text-[11px] font-medium text-muted-foreground mt-1">{title}</p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
-// ─── Pipeline funnel bar ──────────────────────────
+// ─── Pipeline funnel bar (static) ─────────────────
 function PipelineBar({ leads }: { leads: Lead[] }) {
   const total = leads.length || 1;
   const stages = Object.entries(STATUS_CONFIG)
@@ -172,33 +126,22 @@ function PipelineBar({ leads }: { leads: Lead[] }) {
     .filter(s => s.count > 0);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, delay: 0.35 }}
-      className="rounded-2xl border bg-card/60 backdrop-blur-xl border-border/50 p-4"
-    >
+    <div className="rounded-2xl border bg-card/60 backdrop-blur-xl border-border/50 p-4">
       <div className="flex items-center gap-2 mb-3">
         <BarChart3 className="h-4 w-4 text-primary" />
         <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Pipeline de Leads</span>
         <span className="ml-auto text-[11px] text-muted-foreground">{leads.length} total</span>
       </div>
-
-      {/* Stacked bar */}
       <div className="flex h-3 rounded-full overflow-hidden gap-px mb-3">
         {stages.map(({ key, cfg, count }) => (
-          <motion.div
+          <div
             key={key}
             className={cn('h-full bg-gradient-to-r', cfg.color)}
-            initial={{ flex: 0 }}
-            animate={{ flex: count / total }}
-            transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+            style={{ flex: count / total }}
             title={`${cfg.label}: ${count}`}
           />
         ))}
       </div>
-
-      {/* Legend */}
       <div className="flex flex-wrap gap-x-3 gap-y-1.5">
         {stages.map(({ key, cfg, count }) => (
           <div key={key} className="flex items-center gap-1.5">
@@ -208,13 +151,13 @@ function PipelineBar({ leads }: { leads: Lead[] }) {
           </div>
         ))}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
-// ─── Lead Row ────────────────────────────────────
-function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert, index }: {
-  lead: Lead; selected: boolean; index: number;
+// ─── Lead Row (static) ──────────────────────────
+function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert }: {
+  lead: Lead; selected: boolean;
   onSelect: (id: string, checked: boolean) => void;
   onEdit: (lead: Lead) => void;
   onDelete: (id: string) => void;
@@ -223,16 +166,12 @@ function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert, index 
   const cfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG['novo'];
 
   return (
-    <motion.tr
-      initial={{ opacity: 0, x: -16 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.35, delay: index * 0.03, ease: 'easeOut' }}
+    <tr
       className={cn(
         'group border-b border-border/30 transition-colors duration-150',
         selected ? 'bg-primary/5' : 'hover:bg-muted/30'
       )}
     >
-      {/* Checkbox */}
       <td className="px-3 py-3 w-10">
         <Checkbox
           checked={selected}
@@ -240,13 +179,10 @@ function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert, index 
           className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
         />
       </td>
-
-      {/* Name + avatar */}
       <td className="px-3 py-3">
         <div className="flex items-center gap-2.5">
           <div
             className={cn('w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black flex-shrink-0 bg-gradient-to-br', cfg.color)}
-            style={{ boxShadow: `0 0 10px ${cfg.glow}30` }}
           >
             {lead.full_name.charAt(0).toUpperCase()}
           </div>
@@ -256,8 +192,6 @@ function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert, index 
           </div>
         </div>
       </td>
-
-      {/* Phone */}
       <td className="px-3 py-3 hidden md:table-cell">
         {lead.phone ? (
           <span className="text-sm text-foreground/80 flex items-center gap-1.5">
@@ -266,8 +200,6 @@ function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert, index 
           </span>
         ) : <span className="text-muted-foreground/40 text-sm">—</span>}
       </td>
-
-      {/* Company */}
       <td className="px-3 py-3 hidden lg:table-cell">
         {lead.company_name ? (
           <span className="text-sm text-foreground/80 flex items-center gap-1.5">
@@ -276,20 +208,14 @@ function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert, index 
           </span>
         ) : <span className="text-muted-foreground/40 text-sm">—</span>}
       </td>
-
-      {/* Status */}
       <td className="px-3 py-3">
         <StatusBadge status={lead.status} />
       </td>
-
-      {/* Origin */}
       <td className="px-3 py-3 hidden xl:table-cell">
         <span className="text-[11px] font-medium text-muted-foreground px-2 py-0.5 rounded-full border border-border/50 bg-muted/40">
           {ORIGIN_OPTIONS.find(o => o.value === lead.origin)?.label || lead.origin || '—'}
         </span>
       </td>
-
-      {/* Value */}
       <td className="px-3 py-3 hidden lg:table-cell">
         {lead.estimated_value ? (
           <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
@@ -297,16 +223,12 @@ function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert, index 
           </span>
         ) : <span className="text-muted-foreground/40 text-sm">—</span>}
       </td>
-
-      {/* Date */}
       <td className="px-3 py-3 hidden xl:table-cell">
         <span className="text-[11px] text-muted-foreground flex items-center gap-1">
           <Calendar className="h-3 w-3" />
           {format(new Date(lead.created_at), 'dd/MM/yy', { locale: ptBR })}
         </span>
       </td>
-
-      {/* Actions */}
       <td className="px-3 py-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -329,7 +251,7 @@ function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert, index 
           </DropdownMenuContent>
         </DropdownMenu>
       </td>
-    </motion.tr>
+    </tr>
   );
 }
 
@@ -365,17 +287,9 @@ function BulkBar({ selectedIds, leads, onClear, onComplete }: {
   if (selectedIds.length === 0) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 60, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 60, scale: 0.95 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border border-primary/25 bg-card/90 backdrop-blur-2xl shadow-[0_8px_40px_hsl(var(--primary)/0.2)]"
-    >
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl border border-primary/25 bg-card/90 backdrop-blur-2xl shadow-[0_8px_40px_hsl(var(--primary)/0.2)] animate-fade-in">
       <div className="flex items-center gap-2 pr-3 border-r border-border/50">
-        <span
-          className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-black text-white bg-gradient-to-br from-primary to-primary/70"
-        >
+        <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-black text-white bg-gradient-to-br from-primary to-primary/70">
           {selectedIds.length}
         </span>
         <span className="text-sm text-muted-foreground">selecionados</span>
@@ -400,7 +314,7 @@ function BulkBar({ selectedIds, leads, onClear, onComplete }: {
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
         Excluir
       </Button>
-    </motion.div>
+    </div>
   );
 }
 
@@ -613,78 +527,39 @@ export default function AdminLeads() {
 
   // KPI data
   const kpis = [
-    { title: 'Total de Leads', value: leads.length, icon: Target, gradient: 'from-blue-500 to-cyan-400', glow: '#3b82f6', accent: '#60a5fa', index: 0 },
-    { title: 'Leads Novos', value: leads.filter(l => l.status === 'novo').length, icon: Sparkles, gradient: 'from-violet-500 to-purple-400', glow: '#8b5cf6', accent: '#a78bfa', index: 1 },
-    { title: 'Em Negociação', value: leads.filter(l => l.status === 'negociacao').length, icon: Activity, gradient: 'from-orange-500 to-amber-400', glow: '#f97316', accent: '#fb923c', index: 2 },
-    { title: 'Convertidos', value: leads.filter(l => l.status === 'convertido').length, icon: CheckCircle2, gradient: 'from-emerald-500 to-green-400', glow: '#10b981', accent: '#34d399', index: 3 },
+    { title: 'Total de Leads', value: leads.length, icon: Target, gradient: 'from-blue-500 to-cyan-400', glow: '#3b82f6', accent: '#60a5fa' },
+    { title: 'Leads Novos', value: leads.filter(l => l.status === 'novo').length, icon: Sparkles, gradient: 'from-violet-500 to-purple-400', glow: '#8b5cf6', accent: '#a78bfa' },
+    { title: 'Em Negociação', value: leads.filter(l => l.status === 'negociacao').length, icon: Activity, gradient: 'from-orange-500 to-amber-400', glow: '#f97316', accent: '#fb923c' },
+    { title: 'Convertidos', value: leads.filter(l => l.status === 'convertido').length, icon: CheckCircle2, gradient: 'from-emerald-500 to-green-400', glow: '#10b981', accent: '#34d399' },
     {
       title: 'Receita Potencial', value: Math.round(leads.reduce((s, l) => s + (l.estimated_value || 0), 0)),
-      prefix: 'R$ ', icon: TrendingUp, gradient: 'from-emerald-600 to-teal-400', glow: '#059669', accent: '#10b981', index: 4
+      prefix: 'R$ ', icon: TrendingUp, gradient: 'from-emerald-600 to-teal-400', glow: '#059669', accent: '#10b981'
     },
     {
       title: 'Taxa de Conversão', value: leads.length > 0 ? Math.round((leads.filter(l => l.status === 'convertido').length / leads.length) * 100) : 0,
-      icon: Zap, gradient: 'from-rose-500 to-pink-400', glow: '#f43f5e', accent: '#fb7185', index: 5
+      icon: Zap, gradient: 'from-rose-500 to-pink-400', glow: '#f43f5e', accent: '#fb7185'
     },
   ];
 
   return (
     <AdminLayout>
-      {/* Outer HUD wrapper */}
       <div className="relative rounded-2xl overflow-hidden bg-background">
-        {/* Subtle particle field */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {PARTICLES.map(p => (
-            <motion.div
-              key={p.id}
-              className="absolute rounded-full"
-              style={{
-                left: `${p.x}%`, top: `${p.y}%`,
-                width: p.size, height: p.size,
-                background: `radial-gradient(circle, hsl(var(--primary) / ${p.op}) 0%, transparent 100%)`,
-              }}
-              animate={{ y: [0, -18, 0], opacity: [p.op, p.op * 2.5, p.op] }}
-              transition={{ duration: p.dur, delay: p.delay, repeat: Infinity, ease: 'easeInOut' }}
-            />
-          ))}
-          {/* Scan line */}
-          <motion.div
-            className="absolute left-0 right-0 h-px"
-            style={{ background: 'linear-gradient(90deg, transparent, hsl(var(--primary)/0.2), transparent)' }}
-            animate={{ top: ['0%', '100%', '0%'] }}
-            transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
-          />
-        </div>
-
         <div className="relative z-10 space-y-5">
 
           {/* ── HERO HEADER ─────────────────────── */}
-          <motion.div
-            initial={{ opacity: 0, y: -18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          <div
             className="relative rounded-2xl overflow-hidden border border-primary/15 bg-card/60 backdrop-blur-xl"
             style={{ boxShadow: '0 0 50px hsl(var(--primary)/0.05), inset 0 1px 0 hsl(var(--background)/0.8)' }}
           >
-            {/* Corner HUD lines */}
             <div className="absolute top-0 left-0 w-12 h-12 border-l-2 border-t-2 border-primary/20 rounded-tl-2xl pointer-events-none" />
             <div className="absolute bottom-0 right-0 w-12 h-12 border-r-2 border-b-2 border-primary/20 rounded-br-2xl pointer-events-none" />
-            <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full blur-3xl bg-violet-500/10 pointer-events-none" />
 
             <div className="relative p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              {/* Left */}
               <div className="flex items-center gap-4">
-                <motion.div
-                  className="relative w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-br from-violet-500 to-purple-400 shadow-[0_0_24px_rgba(139,92,246,0.35)] flex-shrink-0"
-                  animate={{ boxShadow: ['0 0 20px rgba(139,92,246,0.3)', '0 0 36px rgba(139,92,246,0.5)', '0 0 20px rgba(139,92,246,0.3)'] }}
-                  transition={{ duration: 3, repeat: Infinity }}
-                >
+                <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-br from-violet-500 to-purple-400 shadow-[0_0_24px_rgba(139,92,246,0.35)] flex-shrink-0">
                   <UserPlus className="h-7 w-7 text-white" />
-                  <motion.div
-                    className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-background"
-                    animate={{ scale: [1, 1.3, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-                </motion.div>
+                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-background" />
+                </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Leads</h1>
@@ -699,38 +574,31 @@ export default function AdminLeads() {
                 </div>
               </div>
 
-              {/* Right — actions */}
               <div className="flex items-center gap-2 flex-wrap">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                <button
                   onClick={handleRefresh}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border/50 bg-muted/40 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
                   Atualizar
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                </button>
+                <button
                   onClick={() => setImportExportOpen(true)}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border/50 bg-muted/40 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Upload className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Importar/Exportar</span>
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05, y: -1 }}
-                  whileTap={{ scale: 0.95 }}
+                </button>
+                <button
                   onClick={() => { setEditingLead(null); setDialogOpen(true); }}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-purple-500 shadow-[0_4px_16px_rgba(139,92,246,0.35)] hover:shadow-[0_6px_24px_rgba(139,92,246,0.5)] transition-shadow"
                 >
                   <Plus className="h-4 w-4" />
                   Novo Lead
-                </motion.button>
+                </button>
               </div>
             </div>
-          </motion.div>
+          </div>
 
           {/* ── KPI CARDS ─────────────────────── */}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -759,7 +627,6 @@ export default function AdminLeads() {
 
             {/* ── TAB: LISTA ── */}
             <TabsContent value="lista" className="space-y-4 mt-4">
-              {/* Search + Filter */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -789,7 +656,6 @@ export default function AdminLeads() {
                 </Select>
               </div>
 
-              {/* Table */}
               <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-xl overflow-hidden">
                 <div className="px-4 py-3 border-b border-border/40 bg-muted/20 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -854,23 +720,20 @@ export default function AdminLeads() {
                           </td>
                         </tr>
                       ) : (
-                        <AnimatePresence>
-                          {filteredLeads.map((lead, i) => (
-                            <LeadRow
-                              key={lead.id}
-                              lead={lead}
-                              index={i}
-                              selected={selectedIds.includes(lead.id)}
-                              onSelect={(id, c) => {
-                                if (c) setSelectedIds(p => [...p, id]);
-                                else setSelectedIds(p => p.filter(x => x !== id));
-                              }}
-                              onEdit={lead => { setDetailLead(lead); setDetailOpen(true); }}
-                              onDelete={handleDelete}
-                              onConvert={handleConvert}
-                            />
-                          ))}
-                        </AnimatePresence>
+                        filteredLeads.map((lead) => (
+                          <LeadRow
+                            key={lead.id}
+                            lead={lead}
+                            selected={selectedIds.includes(lead.id)}
+                            onSelect={(id, c) => {
+                              if (c) setSelectedIds(p => [...p, id]);
+                              else setSelectedIds(p => p.filter(x => x !== id));
+                            }}
+                            onEdit={lead => { setDetailLead(lead); setDetailOpen(true); }}
+                            onDelete={handleDelete}
+                            onConvert={handleConvert}
+                          />
+                        ))
                       )}
                     </tbody>
                   </table>
@@ -880,7 +743,7 @@ export default function AdminLeads() {
                   <div className="px-4 py-2.5 border-t border-border/30 bg-muted/10 flex items-center justify-between">
                     <span className="text-[10px] text-muted-foreground">Mostrando {filteredLeads.length} leads</span>
                     <div className="flex items-center gap-1.5">
-                      <motion.div animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                       <span className="text-[10px] text-muted-foreground font-mono">Dados em tempo real</span>
                     </div>
                   </div>
@@ -889,14 +752,12 @@ export default function AdminLeads() {
 
               {/* Status Quick Stats */}
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                {Object.entries(STATUS_CONFIG).map(([key, cfg], i) => {
+                {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
                   const count = leads.filter(l => l.status === key).length;
                   const Icon = cfg.icon;
                   return (
-                    <motion.button
+                    <button
                       key={key}
-                      whileHover={{ y: -3 }}
-                      whileTap={{ scale: 0.95 }}
                       onClick={() => setStatusFilter(statusFilter === key ? 'all' : key)}
                       className={cn(
                         'relative flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all duration-200 text-center',
@@ -906,13 +767,11 @@ export default function AdminLeads() {
                       <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-br', cfg.color)}>
                         <Icon className="h-3.5 w-3.5 text-white" />
                       </div>
-                      <span className="text-base font-black text-foreground leading-none">
-                        <AnimCount to={count} />
-                      </span>
+                      <span className="text-base font-black text-foreground leading-none">{count}</span>
                       <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight">
                         {cfg.label}
                       </span>
-                    </motion.button>
+                    </button>
                   );
                 })}
               </div>
@@ -963,14 +822,12 @@ export default function AdminLeads() {
         onRefresh={fetchLeads}
       />
 
-      <AnimatePresence>
-        <BulkBar
-          selectedIds={selectedIds}
-          leads={leads}
-          onClear={() => setSelectedIds([])}
-          onComplete={fetchLeads}
-        />
-      </AnimatePresence>
+      <BulkBar
+        selectedIds={selectedIds}
+        leads={leads}
+        onClear={() => setSelectedIds([])}
+        onComplete={fetchLeads}
+      />
     </AdminLayout>
   );
 }

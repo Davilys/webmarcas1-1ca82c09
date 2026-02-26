@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -38,10 +37,10 @@ const COLUMNS = [
   { key: 'perdido', label: 'Perdido', icon: AlertCircle, gradient: 'from-rose-500 to-red-400', glow: '#f43f5e' },
 ];
 
-const TEMP_CONFIG: Record<string, { icon: typeof Flame; color: string; label: string }> = {
-  quente: { icon: Flame, color: 'text-red-500', label: '🔥' },
-  morno: { icon: Flame, color: 'text-orange-400', label: '🌡️' },
-  frio: { icon: Flame, color: 'text-blue-400', label: '❄️' },
+const TEMP_CONFIG: Record<string, { label: string }> = {
+  quente: { label: '🔥' },
+  morno: { label: '🌡️' },
+  frio: { label: '❄️' },
 };
 
 function KanbanCard({ lead, onDragStart, onClick }: {
@@ -52,13 +51,9 @@ function KanbanCard({ lead, onDragStart, onClick }: {
   const temp = TEMP_CONFIG[lead.lead_temperature || 'frio'] || TEMP_CONFIG.frio;
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
+    <div
       draggable
-      onDragStart={(e: any) => onDragStart(e, lead.id)}
+      onDragStart={(e) => onDragStart(e, lead.id)}
       onClick={onClick}
       className="group relative p-3 rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm cursor-grab active:cursor-grabbing hover:border-primary/30 hover:shadow-lg transition-all duration-200"
     >
@@ -110,7 +105,7 @@ function KanbanCard({ lead, onDragStart, onClick }: {
           ))}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }
 
@@ -164,7 +159,6 @@ export function LeadKanbanBoard({ leads, onRefresh, onLeadClick }: LeadKanbanBoa
             onDragLeave={() => setDragOverCol(null)}
             onDrop={e => handleDrop(e, col.key)}
           >
-            {/* Column Header */}
             <div className="p-3 border-b border-border/30">
               <div className="flex items-center gap-2 mb-1">
                 <div className={cn('w-6 h-6 rounded-lg flex items-center justify-center bg-gradient-to-br', col.gradient)}>
@@ -182,18 +176,15 @@ export function LeadKanbanBoard({ leads, onRefresh, onLeadClick }: LeadKanbanBoa
               )}
             </div>
 
-            {/* Cards */}
             <div className="p-2 space-y-2 max-h-[600px] overflow-y-auto">
-              <AnimatePresence mode="popLayout">
-                {colLeads.map(lead => (
-                  <KanbanCard
-                    key={lead.id}
-                    lead={lead}
-                    onDragStart={handleDragStart}
-                    onClick={() => onLeadClick(lead)}
-                  />
-                ))}
-              </AnimatePresence>
+              {colLeads.map(lead => (
+                <KanbanCard
+                  key={lead.id}
+                  lead={lead}
+                  onDragStart={handleDragStart}
+                  onClick={() => onLeadClick(lead)}
+                />
+              ))}
               {colLeads.length === 0 && (
                 <div className="py-8 text-center">
                   <p className="text-[11px] text-muted-foreground/50">Arraste leads aqui</p>
