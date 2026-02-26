@@ -69,7 +69,7 @@ export function ContractSettings() {
         .update({
           signature_expires_at: new Date(Date.now() + data.linkValidityDays * 24 * 60 * 60 * 1000).toISOString(),
         })
-        .in('signature_status', ['pending', 'sent'])
+        .neq('signature_status', 'signed')
         .not('signature_expires_at', 'is', null);
 
       if (updateError) {
