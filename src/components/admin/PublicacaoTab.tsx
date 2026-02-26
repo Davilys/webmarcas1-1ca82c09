@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StatsCard } from '@/components/admin/dashboard/StatsCard';
@@ -1640,22 +1641,24 @@ export default function PublicacaoTab() {
                           </button>
                         </div>
                       ) : (
-                        <div className="relative">
-                          <div className="relative">
-                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                            <Input
-                              placeholder="Buscar cliente por nome, email ou CPF..."
-                              value={clientAssignSearch}
-                              onChange={e => {
-                                setClientAssignSearch(e.target.value);
-                                setShowClientAssignDropdown(e.target.value.length >= 2);
-                              }}
-                              onFocus={() => { if (clientAssignSearch.length >= 2) setShowClientAssignDropdown(true); }}
-                              className="h-8 text-xs pl-7"
-                            />
-                          </div>
-                          {showClientAssignDropdown && clientAssignSearch.length >= 2 && (
-                            <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                        <Popover open={showClientAssignDropdown} onOpenChange={setShowClientAssignDropdown}>
+                          <PopoverTrigger asChild>
+                            <div className="relative">
+                              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                              <Input
+                                placeholder="Buscar cliente por nome, email ou CPF..."
+                                value={clientAssignSearch}
+                                onChange={e => {
+                                  setClientAssignSearch(e.target.value);
+                                  setShowClientAssignDropdown(e.target.value.length >= 2);
+                                }}
+                                onFocus={() => { if (clientAssignSearch.length >= 2) setShowClientAssignDropdown(true); }}
+                                className="h-8 text-xs pl-7"
+                              />
+                            </div>
+                          </PopoverTrigger>
+                          {clientAssignSearch.length >= 2 && (
+                            <PopoverContent className="w-80 p-0 max-h-52 overflow-y-auto" align="start" sideOffset={4}>
                               {(() => {
                                 const q = clientAssignSearch.toLowerCase();
                                 const matches = clients.filter(c =>
@@ -1667,7 +1670,11 @@ export default function PublicacaoTab() {
                                 return matches.map(c => (
                                   <button
                                     key={c.id}
-                                    onClick={() => assignClientMutation.mutate({ pubId: selected.id, clientId: c.id, oldClientId: selected.client_id, processId: selected.process_id })}
+                                    onClick={() => {
+                                      assignClientMutation.mutate({ pubId: selected.id, clientId: c.id, oldClientId: selected.client_id, processId: selected.process_id });
+                                      setShowClientAssignDropdown(false);
+                                      setClientAssignSearch('');
+                                    }}
                                     className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b border-border/50 last:border-0"
                                   >
                                     <p className="text-xs font-medium truncate">{c.full_name}</p>
@@ -1675,11 +1682,47 @@ export default function PublicacaoTab() {
                                   </button>
                                 ));
                               })()}
-                            </div>
+                            </PopoverContent>
                           )}
-                        </div>
+                        </Popover>
                       )}
                     </div>
+
+                    {/* ─── Processos deste Cliente ─── */}
+                    {selected.client_id && (() => {
+                      const otherProcesses = publicacoes.filter(p => p.client_id === selected.client_id && p.id !== selected.id);
+                      if (otherProcesses.length === 0) return null;
+                      return (
+                        <div className="mt-3">
+                          <Label className="text-xs text-muted-foreground flex items-center gap-1 mb-1.5">
+                            <FileText className="w-3 h-3" /> Processos deste Cliente ({otherProcesses.length})
+                          </Label>
+                          <div className="max-h-40 overflow-y-auto rounded-lg border border-border bg-muted/30">
+                            {otherProcesses.map(op => {
+                              const brandName = (op.process_id ? processMap.get(op.process_id)?.brand_name : null) || (op as any).brand_name_rpi || '—';
+                              const processNumber = (op.process_id ? processMap.get(op.process_id)?.process_number : null) || (op as any).process_number_rpi || '';
+                              const stCfg = STATUS_CONFIG[op.status] || STATUS_CONFIG.depositada;
+                              return (
+                                <button
+                                  key={op.id}
+                                  onClick={() => setSelectedId(op.id)}
+                                  className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b border-border/40 last:border-0 flex items-center gap-2"
+                                >
+                                  <Badge className={cn('text-[9px] px-1.5 py-0 shrink-0', stCfg.bg, stCfg.color)} variant="outline">
+                                    {stCfg.label}
+                                  </Badge>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-medium truncate">{brandName}</p>
+                                    {processNumber && <p className="text-[10px] text-muted-foreground truncate">{processNumber}</p>}
+                                  </div>
+                                  <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </CardHeader>
                 <CardContent>
