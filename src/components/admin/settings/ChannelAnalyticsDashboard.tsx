@@ -55,10 +55,10 @@ export function ChannelAnalyticsDashboard({ channel }: ChannelAnalyticsDashboard
     queryKey: ['notification-dispatch-logs', channel],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('notification_logs')
+        .from('notification_dispatch_logs')
         .select('*')
         .eq('channel', channel)
-        .order('sent_at', { ascending: false });
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     }
@@ -81,7 +81,7 @@ export function ChannelAnalyticsDashboard({ channel }: ChannelAnalyticsDashboard
   // Bar chart - by event type
   const eventCounts: Record<string, number> = {};
   allLogs.forEach(l => {
-    const key = (l as any).event_type || 'unknown';
+    const key = l.event_type || 'unknown';
     eventCounts[key] = (eventCounts[key] || 0) + 1;
   });
   const barData = Object.entries(eventCounts)
@@ -97,8 +97,8 @@ export function ChannelAnalyticsDashboard({ channel }: ChannelAnalyticsDashboard
     dailyCounts[format(d, 'yyyy-MM-dd')] = 0;
   }
   allLogs.forEach(l => {
-    if (!l.sent_at) return;
-    const day = format(new Date(l.sent_at), 'yyyy-MM-dd');
+    if (!l.created_at) return;
+    const day = format(new Date(l.created_at), 'yyyy-MM-dd');
     if (dailyCounts[day] !== undefined) dailyCounts[day]++;
   });
   const areaData = Object.entries(dailyCounts).map(([date, count]) => ({
@@ -242,12 +242,12 @@ export function ChannelAnalyticsDashboard({ channel }: ChannelAnalyticsDashboard
                     recentLogs.map((log) => (
                       <TableRow key={log.id} className="group">
                         <TableCell className="text-xs whitespace-nowrap">
-                          {log.sent_at ? format(new Date(log.sent_at), "dd/MM/yy HH:mm", { locale: ptBR }) : '-'}
+                          {log.created_at ? format(new Date(log.created_at), "dd/MM/yy HH:mm", { locale: ptBR }) : '-'}
                         </TableCell>
-                        <TableCell className="text-xs max-w-[160px] truncate">{log.recipient || '-'}</TableCell>
+                        <TableCell className="text-xs max-w-[160px] truncate">{log.recipient_phone || log.recipient_email || '-'}</TableCell>
                         <TableCell className="hidden md:table-cell">
-                          <Badge variant="outline" className={cn("text-[10px] h-5 whitespace-nowrap", getEventColor((log as any).event_type))}>
-                            {getEventLabel((log as any).event_type)}
+                          <Badge variant="outline" className={cn("text-[10px] h-5 whitespace-nowrap", getEventColor(log.event_type))}>
+                            {getEventLabel(log.event_type)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center">
