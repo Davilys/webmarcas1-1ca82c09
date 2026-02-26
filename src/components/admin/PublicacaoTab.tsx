@@ -1638,21 +1638,52 @@ export default function PublicacaoTab() {
                       <Label className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
                         <Users className="w-3 h-3" /> Atribuir ao Cliente
                       </Label>
-                      {selected.client_id && clientMap.get(selected.client_id) ? (
-                        <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold truncate">{clientMap.get(selected.client_id)?.full_name}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">{clientMap.get(selected.client_id)?.email}</p>
+                      {selected.client_id && clientMap.get(selected.client_id) ? (() => {
+                        const cl = clientMap.get(selected.client_id)!;
+                        return (
+                          <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold truncate">{cl.full_name}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">{cl.email}</p>
+                              </div>
+                              <button
+                                onClick={() => assignClientMutation.mutate({ pubId: selected.id, clientId: null, oldClientId: selected.client_id, processId: selected.process_id })}
+                                className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                                title="Desvincular cliente"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                              {cl.phone && (
+                                <div><span className="text-muted-foreground">Tel:</span> <span className="font-medium">{cl.phone}</span></div>
+                              )}
+                              {cl.cpf_cnpj && (
+                                <div><span className="text-muted-foreground">CPF/CNPJ:</span> <span className="font-medium">{cl.cpf_cnpj}</span></div>
+                              )}
+                              {cl.company_name && (
+                                <div className="col-span-2"><span className="text-muted-foreground">Empresa:</span> <span className="font-medium">{cl.company_name}</span></div>
+                              )}
+                              {cl.origin && (
+                                <div><span className="text-muted-foreground">Origem:</span> <span className="font-medium">{cl.origin}</span></div>
+                              )}
+                              {cl.contract_value != null && Number(cl.contract_value) > 0 && (
+                                <div><span className="text-muted-foreground">Valor:</span> <span className="font-medium">R$ {Number(cl.contract_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => {
+                                setSheetPubId(selected.id);
+                                setShowClientSheet(true);
+                              }}
+                              className="w-full mt-1 text-[10px] text-primary hover:underline flex items-center justify-center gap-1"
+                            >
+                              <Eye className="w-3 h-3" /> Ver ficha completa do cliente
+                            </button>
                           </div>
-                          <button
-                            onClick={() => assignClientMutation.mutate({ pubId: selected.id, clientId: null, oldClientId: selected.client_id, processId: selected.process_id })}
-                            className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                            title="Desvincular cliente"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
+                        );
+                      })() : (
                         <div className="relative" ref={clientAssignRef}>
                           <div className="relative">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
@@ -2142,22 +2173,44 @@ export default function PublicacaoTab() {
           extraActions={
             sheetPub ? (
               <div className="relative w-full mt-2" ref={clientAssignRef}>
-                {sheetPub.client_id && clientMap.get(sheetPub.client_id) ? (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30">
-                    <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-emerald-300 truncate">{clientMap.get(sheetPub.client_id)?.full_name}</p>
-                      <p className="text-[10px] text-emerald-400/60 truncate">{clientMap.get(sheetPub.client_id)?.email}</p>
+                {sheetPub.client_id && clientMap.get(sheetPub.client_id) ? (() => {
+                  const cl = clientMap.get(sheetPub.client_id)!;
+                  return (
+                    <div className="px-3 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-emerald-300 truncate">{cl.full_name}</p>
+                          <p className="text-[10px] text-emerald-400/60 truncate">{cl.email}</p>
+                        </div>
+                        <button
+                          onClick={() => assignClientMutation.mutate({ pubId: sheetPub.id, clientId: null, oldClientId: sheetPub.client_id, processId: sheetPub.process_id })}
+                          className="p-1 rounded hover:bg-red-500/20 text-emerald-400/60 hover:text-red-400 transition-colors"
+                          title="Desvincular cliente"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-emerald-300/80">
+                        {cl.phone && (
+                          <div><span className="text-emerald-400/50">Tel:</span> {cl.phone}</div>
+                        )}
+                        {cl.cpf_cnpj && (
+                          <div><span className="text-emerald-400/50">CPF/CNPJ:</span> {cl.cpf_cnpj}</div>
+                        )}
+                        {cl.company_name && (
+                          <div className="col-span-2"><span className="text-emerald-400/50">Empresa:</span> {cl.company_name}</div>
+                        )}
+                        {cl.origin && (
+                          <div><span className="text-emerald-400/50">Origem:</span> {cl.origin}</div>
+                        )}
+                        {cl.contract_value != null && Number(cl.contract_value) > 0 && (
+                          <div><span className="text-emerald-400/50">Valor:</span> R$ {Number(cl.contract_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                        )}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => assignClientMutation.mutate({ pubId: sheetPub.id, clientId: null, oldClientId: sheetPub.client_id, processId: sheetPub.process_id })}
-                      className="p-1 rounded hover:bg-red-500/20 text-emerald-400/60 hover:text-red-400 transition-colors"
-                      title="Desvincular cliente"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
+                  );
+                })() : (
                   <>
                     <div className="flex items-center gap-2 mb-1">
                       <Users className="w-3 h-3 text-white/50" />
