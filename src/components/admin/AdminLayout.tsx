@@ -268,8 +268,8 @@ function AdminSidebar() {
 
   // Filter menu items based on user permissions
   const filteredMenuItems = useMemo(() => {
-    if (!permissions) return menuItems; // Show all while loading
-    return menuItems.filter(item => permissions[item.permissionKey]?.can_view !== false);
+    if (!permissions) return []; // Hide all while loading permissions
+    return menuItems.filter(item => permissions[item.permissionKey]?.can_view === true);
   }, [permissions]);
 
   const handleLogout = async () => {

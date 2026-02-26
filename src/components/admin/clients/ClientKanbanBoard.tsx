@@ -67,6 +67,7 @@ interface ClientKanbanBoardProps {
   funnelType?: FunnelType;
   adminUsers?: { id: string; full_name: string | null; email: string }[];
   canAssign?: boolean;
+  canViewFinancialValues?: boolean;
 }
 
 // COMMERCIAL FUNNEL STAGES (for sales pipeline)
@@ -96,7 +97,7 @@ const ORIGIN_CONFIG: Record<string, { icon: typeof MessageCircle; color: string;
   'indicacao': { icon: UserPlus, color: 'text-purple-600', bg: 'bg-purple-100', label: 'Ind' },
 };
 
-export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, funnelType = 'juridico', adminUsers = [], canAssign = false }: ClientKanbanBoardProps) {
+export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, funnelType = 'juridico', adminUsers = [], canAssign = false, canViewFinancialValues = true }: ClientKanbanBoardProps) {
   const [draggedClient, setDraggedClient] = useState<ClientWithProcess | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
@@ -247,14 +248,16 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
           <span className="text-sm text-muted-foreground">Total:</span>
           <span className="font-bold">{filteredClients.length}</span>
         </motion.div>
-        <motion.div 
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-100 to-emerald-50 dark:from-emerald-900/30 dark:to-emerald-950/30 rounded-xl shadow-sm border border-emerald-200 dark:border-emerald-800"
-          whileHover={{ scale: 1.02 }}
-        >
-          <DollarSign className="h-4 w-4 text-emerald-600" />
-          <span className="text-sm text-emerald-700 dark:text-emerald-300">Valor:</span>
-          <span className="font-bold text-emerald-700 dark:text-emerald-300">R$ {totalValue.toLocaleString('pt-BR')}</span>
-        </motion.div>
+        {canViewFinancialValues && (
+          <motion.div 
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-100 to-emerald-50 dark:from-emerald-900/30 dark:to-emerald-950/30 rounded-xl shadow-sm border border-emerald-200 dark:border-emerald-800"
+            whileHover={{ scale: 1.02 }}
+          >
+            <DollarSign className="h-4 w-4 text-emerald-600" />
+            <span className="text-sm text-emerald-700 dark:text-emerald-300">Valor:</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-300">R$ {totalValue.toLocaleString('pt-BR')}</span>
+          </motion.div>
+        )}
         <motion.div 
           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-950/30 rounded-xl shadow-sm border border-blue-200 dark:border-blue-800"
           whileHover={{ scale: 1.02 }}
@@ -348,7 +351,7 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
                 </div>
 
                 {/* Stage Value - Only show when expanded */}
-                {!isCollapsed && stageValue > 0 && (
+                {!isCollapsed && stageValue > 0 && canViewFinancialValues && (
                   <motion.div 
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}

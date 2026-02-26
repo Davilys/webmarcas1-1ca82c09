@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, LayoutGrid, List, RefreshCw, Users, Filter, X, Upload, Briefcase, Scale, Star, UserCheck, UserPlus } from 'lucide-react';
+import { useCanViewFinancialValues } from '@/hooks/useCanViewFinancialValues';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -55,6 +56,7 @@ export default function AdminClientes() {
   const [adminUsers, setAdminUsers] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
   const [funnelType, setFunnelType] = useState<FunnelType>('comercial');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const { canViewFinancialValues } = useCanViewFinancialValues();
 
   // Debounce search input — avoids re-rendering 2300+ cards on every keystroke
   useEffect(() => {
@@ -671,6 +673,7 @@ export default function AdminClientes() {
             funnelType={funnelType}
             adminUsers={adminUsers}
             canAssign={!viewOwnOnly}
+            canViewFinancialValues={canViewFinancialValues}
           />
         ) : (
           <ClientListView

@@ -6,12 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Shield, UserPlus, Trash2, Loader2, Clock, User, Monitor, Settings2, RefreshCw } from 'lucide-react';
+import { Shield, UserPlus, Trash2, Loader2, Clock, User, Monitor, Settings2, RefreshCw, Eye, EyeOff, Mail, Phone, Key, Copy } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CreateAdminDialog } from './CreateAdminDialog';
 import { EditPermissionsDialog } from './EditPermissionsDialog';
+import { useCanViewFinancialValues } from '@/hooks/useCanViewFinancialValues';
 
 // Master admin that cannot be deleted or have permissions revoked
 export const MASTER_ADMIN_EMAIL = 'davillys@gmail.com';
@@ -20,6 +21,7 @@ export function SecuritySettings() {
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<{ id: string; email: string; fullName: string } | null>(null);
+  const { isMasterAdmin } = useCanViewFinancialValues();
 
   // Fetch admin users with permissions info
   const { data: adminUsers, isLoading: loadingAdmins } = useQuery({
@@ -41,24 +43,29 @@ export function SecuritySettings() {
       const userIds = data.map(r => r.user_id);
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, email, full_name')
+        .select('id, email, full_name, phone')
         .in('id', userIds);
 
-      // Fetch permissions count for each admin
+      // Fetch permissions for each admin (full detail)
       const { data: permissions } = await supabase
         .from('admin_permissions')
-        .select('user_id')
+        .select('user_id, permission_key, can_view, can_edit, can_delete')
         .in('user_id', userIds);
 
-      const permissionsByUser = permissions?.reduce((acc, p) => {
-        acc[p.user_id] = (acc[p.user_id] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>) || {};
+      const permissionsByUser: Record<string, { count: number; keys: string[] }> = {};
+      permissions?.forEach(p => {
+        if (!permissionsByUser[p.user_id]) {
+          permissionsByUser[p.user_id] = { count: 0, keys: [] };
+        }
+        permissionsByUser[p.user_id].count++;
+        if (p.can_view) permissionsByUser[p.user_id].keys.push(p.permission_key);
+      });
 
       return data.map(role => ({
         ...role,
         profile: profiles?.find(p => p.id === role.user_id),
-        hasCustomPermissions: (permissionsByUser[role.user_id] || 0) > 0,
+        hasCustomPermissions: (permissionsByUser[role.user_id]?.count || 0) > 0,
+        permissionKeys: permissionsByUser[role.user_id]?.keys || [],
       }));
     },
   });
@@ -178,66 +185,99 @@ export function SecuritySettings() {
           ) : adminUsers && adminUsers.length > 0 ? (
             <div className="space-y-3">
               {adminUsers.map((admin) => {
-                const isMasterAdmin = admin.profile?.email === MASTER_ADMIN_EMAIL;
+                const isMasterAdminUser = admin.profile?.email === MASTER_ADMIN_EMAIL;
                 
                 return (
                   <div
                     key={admin.id}
-                    className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors ${isMasterAdmin ? 'border-primary/50 bg-primary/5' : ''}`}
+                    className={`flex flex-col gap-3 p-4 border rounded-lg hover:bg-muted/30 transition-colors ${isMasterAdminUser ? 'border-primary/50 bg-primary/5' : ''}`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`flex items-center justify-center w-10 h-10 rounded-full ${isMasterAdmin ? 'bg-primary/20' : 'bg-primary/10'}`}>
-                        <User className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{admin.profile?.full_name || 'Sem nome'}</p>
-                          {isMasterAdmin && (
-                            <Badge variant="default" className="bg-primary text-primary-foreground">
-                              <Shield className="h-3 w-3 mr-1" />
-                              Master
-                            </Badge>
-                          )}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`flex items-center justify-center w-10 h-10 rounded-full ${isMasterAdminUser ? 'bg-primary/20' : 'bg-primary/10'}`}>
+                          <User className="h-5 w-5 text-primary" />
                         </div>
-                        <p className="text-sm text-muted-foreground">{admin.profile?.email}</p>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{admin.profile?.full_name || 'Sem nome'}</p>
+                            {isMasterAdminUser && (
+                              <Badge variant="default" className="bg-primary text-primary-foreground">
+                                <Shield className="h-3 w-3 mr-1" />
+                                Master
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{admin.profile?.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {admin.hasCustomPermissions ? (
+                          <Badge variant="secondary">Permissões Personalizadas</Badge>
+                        ) : (
+                          <Badge>Acesso Total</Badge>
+                        )}
+                        {!isMasterAdminUser && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingUser({
+                                id: admin.user_id,
+                                email: admin.profile?.email || '',
+                                fullName: admin.profile?.full_name || '',
+                              })}
+                              title="Editar Permissões"
+                            >
+                              <Settings2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (confirm('Remover acesso de administrador deste usuário? As permissões também serão removidas.')) {
+                                  removeAdminMutation.mutate({ roleId: admin.id, userId: admin.user_id });
+                                }
+                              }}
+                              disabled={removeAdminMutation.isPending}
+                              title="Remover Admin"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      {admin.hasCustomPermissions ? (
-                        <Badge variant="secondary">Permissões Personalizadas</Badge>
-                      ) : (
-                        <Badge>Acesso Total</Badge>
-                      )}
-                      {!isMasterAdmin && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setEditingUser({
-                              id: admin.user_id,
-                              email: admin.profile?.email || '',
-                              fullName: admin.profile?.full_name || '',
-                            })}
-                            title="Editar Permissões"
-                          >
-                            <Settings2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              if (confirm('Remover acesso de administrador deste usuário? As permissões também serão removidas.')) {
-                                removeAdminMutation.mutate({ roleId: admin.id, userId: admin.user_id });
-                              }
-                            }}
-                            disabled={removeAdminMutation.isPending}
-                            title="Remover Admin"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
+
+                    {/* Expanded details visible only to master admin */}
+                    {isMasterAdmin && !isMasterAdminUser && (
+                      <div className="ml-13 pl-3 border-l-2 border-primary/20 space-y-1.5 text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Mail className="h-3.5 w-3.5" />
+                          <span>{admin.profile?.email}</span>
+                        </div>
+                        {(admin.profile as any)?.phone && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Phone className="h-3.5 w-3.5" />
+                            <span>{(admin.profile as any).phone}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Key className="h-3.5 w-3.5" />
+                          <span className="text-xs">Senha definida na criação (não é possível recuperar)</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span className="text-xs">Criado em: {admin.created_at ? format(new Date(admin.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }) : '-'}</span>
+                        </div>
+                        {admin.hasCustomPermissions && admin.permissionKeys && admin.permissionKeys.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {admin.permissionKeys.map((key: string) => (
+                              <Badge key={key} variant="outline" className="text-[10px] py-0">{key}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}

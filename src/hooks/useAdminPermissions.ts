@@ -142,8 +142,8 @@ export function useAdminPermissions(userId?: string) {
   });
 
   const hasPermission = (key: PermissionKey, action: PermissionAction): boolean => {
-    if (!permissions) return true; // Default to true while loading
-    return permissions[key]?.[action] ?? true;
+    if (!permissions) return false; // Default to false while loading
+    return permissions[key]?.[action] === true;
   };
 
   const canAccessPath = (path: string): boolean => {

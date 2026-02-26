@@ -144,19 +144,8 @@ export default function Premiacao() {
     },
   });
 
-  const { data: isMaster = false } = useQuery({
-    queryKey: ['awards-is-master', currentUser?.id],
-    enabled: !!currentUser?.id,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('admin_permissions')
-        .select('can_edit')
-        .eq('user_id', currentUser!.id)
-        .eq('permission_key', 'awards')
-        .maybeSingle();
-      return data?.can_edit === true;
-    },
-  });
+  const MASTER_ADMIN_EMAIL = 'davillys@gmail.com';
+  const isMaster = currentUser?.email === MASTER_ADMIN_EMAIL;
 
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
