@@ -326,9 +326,21 @@ export default function PublicacaoTab() {
   const { data: clients = [] } = useQuery({
     queryKey: ['profiles-pub'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('id, full_name, email, cpf_cnpj, phone, company_name, priority, origin, contract_value, created_at, last_contact, assigned_to');
-      if (error) throw error;
-      return data || [];
+      const allClients: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, cpf_cnpj, phone, company_name, priority, origin, contract_value, created_at, last_contact, assigned_to')
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allClients.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allClients;
     },
   });
 
