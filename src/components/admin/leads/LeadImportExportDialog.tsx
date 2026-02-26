@@ -72,7 +72,46 @@ export function LeadImportExportDialog({
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+        
+        // Try to detect the header row by looking for known column names
+        // Some Excel files have merged header rows that need to be skipped
+        let jsonData = XLSX.utils.sheet_to_json(firstSheet);
+        
+        // Check if first row has expected column names
+        if (jsonData.length > 0) {
+          const firstRowKeys = Object.keys(jsonData[0]);
+          const hasValidHeaders = firstRowKeys.some(k => 
+            ['Nome', 'E-mail', 'Email', 'Telefone', 'Marca', 'nome', 'email', 'phone', 'full_name'].includes(k)
+          );
+          
+          if (!hasValidHeaders) {
+            // Try skipping first row (merged header like "Leads")
+            jsonData = XLSX.utils.sheet_to_json(firstSheet, { range: 1 });
+            
+            // Still no valid headers? Try range 2
+            if (jsonData.length > 0) {
+              const keys2 = Object.keys(jsonData[0]);
+              const hasValid2 = keys2.some(k => 
+                ['Nome', 'E-mail', 'Email', 'Telefone', 'Marca', 'nome', 'email', 'phone', 'full_name'].includes(k)
+              );
+              if (!hasValid2) {
+                jsonData = XLSX.utils.sheet_to_json(firstSheet, { range: 2 });
+              }
+            }
+          }
+        }
+        
+        // Filter out __EMPTY keys and rows without valid data
+        jsonData = jsonData.map((row: any) => {
+          const cleaned: any = {};
+          for (const [key, value] of Object.entries(row)) {
+            if (!key.startsWith('__EMPTY') && key !== '#') {
+              cleaned[key] = value;
+            }
+          }
+          return cleaned;
+        });
+        
         const valid = filterValidRows(jsonData);
         setImportData(valid);
         toast.success(`${valid.length} registros encontrados`);
