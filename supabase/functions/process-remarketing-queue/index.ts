@@ -53,6 +53,55 @@ async function sendEmail(
   }
 }
 
+async function summarizeForWhatsApp(message: string, nome: string): Promise<string> {
+  if (message.length <= 200) {
+    return `WebMarcas: Olá ${nome}! ${message}`;
+  }
+
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `Você é um compressor de mensagens WhatsApp profissional. Resuma a mensagem em no máximo 150 caracteres.
+REGRAS OBRIGATÓRIAS:
+- Comece sempre com "WebMarcas:"
+- Use o nome "${nome}" na saudação
+- Preserve valores monetários (R$)
+- Preserve nomes de marcas/produtos
+- Tom profissional e amigável
+- Não use aspas, apenas o texto resumido`,
+          },
+          { role: "user", content: message },
+        ],
+        max_tokens: 80,
+        temperature: 0.2,
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const summary = data?.choices?.[0]?.message?.content?.trim();
+      if (summary && summary.length > 10) return summary;
+    }
+  } catch (e) {
+    console.error("AI summarize error:", e);
+  }
+
+  const truncated = message.substring(0, 120).replace(/\s+\S*$/, "");
+  return `WebMarcas: Olá ${nome}! ${truncated}...`;
+}
+
 async function sendWhatsApp(
   supabase: any,
   phone: string,
@@ -197,7 +246,8 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const result = await sendWhatsApp(supabase, lead.phone, lead.full_name, item.body || "");
+        const waMessage = await summarizeForWhatsApp(item.body || "", lead.full_name || "");
+        const result = await sendWhatsApp(supabase, lead.phone, lead.full_name, waMessage);
 
         if (result.success) {
           await supabase.from("lead_remarketing_queue").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", item.id);
