@@ -1465,10 +1465,9 @@ export default function PublicacaoTab() {
               clientMap={clientMap}
               adminMap={adminMap}
               onSelect={id => {
-                // Only open the blue ClientDetailSheet — do NOT set selectedId (which triggers the white side panel)
-                setSheetPubId(id);
-                setShowClientSheet(true);
-                setShowProcessDetailFromSheet(true);
+                setSelectedId(id);
+                setClientAssignSearch('');
+                setShowClientAssignDropdown(false);
               }}
               selectedId={selectedId}
               onStatusChange={handleKanbanStatusChange}
