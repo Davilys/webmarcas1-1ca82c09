@@ -93,7 +93,15 @@ export default function AdminFinanceiro() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { canViewFinancialValues } = useCanViewFinancialValues();
+  const { canViewFinancialValues, isMasterAdmin } = useCanViewFinancialValues();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Fetch current user id on mount
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id || null);
+    });
+  }, []);
 
   const [formData, setFormData] = useState({ description: '', amount: '', due_date: '', user_id: '', process_id: '', observation: '' });
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
@@ -140,29 +148,61 @@ export default function AdminFinanceiro() {
     }
   };
 
-  useEffect(() => { fetchInvoices(); fetchClients(); fetchProcesses(); }, []);
+  // Helper: get client IDs owned by current admin (assigned_to or created_by)
+  const getMyClientIds = async (uid: string): Promise<string[]> => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id')
+      .or(`assigned_to.eq.${uid},created_by.eq.${uid}`);
+    return data?.map(c => c.id) || [];
+  };
+
+  useEffect(() => {
+    if (currentUserId !== null) {
+      fetchInvoices(); fetchClients(); fetchProcesses();
+    }
+  }, [currentUserId, isMasterAdmin]);
 
   const fetchInvoices = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('invoices')
-      .select('*, profiles(full_name, email), brand_processes(brand_name)')
-      .order('created_at', { ascending: false });
+    try {
+      let query = supabase
+        .from('invoices')
+        .select('*, profiles(full_name, email), brand_processes(brand_name)')
+        .order('created_at', { ascending: false });
 
-    if (error) {
+      // Non-master admins only see invoices from their own clients
+      if (!isMasterAdmin && currentUserId) {
+        const clientIds = await getMyClientIds(currentUserId);
+        if (clientIds.length > 0) {
+          query = query.in('user_id', clientIds);
+        } else {
+          // No clients assigned → no invoices
+          setInvoices([]);
+          setStats({ total: 0, pending: 0, paid: 0, overdue: 0, pendingCount: 0, paidCount: 0, overdueCount: 0 });
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        toast.error('Erro ao carregar faturas');
+      } else {
+        const inv = data || [];
+        setInvoices(inv);
+        setStats({
+          total:        inv.reduce((s, i) => s + Number(i.amount), 0),
+          pending:      inv.filter(i => normalizeStatus(i.status) === 'pending').reduce((s, i) => s + Number(i.amount), 0),
+          paid:         inv.filter(i => normalizeStatus(i.status) === 'paid').reduce((s, i) => s + Number(i.amount), 0),
+          overdue:      inv.filter(i => normalizeStatus(i.status) === 'overdue').reduce((s, i) => s + Number(i.amount), 0),
+          pendingCount: inv.filter(i => normalizeStatus(i.status) === 'pending').length,
+          paidCount:    inv.filter(i => normalizeStatus(i.status) === 'paid').length,
+          overdueCount: inv.filter(i => normalizeStatus(i.status) === 'overdue').length,
+        });
+      }
+    } catch {
       toast.error('Erro ao carregar faturas');
-    } else {
-      const inv = data || [];
-      setInvoices(inv);
-      setStats({
-        total:        inv.reduce((s, i) => s + Number(i.amount), 0),
-        pending:      inv.filter(i => normalizeStatus(i.status) === 'pending').reduce((s, i) => s + Number(i.amount), 0),
-        paid:         inv.filter(i => normalizeStatus(i.status) === 'paid').reduce((s, i) => s + Number(i.amount), 0),
-        overdue:      inv.filter(i => normalizeStatus(i.status) === 'overdue').reduce((s, i) => s + Number(i.amount), 0),
-        pendingCount: inv.filter(i => normalizeStatus(i.status) === 'pending').length,
-        paidCount:    inv.filter(i => normalizeStatus(i.status) === 'paid').length,
-        overdueCount: inv.filter(i => normalizeStatus(i.status) === 'overdue').length,
-      });
     }
     setLoading(false);
   };
@@ -172,8 +212,18 @@ export default function AdminFinanceiro() {
     let from = 0;
     const pageSize = 1000;
     let hasMore = true;
+
+    // Non-master admins only see their own clients
+    const buildQuery = () => {
+      let q = supabase.from('profiles').select('id, full_name, email, cpf_cnpj');
+      if (!isMasterAdmin && currentUserId) {
+        q = q.or(`assigned_to.eq.${currentUserId},created_by.eq.${currentUserId}`);
+      }
+      return q;
+    };
+
     while (hasMore) {
-      const { data } = await supabase.from('profiles').select('id, full_name, email, cpf_cnpj').range(from, from + pageSize - 1);
+      const { data } = await buildQuery().range(from, from + pageSize - 1);
       if (data && data.length > 0) {
         allClients = [...allClients, ...data];
         from += pageSize;
@@ -184,7 +234,21 @@ export default function AdminFinanceiro() {
     }
     setClients(allClients);
   };
-  const fetchProcesses = async () => { const { data } = await supabase.from('brand_processes').select('id, brand_name, user_id'); setProcesses(data || []); };
+
+  const fetchProcesses = async () => {
+    if (!isMasterAdmin && currentUserId) {
+      const clientIds = await getMyClientIds(currentUserId);
+      if (clientIds.length > 0) {
+        const { data } = await supabase.from('brand_processes').select('id, brand_name, user_id').in('user_id', clientIds);
+        setProcesses(data || []);
+      } else {
+        setProcesses([]);
+      }
+    } else {
+      const { data } = await supabase.from('brand_processes').select('id, brand_name, user_id');
+      setProcesses(data || []);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
