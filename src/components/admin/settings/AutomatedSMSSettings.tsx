@@ -12,9 +12,9 @@ export function AutomatedSMSSettings() {
           <Smartphone className="h-5 w-5 text-cyan-500" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold">SMS Automático</h2>
+          <h2 className="text-xl font-semibold">SMS Relatórios</h2>
           <p className="text-sm text-muted-foreground">
-            Gerencie os templates e acompanhe o desempenho dos SMS automáticos via Zenvia
+            Gerencie os templates e acompanhe o desempenho dos SMS relatórios via Zenvia
           </p>
         </div>
       </div>

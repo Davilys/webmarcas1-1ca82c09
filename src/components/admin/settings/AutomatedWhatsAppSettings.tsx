@@ -65,9 +65,9 @@ export function AutomatedWhatsAppSettings() {
           <MessageCircle className="h-5 w-5 text-emerald-500" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold">WhatsApp Automático</h2>
+          <h2 className="text-xl font-semibold">WhatsApp Relatórios</h2>
           <p className="text-sm text-muted-foreground">
-            Gerencie os templates e acompanhe o desempenho das notificações via BotConversa
+            Gerencie os templates e acompanhe o desempenho das notificações relatórios via BotConversa
           </p>
         </div>
       </div>
