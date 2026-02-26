@@ -686,7 +686,7 @@ export default function AdminContratos() {
                 <TableHead className="font-semibold text-xs uppercase tracking-wider">Tipo</TableHead>
                 <TableHead className="font-semibold text-xs uppercase tracking-wider">Valor</TableHead>
                 <TableHead className="font-semibold text-xs uppercase tracking-wider">Início</TableHead>
-                <TableHead className="font-semibold text-xs uppercase tracking-wider">Final</TableHead>
+                <TableHead className="font-semibold text-xs uppercase tracking-wider">Expira</TableHead>
                 <TableHead className="font-semibold text-xs uppercase tracking-wider">Telefone</TableHead>
                 <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
                 <TableHead className="w-[60px]"></TableHead>
@@ -789,8 +789,8 @@ export default function AdminContratos() {
                           : '-'}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {contract.end_date
-                          ? (() => { const [y,m,d] = contract.end_date.split('-').map(Number); return format(new Date(y, m-1, d), 'dd/MM/yy', { locale: ptBR }); })()
+                        {contract.signature_expires_at
+                          ? format(new Date(contract.signature_expires_at), 'dd/MM/yy', { locale: ptBR })
                           : '-'}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{contract.profile?.phone || '-'}</TableCell>
