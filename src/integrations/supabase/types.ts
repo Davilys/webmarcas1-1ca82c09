@@ -2525,6 +2525,7 @@ export type Database = {
           documento_rpi_url: string | null
           id: string
           last_notification_sent_at: string | null
+          linking_method: string | null
           ncl_class: string | null
           oposicao_data: string | null
           oposicao_protocolada: boolean | null
@@ -2535,6 +2536,7 @@ export type Database = {
           rpi_entry_id: string | null
           rpi_link: string | null
           rpi_number: string | null
+          stale_since: string | null
           status: string
           tipo_publicacao: string | null
           updated_at: string
@@ -2554,6 +2556,7 @@ export type Database = {
           documento_rpi_url?: string | null
           id?: string
           last_notification_sent_at?: string | null
+          linking_method?: string | null
           ncl_class?: string | null
           oposicao_data?: string | null
           oposicao_protocolada?: boolean | null
@@ -2564,6 +2567,7 @@ export type Database = {
           rpi_entry_id?: string | null
           rpi_link?: string | null
           rpi_number?: string | null
+          stale_since?: string | null
           status?: string
           tipo_publicacao?: string | null
           updated_at?: string
@@ -2583,6 +2587,7 @@ export type Database = {
           documento_rpi_url?: string | null
           id?: string
           last_notification_sent_at?: string | null
+          linking_method?: string | null
           ncl_class?: string | null
           oposicao_data?: string | null
           oposicao_protocolada?: boolean | null
@@ -2593,6 +2598,7 @@ export type Database = {
           rpi_entry_id?: string | null
           rpi_link?: string | null
           rpi_number?: string | null
+          stale_since?: string | null
           status?: string
           tipo_publicacao?: string | null
           updated_at?: string
