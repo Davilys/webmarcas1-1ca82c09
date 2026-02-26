@@ -9,8 +9,8 @@ const corsHeaders = {
 const BRT_OFFSET = -3;
 const WORK_START = 10;
 const WORK_END = 17;
-const EMAIL_BATCH = 15; // ~100/day across 7 hours
-const WA_BATCH = 1;     // 1 per 10min run = ~6/hour, max 10/day
+const EMAIL_BATCH = 15;
+const WA_BATCH = 1;
 
 function toBRT(d: Date): Date {
   return new Date(d.getTime() + BRT_OFFSET * 3600000);
@@ -139,6 +139,200 @@ async function sendWhatsApp(
   }
 }
 
+// ─── Process Lead Queue ──────────────────────────────────────────────
+async function processLeadQueue(
+  supabase: any,
+  resendApiKey: string,
+  emailLimit: number,
+  waLimit: number,
+): Promise<number> {
+  let processed = 0;
+
+  if (emailLimit > 0) {
+    const { data: emailItems } = await supabase
+      .from("lead_remarketing_queue")
+      .select("*, leads!inner(id, full_name, email, phone, company_name)")
+      .eq("status", "pending")
+      .eq("channel", "email")
+      .lte("scheduled_for", new Date().toISOString())
+      .order("scheduled_for", { ascending: true })
+      .limit(emailLimit);
+
+    for (const item of emailItems || []) {
+      const lead = item.leads;
+      if (!lead?.email) {
+        await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: "Sem e-mail" }).eq("id", item.id);
+        continue;
+      }
+      const result = await sendEmail(resendApiKey, lead.email, item.subject || "", item.body || "");
+      if (result.success) {
+        await supabase.from("lead_remarketing_queue").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", item.id);
+        await supabase.from("email_logs").insert({
+          from_email: "noreply@webmarcas.net", to_email: lead.email,
+          subject: item.subject, body: item.body, status: "sent",
+          trigger_type: "remarketing", related_lead_id: lead.id,
+        });
+        await supabase.from("lead_activities").insert({
+          lead_id: lead.id, activity_type: "remarketing",
+          content: `Remarketing e-mail enviado: ${item.subject}`,
+        });
+        processed++;
+      } else {
+        await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: result.error }).eq("id", item.id);
+      }
+    }
+  }
+
+  if (waLimit > 0) {
+    const { data: waItems } = await supabase
+      .from("lead_remarketing_queue")
+      .select("*, leads!inner(id, full_name, email, phone, company_name)")
+      .eq("status", "pending")
+      .eq("channel", "whatsapp")
+      .lte("scheduled_for", new Date().toISOString())
+      .order("scheduled_for", { ascending: true })
+      .limit(waLimit);
+
+    for (const item of waItems || []) {
+      const lead = item.leads;
+      if (!lead?.phone) {
+        await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: "Sem telefone" }).eq("id", item.id);
+        continue;
+      }
+      const waMessage = await summarizeForWhatsApp(item.body || "", lead.full_name || "", item.subject || "");
+      const result = await sendWhatsApp(supabase, lead.phone, lead.full_name, waMessage);
+      if (result.success) {
+        await supabase.from("lead_remarketing_queue").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", item.id);
+        await supabase.from("lead_activities").insert({
+          lead_id: lead.id, activity_type: "remarketing",
+          content: `Remarketing WhatsApp enviado para ${lead.phone}`,
+        });
+        processed++;
+      } else {
+        await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: result.error }).eq("id", item.id);
+      }
+    }
+  }
+
+  return processed;
+}
+
+// ─── Process Client Queue ────────────────────────────────────────────
+async function processClientQueue(
+  supabase: any,
+  resendApiKey: string,
+  emailLimit: number,
+  waLimit: number,
+): Promise<number> {
+  let processed = 0;
+
+  if (emailLimit > 0) {
+    const { data: emailItems } = await supabase
+      .from("client_remarketing_queue")
+      .select("*, profiles!inner(id, full_name, email, phone, company_name)")
+      .eq("status", "pending")
+      .eq("channel", "email")
+      .lte("scheduled_for", new Date().toISOString())
+      .order("scheduled_for", { ascending: true })
+      .limit(emailLimit);
+
+    for (const item of emailItems || []) {
+      const client = item.profiles;
+      if (!client?.email) {
+        await supabase.from("client_remarketing_queue").update({ status: "failed", error_message: "Sem e-mail" }).eq("id", item.id);
+        continue;
+      }
+      const result = await sendEmail(resendApiKey, client.email, item.subject || "", item.body || "");
+      if (result.success) {
+        await supabase.from("client_remarketing_queue").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", item.id);
+        await supabase.from("email_logs").insert({
+          from_email: "noreply@webmarcas.net", to_email: client.email,
+          subject: item.subject, body: item.body, status: "sent",
+          trigger_type: "remarketing",
+        });
+        await supabase.from("client_activities").insert({
+          user_id: client.id, activity_type: "remarketing",
+          description: `Remarketing e-mail enviado: ${item.subject}`,
+        });
+        processed++;
+      } else {
+        await supabase.from("client_remarketing_queue").update({ status: "failed", error_message: result.error }).eq("id", item.id);
+      }
+    }
+  }
+
+  if (waLimit > 0) {
+    const { data: waItems } = await supabase
+      .from("client_remarketing_queue")
+      .select("*, profiles!inner(id, full_name, email, phone, company_name)")
+      .eq("status", "pending")
+      .eq("channel", "whatsapp")
+      .lte("scheduled_for", new Date().toISOString())
+      .order("scheduled_for", { ascending: true })
+      .limit(waLimit);
+
+    for (const item of waItems || []) {
+      const client = item.profiles;
+      if (!client?.phone) {
+        await supabase.from("client_remarketing_queue").update({ status: "failed", error_message: "Sem telefone" }).eq("id", item.id);
+        continue;
+      }
+      const waMessage = await summarizeForWhatsApp(item.body || "", client.full_name || "", item.subject || "");
+      const result = await sendWhatsApp(supabase, client.phone, client.full_name, waMessage);
+      if (result.success) {
+        await supabase.from("client_remarketing_queue").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", item.id);
+        await supabase.from("client_activities").insert({
+          user_id: client.id, activity_type: "remarketing",
+          description: `Remarketing WhatsApp enviado para ${client.phone}`,
+        });
+        processed++;
+      } else {
+        await supabase.from("client_remarketing_queue").update({ status: "failed", error_message: result.error }).eq("id", item.id);
+      }
+    }
+  }
+
+  return processed;
+}
+
+// ─── Update Campaign Counters ────────────────────────────────────────
+async function updateCampaignCounters(
+  supabase: any,
+  queueTable: string,
+  campaignTable: string,
+) {
+  const { data: campaigns } = await supabase
+    .from(queueTable)
+    .select("campaign_id")
+    .eq("status", "sent")
+    .not("campaign_id", "is", null);
+
+  const campaignIds = [...new Set((campaigns || []).map((c: any) => c.campaign_id))];
+
+  for (const cid of campaignIds) {
+    const { count: sent } = await supabase
+      .from(queueTable)
+      .select("*", { count: "exact", head: true })
+      .eq("campaign_id", cid)
+      .eq("status", "sent");
+
+    const { count: pending } = await supabase
+      .from(queueTable)
+      .select("*", { count: "exact", head: true })
+      .eq("campaign_id", cid)
+      .eq("status", "pending");
+
+    await supabase
+      .from(campaignTable)
+      .update({
+        total_sent: sent || 0,
+        status: (pending || 0) === 0 ? "concluida" : "em_andamento",
+        sent_at: (pending || 0) === 0 ? new Date().toISOString() : null,
+      })
+      .eq("id", cid);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -160,147 +354,56 @@ Deno.serve(async (req) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
 
-    // Check daily limits
+    // Check daily limits (shared across leads + clients)
     const today = toBRT(new Date());
     today.setUTCHours(0, 0, 0, 0);
     const todayUTC = new Date(today.getTime() - BRT_OFFSET * 3600000).toISOString();
 
-    const { count: emailsSentToday } = await supabase
+    const { count: leadEmailsSent } = await supabase
       .from("lead_remarketing_queue")
       .select("*", { count: "exact", head: true })
-      .eq("channel", "email")
-      .eq("status", "sent")
-      .gte("sent_at", todayUTC);
+      .eq("channel", "email").eq("status", "sent").gte("sent_at", todayUTC);
 
-    const { count: waSentToday } = await supabase
+    const { count: clientEmailsSent } = await supabase
+      .from("client_remarketing_queue")
+      .select("*", { count: "exact", head: true })
+      .eq("channel", "email").eq("status", "sent").gte("sent_at", todayUTC);
+
+    const { count: leadWaSent } = await supabase
       .from("lead_remarketing_queue")
       .select("*", { count: "exact", head: true })
-      .eq("channel", "whatsapp")
-      .eq("status", "sent")
-      .gte("sent_at", todayUTC);
+      .eq("channel", "whatsapp").eq("status", "sent").gte("sent_at", todayUTC);
 
-    const emailsRemaining = Math.max(0, 100 - (emailsSentToday || 0));
-    const waRemaining = Math.max(0, 10 - (waSentToday || 0));
+    const { count: clientWaSent } = await supabase
+      .from("client_remarketing_queue")
+      .select("*", { count: "exact", head: true })
+      .eq("channel", "whatsapp").eq("status", "sent").gte("sent_at", todayUTC);
 
-    const emailLimit = Math.min(EMAIL_BATCH, emailsRemaining);
-    const waLimit = Math.min(WA_BATCH, waRemaining);
+    const totalEmailsSent = (leadEmailsSent || 0) + (clientEmailsSent || 0);
+    const totalWaSent = (leadWaSent || 0) + (clientWaSent || 0);
+
+    const emailsRemaining = Math.max(0, 100 - totalEmailsSent);
+    const waRemaining = Math.max(0, 10 - totalWaSent);
+
+    // Split limits: leads get first half, clients get second half
+    const leadEmailLimit = Math.min(EMAIL_BATCH, emailsRemaining);
+    const leadWaLimit = Math.min(WA_BATCH, waRemaining);
 
     let processed = 0;
 
-    // Process emails
-    if (emailLimit > 0) {
-      const { data: emailItems } = await supabase
-        .from("lead_remarketing_queue")
-        .select("*, leads!inner(id, full_name, email, phone, company_name)")
-        .eq("status", "pending")
-        .eq("channel", "email")
-        .lte("scheduled_for", new Date().toISOString())
-        .order("scheduled_for", { ascending: true })
-        .limit(emailLimit);
+    // Process lead queue
+    processed += await processLeadQueue(supabase, resendApiKey, leadEmailLimit, leadWaLimit);
 
-      for (const item of emailItems || []) {
-        const lead = item.leads;
-        if (!lead?.email) {
-          await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: "Sem e-mail" }).eq("id", item.id);
-          continue;
-        }
+    // Recalculate remaining after leads
+    const clientEmailLimit = Math.min(EMAIL_BATCH, Math.max(0, emailsRemaining - processed));
+    const clientWaLimit = Math.min(WA_BATCH, Math.max(0, waRemaining - (leadWaLimit > 0 ? 1 : 0)));
 
-        const result = await sendEmail(resendApiKey, lead.email, item.subject || "", item.body || "");
+    // Process client queue
+    processed += await processClientQueue(supabase, resendApiKey, clientEmailLimit, clientWaLimit);
 
-        if (result.success) {
-          await supabase.from("lead_remarketing_queue").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", item.id);
-          await supabase.from("email_logs").insert({
-            from_email: "noreply@webmarcas.net",
-            to_email: lead.email,
-            subject: item.subject,
-            body: item.body,
-            status: "sent",
-            trigger_type: "remarketing",
-            related_lead_id: lead.id,
-          });
-          await supabase.from("lead_activities").insert({
-            lead_id: lead.id,
-            activity_type: "remarketing",
-            content: `Remarketing e-mail enviado: ${item.subject}`,
-          });
-          processed++;
-        } else {
-          await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: result.error }).eq("id", item.id);
-        }
-      }
-    }
-
-    // Process WhatsApp
-    if (waLimit > 0) {
-      const { data: waItems } = await supabase
-        .from("lead_remarketing_queue")
-        .select("*, leads!inner(id, full_name, email, phone, company_name)")
-        .eq("status", "pending")
-        .eq("channel", "whatsapp")
-        .lte("scheduled_for", new Date().toISOString())
-        .order("scheduled_for", { ascending: true })
-        .limit(waLimit);
-
-      for (const item of waItems || []) {
-        const lead = item.leads;
-        if (!lead?.phone) {
-          await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: "Sem telefone" }).eq("id", item.id);
-          continue;
-        }
-
-        const waMessage = await summarizeForWhatsApp(item.body || "", lead.full_name || "", item.subject || "");
-        const result = await sendWhatsApp(supabase, lead.phone, lead.full_name, waMessage);
-
-        if (result.success) {
-          await supabase.from("lead_remarketing_queue").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", item.id);
-          await supabase.from("lead_activities").insert({
-            lead_id: lead.id,
-            activity_type: "remarketing",
-            content: `Remarketing WhatsApp enviado para ${lead.phone}`,
-          });
-          processed++;
-        } else {
-          await supabase.from("lead_remarketing_queue").update({ status: "failed", error_message: result.error }).eq("id", item.id);
-        }
-      }
-    }
-
-    // Update campaign counters
-    const { data: campaigns } = await supabase
-      .from("lead_remarketing_queue")
-      .select("campaign_id")
-      .eq("status", "sent")
-      .not("campaign_id", "is", null);
-
-    const campaignIds = [...new Set((campaigns || []).map((c: any) => c.campaign_id))];
-
-    for (const cid of campaignIds) {
-      const { count: sent } = await supabase
-        .from("lead_remarketing_queue")
-        .select("*", { count: "exact", head: true })
-        .eq("campaign_id", cid)
-        .eq("status", "sent");
-
-      const { count: total } = await supabase
-        .from("lead_remarketing_queue")
-        .select("*", { count: "exact", head: true })
-        .eq("campaign_id", cid);
-
-      const { count: pending } = await supabase
-        .from("lead_remarketing_queue")
-        .select("*", { count: "exact", head: true })
-        .eq("campaign_id", cid)
-        .eq("status", "pending");
-
-      await supabase
-        .from("lead_remarketing_campaigns")
-        .update({
-          total_sent: sent || 0,
-          status: (pending || 0) === 0 ? "concluida" : "em_andamento",
-          sent_at: (pending || 0) === 0 ? new Date().toISOString() : null,
-        })
-        .eq("id", cid);
-    }
+    // Update campaign counters for both queues
+    await updateCampaignCounters(supabase, "lead_remarketing_queue", "lead_remarketing_campaigns");
+    await updateCampaignCounters(supabase, "client_remarketing_queue", "client_remarketing_campaigns");
 
     return new Response(
       JSON.stringify({

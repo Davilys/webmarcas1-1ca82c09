@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, LayoutGrid, List, RefreshCw, Users, Filter, X, Upload, Briefcase, Scale, Star, UserCheck, UserPlus } from 'lucide-react';
+import { Search, LayoutGrid, List, RefreshCw, Users, Filter, X, Upload, Briefcase, Scale, Star, UserCheck, UserPlus, Mail } from 'lucide-react';
 import { useCanViewFinancialValues } from '@/hooks/useCanViewFinancialValues';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { ClientKanbanBoard, type ClientWithProcess, type KanbanFilters, type FunnelType } from '@/components/admin/clients/ClientKanbanBoard';
 import { ClientListView } from '@/components/admin/clients/ClientListView';
 import { ClientImportExportDialog } from '@/components/admin/clients/ClientImportExportDialog';
+import { ClientRemarketingPanel } from '@/components/admin/clients/ClientRemarketingPanel';
 import { DuplicateClientsDialog } from '@/components/admin/clients/DuplicateClientsDialog';
 import { CreateClientDialog } from '@/components/admin/clients/CreateClientDialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -56,6 +57,7 @@ export default function AdminClientes() {
   const [adminUsers, setAdminUsers] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
   const [funnelType, setFunnelType] = useState<FunnelType>('comercial');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [showRemarketing, setShowRemarketing] = useState(false);
   const { canViewFinancialValues } = useCanViewFinancialValues();
 
   // Debounce search input — avoids re-rendering 2300+ cards on every keystroke
@@ -500,6 +502,17 @@ export default function AdminClientes() {
               />
             </div>
 
+            {/* Email Automático button */}
+            <Button
+              variant={showRemarketing ? 'default' : 'outline'}
+              size="sm"
+              className="h-9 gap-1.5 shrink-0"
+              onClick={() => setShowRemarketing(!showRemarketing)}
+            >
+              <Mail className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Email Automático</span>
+            </Button>
+
             {/* Toolbar Icons */}
             <div className="flex items-center gap-1.5 shrink-0">
               <Button variant="ghost" size="icon" className="h-9 w-9" onClick={refreshClients} title="Atualizar">
@@ -662,6 +675,22 @@ export default function AdminClientes() {
             )}
           </div>
         </div>
+
+        {/* Remarketing Panel */}
+        {showRemarketing && (
+          <ClientRemarketingPanel
+            clients={filteredClients.map(c => ({
+              id: c.id,
+              full_name: c.full_name,
+              email: c.email,
+              phone: c.phone || null,
+              company_name: c.company_name || null,
+              priority: c.priority || null,
+              pipeline_stage: c.pipeline_stage || null,
+            }))}
+            onRefresh={refreshClients}
+          />
+        )}
 
         {/* Content */}
         {viewMode === 'kanban' ? (
