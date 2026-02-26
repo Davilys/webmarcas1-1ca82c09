@@ -587,6 +587,13 @@ export type Database = {
             referencedRelation: "client_remarketing_campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "client_remarketing_queue_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       contract_attachments: {
@@ -1929,7 +1936,15 @@ export type Database = {
           status?: string
           subject?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lead_remarketing_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       leads: {
         Row: {
