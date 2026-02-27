@@ -243,6 +243,14 @@ export default function RecursosINPI() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchDate, setSearchDate] = useState('');
   const [showLegalChat, setShowLegalChat] = useState(false);
+
+  // Client search for Notificante
+  const [clientSearchQuery, setClientSearchQuery] = useState('');
+  const [clientSearchResults, setClientSearchResults] = useState<Array<{ id: string; full_name: string | null; email: string | null; phone: string | null; cpf_cnpj: string | null; address: string | null; company_name: string | null }>>([]);
+  const [isSearchingClients, setIsSearchingClients] = useState(false);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const clientSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clientDropdownRef = useRef<HTMLDivElement>(null);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [editingResource, setEditingResource] = useState<INPIResource | null>(null);
@@ -257,6 +265,58 @@ export default function RecursosINPI() {
     nome: '', cpf_cnpj: '', endereco: ''
   });
   const [userInstructions, setUserInstructions] = useState('');
+
+  // Client search effect
+  useEffect(() => {
+    if (clientSearchTimeoutRef.current) clearTimeout(clientSearchTimeoutRef.current);
+    if (!clientSearchQuery || clientSearchQuery.length < 2) {
+      setClientSearchResults([]);
+      setShowClientDropdown(false);
+      return;
+    }
+    setIsSearchingClients(true);
+    clientSearchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const term = `%${clientSearchQuery}%`;
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, phone, cpf_cnpj, address, company_name')
+          .or(`full_name.ilike.${term},email.ilike.${term},cpf_cnpj.ilike.${term},company_name.ilike.${term}`)
+          .limit(10);
+        setClientSearchResults(data || []);
+        setShowClientDropdown(true);
+      } catch (e) {
+        console.error('Client search error:', e);
+      } finally {
+        setIsSearchingClients(false);
+      }
+    }, 400);
+    return () => { if (clientSearchTimeoutRef.current) clearTimeout(clientSearchTimeoutRef.current); };
+  }, [clientSearchQuery]);
+
+  // Click outside to close client dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
+        setShowClientDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectClient = (client: typeof clientSearchResults[0]) => {
+    setNotificanteData({
+      nome: client.company_name || client.full_name || '',
+      cpf_cnpj: client.cpf_cnpj || '',
+      endereco: client.address || '',
+      processo_inpi: notificanteData.processo_inpi,
+      registro_marca: notificanteData.registro_marca,
+      marca: notificanteData.marca,
+    });
+    setClientSearchQuery(client.company_name || client.full_name || '');
+    setShowClientDropdown(false);
+  };
 
   useEffect(() => { fetchResources(); }, []);
 
@@ -1127,6 +1187,59 @@ export default function RecursosINPI() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Client Search */}
+                  <div className="relative" ref={clientDropdownRef}>
+                    <Label className="flex items-center gap-2 mb-2">
+                      <Search className="h-3.5 w-3.5" />
+                      Pesquisar Cliente
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Digite nome, e-mail, CPF/CNPJ ou empresa..."
+                        value={clientSearchQuery}
+                        onChange={(e) => setClientSearchQuery(e.target.value)}
+                        onFocus={() => { if (clientSearchResults.length > 0) setShowClientDropdown(true); }}
+                        className="pl-9 rounded-xl"
+                      />
+                      {isSearchingClients && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                      {clientSearchQuery && !isSearchingClients && (
+                        <button
+                          onClick={() => { setClientSearchQuery(''); setClientSearchResults([]); setShowClientDropdown(false); }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    {showClientDropdown && clientSearchResults.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-xl shadow-xl max-h-64 overflow-y-auto">
+                        {clientSearchResults.map((client) => (
+                          <button
+                            key={client.id}
+                            onClick={() => handleSelectClient(client)}
+                            className="w-full text-left px-4 py-3 hover:bg-accent transition-colors border-b border-border/50 last:border-0"
+                          >
+                            <p className="font-medium text-sm">{client.company_name || client.full_name || 'Sem nome'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {[client.email, client.cpf_cnpj, client.phone].filter(Boolean).join(' • ')}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {showClientDropdown && clientSearchQuery.length >= 2 && clientSearchResults.length === 0 && !isSearchingClients && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-xl shadow-xl p-4 text-center">
+                        <p className="text-sm text-muted-foreground">Nenhum cliente encontrado</p>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Selecione um cliente para preencher automaticamente ou preencha manualmente abaixo
+                    </p>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Nome / Razão Social *</Label>
