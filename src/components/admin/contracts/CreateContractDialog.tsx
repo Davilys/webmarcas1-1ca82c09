@@ -521,10 +521,32 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     // For existing clients with a selected template - use the template content with profile data
     if (selectedTemplate && selectedProfile) {
       // Check if it's a standard contract template (Registro de Marca INPI)
-      // IMPORTANT: Only "Registro de Marca" templates should use replaceContractVariables
-      // Templates with "padrão" in the name but are procuração/distrato should NOT use this flow
       const isStandardContract = effectiveDocumentType === 'contract' && 
         selectedTemplate.name.toLowerCase().includes('registro de marca');
+      
+      // Check if it's a monitoring/maintenance template
+      const isMonitoramentoContract = selectedTemplate.name.toLowerCase().includes('monitoramento') ||
+        selectedTemplate.name.toLowerCase().includes('manutencao') ||
+        selectedTemplate.name.toLowerCase().includes('manutenção');
+      
+      if (isMonitoramentoContract) {
+        // Replace monitoramento-specific variables with profile data
+        const currentDate = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+        const fullAddress = `${selectedProfile.address || ''}, ${selectedProfile.neighborhood || ''}, ${selectedProfile.city || ''} - ${selectedProfile.state || ''}, CEP ${selectedProfile.zip_code || ''}`.replace(/^, /, '');
+        
+        let result = selectedTemplate.content;
+        result = replaceVar(result, 'nome_cliente', selectedProfile.full_name || formData.signatory_name || '');
+        result = replaceVar(result, 'cpf_cnpj', selectedProfile.cpf_cnpj || selectedProfile.cpf || formData.signatory_cpf || '');
+        result = replaceVar(result, 'endereco_cliente', fullAddress);
+        result = replaceVar(result, 'marca', effectiveBrandName);
+        result = replaceVar(result, 'dia_vencimento', '10');
+        result = replaceVar(result, 'data_assinatura', currentDate);
+        result = replaceVar(result, 'email', selectedProfile.email || '');
+        result = replaceVar(result, 'telefone', selectedProfile.phone || '');
+        result = replaceVar(result, 'cnpj_empresa', '');
+        result = replaceVar(result, 'endereco_empresa', '');
+        return result;
+      }
       
       if (isStandardContract) {
         // Use replaceContractVariables with profile data
@@ -783,11 +805,19 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       // Check if it's a standard contract template (for existing client payment method)
       const isStandardTemplate = selectedTemplate?.name.toLowerCase().includes('registro de marca') ||
                                   selectedTemplate?.name.toLowerCase().includes('padrão');
+      
+      // Detect monitoring template
+      const isMonitoramento = selectedTemplate?.name.toLowerCase().includes('monitoramento') ||
+                               selectedTemplate?.name.toLowerCase().includes('manutencao') ||
+                               selectedTemplate?.name.toLowerCase().includes('manutenção');
 
       // Calculate contract value: for new clients OR existing clients with standard template, use calculated value
-      const contractValue = isNewClient 
-        ? getContractValue() 
-        : (isStandardTemplate ? getContractValue() : (formData.contract_value ? parseFloat(formData.contract_value) : null));
+      // For monitoramento, force R$ 59.00
+      const contractValue = isMonitoramento
+        ? 59.00
+        : (isNewClient 
+          ? getContractValue() 
+          : (isStandardTemplate ? getContractValue() : (formData.contract_value ? parseFloat(formData.contract_value) : null)));
 
       // Calculate custom due date based on payment method
       const customDueDate = paymentMethod === 'avista' && pixPaymentDate 
@@ -814,7 +844,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         signatory_cpf: isNewClient ? personalData.cpf : (formData.signatory_cpf || null),
         signatory_cnpj: isNewClient && brandData.hasCNPJ ? brandData.cnpj : (formData.signatory_cnpj || null),
         penalty_value: formData.penalty_value ? parseFloat(formData.penalty_value) : null,
-        payment_method: (isNewClient || isStandardTemplate) && paymentMethod ? paymentMethod : null,
+        payment_method: isMonitoramento ? 'boleto_recorrente' : ((isNewClient || isStandardTemplate) && paymentMethod ? paymentMethod : null),
         custom_due_date: customDueDate,
         signature_status: 'not_signed',
         visible_to_client: true,
@@ -1095,9 +1125,15 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
   const isSpecialDocument = formData.document_type !== 'contract';
   const isDistrato = formData.document_type === 'distrato_multa' || formData.document_type === 'distrato_sem_multa';
   
-  // Show "Criar e Enviar Link" button for special documents OR standard contract templates
+  // Detect monitoring/maintenance template
+  const isMonitoramentoTemplate = selectedTemplate?.name.toLowerCase().includes('monitoramento') ||
+                                   selectedTemplate?.name.toLowerCase().includes('manutencao') ||
+                                   selectedTemplate?.name.toLowerCase().includes('manutenção');
+
+  // Show "Criar e Enviar Link" button for special documents OR standard contract templates OR monitoramento
   const isStandardContractTemplate = selectedTemplate?.name.toLowerCase().includes('registro de marca') ||
-                                      selectedTemplate?.name.toLowerCase().includes('padrão');
+                                      selectedTemplate?.name.toLowerCase().includes('padrão') ||
+                                      isMonitoramentoTemplate;
   const showSendLinkButton = isSpecialDocument || isStandardContractTemplate;
 
   return (
@@ -2214,8 +2250,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                   </TabsContent>
                 </Tabs>
 
-                {/* Payment selection for standard contracts with existing clients */}
-                {isStandardContractTemplate && (
+                {/* Payment selection for standard contracts with existing clients (NOT for monitoramento) */}
+                {isStandardContractTemplate && !isMonitoramentoTemplate && (
                   <div className="space-y-4 mt-4 p-4 bg-muted/30 rounded-lg border">
                     <div>
                       <Label className="font-medium">Forma de Pagamento *</Label>
@@ -2334,6 +2370,22 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                       <span className="text-xs text-muted-foreground">
                         O valor do contrato será atualizado automaticamente.
                       </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Monitoramento template info box */}
+                {isMonitoramentoTemplate && (
+                  <div className="space-y-3 mt-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="bg-primary/10 text-primary">Plano Recorrente</Badge>
+                    </div>
+                    <div className="text-sm space-y-1">
+                      <p><strong>Mensalidade:</strong> R$ 59,00/mês (boleto automático)</p>
+                      <p><strong>Anuidade:</strong> R$ 398,00 (cobrada em dezembro)</p>
+                      <p className="text-muted-foreground text-xs mt-2">
+                        A cobrança recorrente será criada automaticamente no Asaas após a assinatura do contrato.
+                      </p>
                     </div>
                   </div>
                 )}

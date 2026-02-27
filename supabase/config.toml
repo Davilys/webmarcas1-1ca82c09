@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.create-google-meet]
 verify_jwt = false
+
+[functions.create-monitoring-subscription]
+verify_jwt = false

@@ -530,6 +530,26 @@ serve(async (req) => {
 
     console.log('Contract signed successfully:', contractId);
 
+    // ── MONITORING SUBSCRIPTION HOOK ──────────────────────────
+    // If contract has payment_method = 'boleto_recorrente', create Asaas subscription
+    if (contractData?.payment_method === 'boleto_recorrente') {
+      try {
+        console.log('[monitoring] Creating recurring subscription for contract:', contractId);
+        fetch(`${supabaseUrl}/functions/v1/create-monitoring-subscription`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({ contractId }),
+        }).catch(e => console.error('[monitoring] Subscription dispatch error:', e));
+        console.log('[monitoring] Subscription dispatch sent');
+      } catch (monErr) {
+        console.error('[monitoring] Error dispatching subscription:', monErr);
+      }
+    }
+    // ── END MONITORING SUBSCRIPTION HOOK ──────────────────────
+
     // ── MULTICHANNEL HOOK: contrato_assinado ──────────────────
     // Fire-and-forget — never blocks the main response
     try {
