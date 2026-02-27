@@ -19,7 +19,10 @@ interface ResourceData {
 interface INPIResourcePDFPreviewProps {
   resource: ResourceData;
   content: string;
+  resourceType?: string;
 }
+
+const isNotificacao = (type?: string) => type === 'notificacao_extrajudicial';
 
 const cleanMarkdown = (text: string): string => {
   return text
@@ -29,25 +32,18 @@ const cleanMarkdown = (text: string): string => {
     .replace(/_([^_]+)_/g, '$1')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/#{1,6}\s*/g, '')
-    // Strip all Unicode box-drawing characters that jsPDF cannot render
     .replace(/[\u2500-\u257F\u2580-\u259F\u2550-\u256C]/g, '')
     .trim();
 };
 
-/** Strip AI-generated closing/signature/footer lines from content to avoid duplication */
-const stripClosingFromContent = (text: string): string => {
-  // Remove footer address/contact lines that the AI sometimes includes
+const stripClosingFromContent = (text: string, resourceType?: string): string => {
   let cleaned = text.replace(/^Av\.\s*Brigadeiro.*$/gm, '');
   cleaned = cleaned.replace(/^Tel:?\s*\(11\).*$/gm, '');
-  // Remove Unicode box-drawing / separator lines (═══, ───, ━━━, etc.) that jsPDF can't render
   cleaned = cleaned.replace(/^[═─━╌╍┄┅┈┉▬%P\s]{3,}$/gm, '');
-  // Remove lines that are just repeated special chars (catch-all for decorative separators)
   cleaned = cleaned.replace(/^[\u2500-\u257F\u2580-\u259F\u2550-\u256C]{2,}.*$/gm, '');
-  // Remove duplicate closing blocks (underscores, closing text)
   cleaned = cleaned.replace(/^[_]{3,}$/gm, '');
-  // Replace "Examinador/Opoente:" with "Oponente:" in the content itself
   cleaned = cleaned.replace(/Examinador\/Opoe?nte:/gi, 'Oponente:');
-  // Remove trailing closing section if it exists
+  
   const closingPatterns = [
     /\n\s*Protesta provar[\s\S]*$/i,
     /\n\s*Nestes termos[\s\S]*$/i,
@@ -55,18 +51,23 @@ const stripClosingFromContent = (text: string): string => {
   for (const pattern of closingPatterns) {
     cleaned = cleaned.replace(pattern, '');
   }
-  // Remove standalone "Termos em que" closing block at the end
   cleaned = cleaned.replace(/\n\s*Termos em que,?\s*\n\s*Pede deferimento\.?\s*\n[\s\S]*$/i, '');
+  
+  // For notificacao, also strip any AI-generated closing with signature
+  if (isNotificacao(resourceType)) {
+    cleaned = cleaned.replace(/\n\s*São Paulo,\s*\d{1,2}\s*de\s*\w+\s*de\s*\d{4}[\s\S]*$/i, '');
+    cleaned = cleaned.replace(/\n\s*Davilys Danques[\s\S]*$/i, '');
+  }
+  
   return cleaned.trim();
 };
 
 const isHeadingLine = (text: string): boolean => {
   const trimmed = text.trim();
   if (trimmed.length >= 100) return false;
-  return /^(I{1,4}V?\s*[–—-]|V?I{0,4}\s*[–—-]|[A-Z][A-Z\s–—-]{5,}$|DO[S]?\s|DA[S]?\s|CONCLUS|PEDIDO|FATOS|FUNDAMENT|RECURSO|EXCELENT)/i.test(trimmed);
+  return /^(I{1,4}V?\s*[–—-]|V?I{0,4}\s*[–—-]|[A-Z][A-Z\s–—-]{5,}$|DO[S]?\s|DA[S]?\s|CONCLUS|PEDIDO|FATOS|FUNDAMENT|RECURSO|EXCELENT|NOTIFICA)/i.test(trimmed);
 };
 
-/** Convert image URL/import to base64 for jsPDF embedding */
 const imageToBase64 = (src: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -85,16 +86,23 @@ const imageToBase64 = (src: string): Promise<string> => {
   });
 };
 
-export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPreviewProps) {
+export function INPIResourcePDFPreview({ resource, content, resourceType }: INPIResourcePDFPreviewProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
+  const isNotif = isNotificacao(resourceType);
   const cleanedContent = cleanMarkdown(content);
-  const bodyContent = stripClosingFromContent(cleanedContent);
+  const bodyContent = stripClosingFromContent(cleanedContent, resourceType);
 
   const approvalDate = resource.approved_at 
     ? format(new Date(resource.approved_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
     : format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+
+  const documentTitle = isNotif ? 'Notificação Extrajudicial' : 'Recurso Administrativo';
+  const documentTitleUpper = isNotif ? 'NOTIFICAÇÃO EXTRAJUDICIAL' : 'RECURSO ADMINISTRATIVO';
+  const pdfFileName = isNotif
+    ? `Notificacao_Extrajudicial_${resource.brand_name?.replace(/\s+/g, '_') || 'WebMarcas'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`
+    : `Recurso_${resource.brand_name?.replace(/\s+/g, '_') || 'INPI'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -110,7 +118,7 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Recurso Administrativo - ${resource.brand_name || 'WebMarcas'}</title>
+          <title>${documentTitle} - ${resource.brand_name || 'WebMarcas'}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&display=swap');
             @page { margin: 2.5cm; size: A4; }
@@ -142,7 +150,6 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
       const contentWidth = pageWidth - (margin * 2);
       let yPos = margin;
 
-      // Load images as base64
       let logoBase64: string | null = null;
       let signBase64: string | null = null;
       try { logoBase64 = await imageToBase64(logoWebmarcas); } catch { /* skip */ }
@@ -155,7 +162,7 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
       pdf.rect(0, 6, pageWidth, 2, 'F');
       yPos = 18;
 
-      // ── Letterhead (logo + company) ──
+      // ── Letterhead ──
       if (logoBase64) {
         pdf.addImage(logoBase64, 'PNG', margin, yPos - 2, 18, 18);
       }
@@ -169,7 +176,6 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
       pdf.setTextColor(100, 100, 100);
       pdf.text('Propriedade Intelectual e Registro de Marcas', textX, yPos + 12);
 
-      // Right side info
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(30, 58, 95);
@@ -191,15 +197,14 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
       yPos = 50;
 
       // ── Document Title Badge ──
-      const badgeText = 'RECURSO ADMINISTRATIVO';
       pdf.setFontSize(11);
-      const badgeWidth = pdf.getTextWidth(badgeText) + 16;
+      const badgeWidth = pdf.getTextWidth(documentTitleUpper) + 16;
       const badgeX = (pageWidth - badgeWidth) / 2;
       pdf.setFillColor(30, 58, 95);
       pdf.roundedRect(badgeX, yPos - 4, badgeWidth, 10, 1, 1, 'F');
       pdf.setTextColor(255, 255, 255);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(badgeText, pageWidth / 2, yPos + 2.5, { align: 'center' });
+      pdf.text(documentTitleUpper, pageWidth / 2, yPos + 2.5, { align: 'center' });
       yPos += 12;
 
       if (resource.brand_name) {
@@ -244,8 +249,6 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
       for (const paragraph of paragraphs) {
         const trimmedParagraph = paragraph.trim();
         if (!trimmedParagraph) continue;
-        
-        // Skip lines that look like footer address/tel leftovers
         if (/^(Av\.\s*Brigadeiro|Tel:\s*\(11\))/.test(trimmedParagraph)) continue;
 
         const heading = isHeadingLine(trimmedParagraph);
@@ -263,7 +266,6 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
             yPos += 7;
           }
           
-          // Gold underline
           if (trimmedParagraph.length < 80) {
             pdf.setDrawColor(200, 175, 55);
             pdf.setLineWidth(0.3);
@@ -277,7 +279,6 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
           pdf.setTextColor(30, 30, 30);
           pdf.setFont('helvetica', 'normal');
 
-          // Handle list items (- a), - b), etc.)
           const isList = /^[-–•]\s/.test(trimmedParagraph);
           const indent = isList ? margin + 5 : margin;
           const lineWidth = isList ? contentWidth - 5 : contentWidth;
@@ -300,12 +301,16 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
       pdf.setFontSize(11);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(60, 60, 60);
-      pdf.text('Termos em que,', pageWidth / 2, yPos, { align: 'center' });
-      yPos += 8;
-      pdf.text('Pede deferimento.', pageWidth / 2, yPos, { align: 'center' });
-      yPos += 12;
+
+      if (!isNotif) {
+        // Standard INPI resource closing
+        pdf.text('Termos em que,', pageWidth / 2, yPos, { align: 'center' });
+        yPos += 8;
+        pdf.text('Pede deferimento.', pageWidth / 2, yPos, { align: 'center' });
+        yPos += 12;
+      }
+
       pdf.text(`São Paulo, ${approvalDate}`, pageWidth / 2, yPos, { align: 'center' });
-      
       yPos += 16;
 
       // Signature image
@@ -330,7 +335,11 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
       pdf.setFontSize(10);
       pdf.setTextColor(80, 80, 80);
       pdf.text('Procurador', pageWidth / 2, yPos + 6, { align: 'center' });
-      pdf.text('CPF 393.239.118-79', pageWidth / 2, yPos + 12, { align: 'center' });
+
+      if (!isNotif) {
+        // Only show CPF for INPI resources
+        pdf.text('CPF 393.239.118-79', pageWidth / 2, yPos + 12, { align: 'center' });
+      }
 
       // ── Footers on all pages ──
       const totalPages = pdf.getNumberOfPages();
@@ -339,7 +348,7 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
         addFooter(i, totalPages);
       }
 
-      pdf.save(`Recurso_${resource.brand_name?.replace(/\s+/g, '_') || 'INPI'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      pdf.save(pdfFileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Erro ao gerar PDF. Tente novamente.');
@@ -351,8 +360,6 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
   const renderContent = () => {
     return bodyContent.split('\n\n').filter(p => p.trim()).map((paragraph, idx) => {
       const trimmed = paragraph.trim();
-      
-      // Skip footer lines
       if (/^(Av\.\s*Brigadeiro|Tel:\s*\(11\))/.test(trimmed)) return null;
       
       if (isHeadingLine(trimmed)) {
@@ -399,7 +406,7 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
         className="bg-white text-gray-900 shadow-2xl mx-auto overflow-hidden rounded-lg"
         style={{ width: '210mm', minHeight: '297mm', fontFamily: "Georgia, serif", fontSize: '12pt', lineHeight: '1.8' }}
       >
-        {/* Header - matching contract identity #1e3a5f */}
+        {/* Header */}
         <div className="w-full" style={{ height: '8px', background: 'linear-gradient(90deg, #1e3a5f 0%, #2a5080 50%, #1e3a5f 100%)' }} />
         <div className="w-full" style={{ height: '3px', background: 'linear-gradient(90deg, #c8af37, #d4c050, #c8af37)' }} />
 
@@ -436,7 +443,7 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
           <div className="text-center mb-8">
             <div className="inline-block px-8 py-2 rounded-sm" style={{ backgroundColor: '#1e3a5f' }}>
               <span className="text-white font-semibold text-sm tracking-wider uppercase">
-                Recurso Administrativo
+                {documentTitle}
               </span>
             </div>
             {resource.brand_name && (
@@ -458,8 +465,12 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
 
           {/* Signature */}
           <div className="mt-16 text-center">
-            <p className="mb-4" style={{ color: '#374151' }}>Termos em que,</p>
-            <p className="mb-4" style={{ color: '#374151' }}>Pede deferimento.</p>
+            {!isNotif && (
+              <>
+                <p className="mb-4" style={{ color: '#374151' }}>Termos em que,</p>
+                <p className="mb-4" style={{ color: '#374151' }}>Pede deferimento.</p>
+              </>
+            )}
             <p className="mb-8" style={{ color: '#374151' }}>São Paulo, {approvalDate}</p>
             
             <div className="mt-6">
@@ -473,7 +484,9 @@ export function INPIResourcePDFPreview({ resource, content }: INPIResourcePDFPre
               <div className="w-52 mx-auto mb-3" style={{ height: '2px', background: '#1e3a5f' }} />
               <p className="font-semibold text-base" style={{ color: '#1e3a5f' }}>Davilys Danques de Oliveira Cunha</p>
               <p className="text-sm" style={{ color: '#555' }}>Procurador</p>
-              <p className="text-sm" style={{ color: '#777' }}>CPF 393.239.118-79</p>
+              {!isNotif && (
+                <p className="text-sm" style={{ color: '#777' }}>CPF 393.239.118-79</p>
+              )}
             </div>
           </div>
 

@@ -9,8 +9,164 @@ const corsHeaders = {
 const RESOURCE_TYPE_LABELS: Record<string, string> = {
   indeferimento: 'RECURSO CONTRA INDEFERIMENTO',
   exigencia_merito: 'CUMPRIMENTO DE EXIGÊNCIA DE MÉRITO / RECURSO ADMINISTRATIVO',
-  oposicao: 'MANIFESTAÇÃO À OPOSIÇÃO'
+  oposicao: 'MANIFESTAÇÃO À OPOSIÇÃO',
+  notificacao_extrajudicial: 'NOTIFICAÇÃO EXTRAJUDICIAL'
 };
+
+function buildNotificacaoPrompt(
+  currentDate: string,
+  notificanteData: any,
+  notificadoData: any,
+  userInstructions: string,
+  agentStrategy?: string,
+  agentName?: string
+): string {
+  return `#instruction
+
+Você é um ADVOGADO ESPECIALISTA EM PROPRIEDADE INDUSTRIAL de ELITE,
+com décadas de atuação em DEFESA DE MARCAS E NOTIFICAÇÕES EXTRAJUDICIAIS.
+Seu papel é elaborar uma NOTIFICAÇÃO EXTRAJUDICIAL COMPLETA, ROBUSTA E JURIDICAMENTE VIÁVEL
+para cessar o uso indevido de marca registrada.
+
+IMPORTANTE: Este documento NÃO é um recurso administrativo no INPI.
+É uma NOTIFICAÇÃO EXTRAJUDICIAL dirigida diretamente ao INFRATOR (Notificado).
+NÃO inclua "Pede deferimento", "Termos em que", nem referências ao INPI como destinatário.
+
+⚠️ REGRAS ABSOLUTAS E INVIOLÁVEIS:
+- JAMAIS inventar fatos, decisões ou jurisprudência
+- JAMAIS criar números de processos fictícios  
+- JAMAIS simplificar ou superficializar a argumentação
+- O documento DEVE ter no MÍNIMO 2.000 palavras de conteúdo substantivo
+- A argumentação deve ser DENSA, PROFUNDA e ESPECÍFICA ao caso concreto
+- NUNCA termine o documento de forma abrupta ou incompleta
+
+#dados_das_partes
+
+NOTIFICANTE (Titular da Marca):
+- Nome/Razão Social: ${notificanteData.nome || 'Não informado'}
+- CPF/CNPJ: ${notificanteData.cpf_cnpj || 'Não informado'}
+- Endereço: ${notificanteData.endereco || 'Não informado'}
+- Marca: ${notificanteData.marca || 'Não informada'}
+- Processo INPI nº: ${notificanteData.processo_inpi || 'Não informado'}
+- Registro da Marca nº: ${notificanteData.registro_marca || 'Não informado'}
+
+NOTIFICADO (Infrator):
+- Nome/Razão Social: ${notificadoData.nome || 'Não informado'}
+- CPF/CNPJ: ${notificadoData.cpf_cnpj || 'Não informado'}
+- Endereço: ${notificadoData.endereco || 'Não informado'}
+
+#instrucoes_do_usuario
+${userInstructions || 'O usuário não forneceu instruções adicionais. Elabore a notificação com base nos dados fornecidos.'}
+
+#identidade_institucional
+
+O documento deve ser elaborado em nome da WEBMARCAS INTELLIGENCE PI™:
+- CNPJ: 39.528.012/0001-29
+- Endereço: Av. Brigadeiro Luiz Antônio, 2696, Centro — São Paulo/SP — CEP 01402-000
+- Telefone: (11) 9 1112-0225
+- E-mail: juridico@webmarcas.net
+- Site: www.webmarcas.net
+
+O ENCERRAMENTO deve conter APENAS:
+- Data: São Paulo, ${currentDate}
+- Assinatura: Davilys Danques de Oliveira Cunha
+- Qualificação: Procurador
+- SEM CPF (não incluir CPF na assinatura)
+- SEM "Pede deferimento"
+- SEM "Termos em que"
+
+#estrutura_obrigatoria
+
+═══════════════════════════════════════════════════════════
+NOTIFICAÇÃO EXTRAJUDICIAL
+═══════════════════════════════════════════════════════════
+
+I – IDENTIFICAÇÃO DAS PARTES
+(Dados completos do Notificante e do Notificado conforme fornecidos)
+
+II – DOS FATOS
+(Mínimo 500 palavras)
+- Narrativa detalhada e cronológica do uso indevido da marca
+- Baseado nas instruções do usuário e documentos anexados
+- Descrever como, onde, de que forma a marca está sendo usada indevidamente
+- Demonstrar o conhecimento prévio do registro da marca pelo notificante
+- Detalhar os produtos/serviços em que a marca está sendo usada indevidamente
+
+III – DO DIREITO
+(Mínimo 600 palavras)
+- Lei da Propriedade Industrial (Lei nº 9.279/96):
+  * Art. 129 — direitos de propriedade da marca registrada
+  * Art. 130 — proteções conferidas ao titular
+  * Art. 189 — crime de violação de direito de marca
+  * Art. 190 — crime de uso indevido de marca alheia
+- Código Civil (Lei nº 10.406/2002):
+  * Art. 186 — ato ilícito (violação de direito de marca = ato ilícito)
+  * Art. 927 — obrigação de reparar dano causado por ato ilícito
+  * Art. 944 — extensão da indenização pela extensão do dano
+- Constituição Federal:
+  * Art. 5º, XXIX — proteção à propriedade das marcas
+- Jurisprudência relevante do STJ e TRFs sobre uso indevido de marca
+
+IV – DA NOTIFICAÇÃO E INTIMAÇÃO
+(Mínimo 300 palavras)
+- INTIMAR o Notificado a:
+  a) CESSAR IMEDIATAMENTE todo e qualquer uso da marca
+  b) RETIRAR de circulação todos os materiais (físicos e digitais) que contenham a marca
+  c) REMOVER das redes sociais, sites, plataformas digitais qualquer referência à marca
+  d) ABSTER-SE de utilizar a marca em qualquer meio
+- Prazo de 15 (quinze) dias corridos para cumprimento integral
+- A presente notificação serve como marco de ciência inequívoca da irregularidade
+
+V – DAS CONSEQUÊNCIAS DO DESCUMPRIMENTO
+(Mínimo 300 palavras)
+- Medidas judiciais cabíveis caso não haja cumprimento:
+  a) Ação de abstenção de uso com tutela de urgência
+  b) Busca e apreensão de materiais que contenham a marca
+  c) Ação indenizatória por danos materiais e morais
+  d) Representação criminal com base nos arts. 189 e 190 da LPI
+  e) Multa diária (astreintes) por descumprimento
+- Responsabilização integral pelos custos processuais e honorários advocatícios
+- Constituição em mora do Notificado a partir do recebimento desta notificação
+
+VI – DO ENCERRAMENTO
+- A presente notificação constitui prova inequívoca de ciência
+- Data e local
+- Assinatura: Davilys Danques de Oliveira Cunha, Procurador (SEM CPF)
+
+${agentStrategy ? `#estrategia_especifica_do_agente
+
+IMPORTANTE: Aplique a estratégia abaixo como CAMADA ADICIONAL sobre a estrutura obrigatória.
+A estratégia do agente deve ENRIQUECER e APROFUNDAR a notificação.
+
+${agentStrategy}` : ''}
+
+${agentName ? `#agente_responsavel: ${agentName}` : ''}
+
+#padrao_qualidade
+
+EXIGÊNCIAS MÍNIMAS:
+1. O documento completo deve ter NO MÍNIMO 2.000 palavras
+2. Toda jurisprudência citada deve ser REAL e verificável
+3. Toda legislação deve ser citada com artigo, inciso e alínea exatos
+4. O texto deve ter qualidade equivalente aos melhores escritórios de PI
+5. A linguagem deve ser jurídica profissional formal
+6. O documento NÃO pode terminar abruptamente
+7. NÃO incluir "Pede deferimento" nem "Termos em que" no encerramento
+8. O encerramento deve ter APENAS: data, nome "Davilys Danques de Oliveira Cunha" e "Procurador"
+
+FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
+{
+  "extracted_data": {
+    "process_number": "${notificanteData.processo_inpi || ''}",
+    "brand_name": "${notificanteData.marca || ''}",
+    "ncl_class": "",
+    "holder": "${notificanteData.nome || ''}",
+    "examiner_or_opponent": "${notificadoData.nome || ''}",
+    "legal_basis": "Arts. 129, 130, 189 e 190 da Lei 9.279/96; Arts. 186, 927 e 944 do CC; Art. 5º, XXIX da CF/88"
+  },
+  "resource_content": "CONTEÚDO COMPLETO DA NOTIFICAÇÃO EXTRAJUDICIAL COM TODAS AS SEÇÕES (texto extenso, profundo e formatado)"
+}`;
+}
 
 function buildSystemPrompt(resourceTypeLabel: string, currentDate: string, agentStrategy?: string, agentName?: string): string {
   return `#instruction
@@ -285,11 +441,12 @@ serve(async (req) => {
       );
     }
 
-    const { fileBase64, fileType, resourceType, agentStrategy, agentName } = await req.json();
+    const body = await req.json();
+    const { resourceType, agentStrategy, agentName } = body;
 
-    if (!fileBase64 || !fileType || !resourceType) {
+    if (!resourceType) {
       return new Response(
-        JSON.stringify({ error: 'Parâmetros obrigatórios ausentes' }),
+        JSON.stringify({ error: 'Tipo de recurso não informado' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -302,41 +459,95 @@ serve(async (req) => {
       );
     }
 
-    const resourceTypeLabel = RESOURCE_TYPE_LABELS[resourceType] || 'RECURSO ADMINISTRATIVO';
-
     const currentDate = new Date().toLocaleDateString('pt-BR', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
     });
 
-    const systemPrompt = buildSystemPrompt(resourceTypeLabel, currentDate, agentStrategy, agentName);
+    let systemPrompt: string;
+    const userContent: any[] = [];
 
-    const userContent: any[] = [
-      {
+    if (resourceType === 'notificacao_extrajudicial') {
+      // Notificação Extrajudicial flow
+      const { notificanteData, notificadoData, userInstructions, files } = body;
+
+      systemPrompt = buildNotificacaoPrompt(
+        currentDate,
+        notificanteData || {},
+        notificadoData || {},
+        userInstructions || '',
+        agentStrategy,
+        agentName
+      );
+
+      let textInstruction = "Elabore a NOTIFICAÇÃO EXTRAJUDICIAL COMPLETA, EXTENSA e JURIDICAMENTE ROBUSTA conforme as instruções. O documento deve ter no MÍNIMO 2.000 palavras, seguindo rigorosamente TODAS as seções obrigatórias. NÃO simplifique, NÃO encurte. Cada argumento deve ser desenvolvido com profundidade jurídica real.";
+
+      if (files && files.length > 0) {
+        textInstruction += `\n\nO usuário anexou ${files.length} documento(s) de prova. Analise-os para enriquecer a narrativa dos fatos.`;
+      }
+
+      userContent.push({ type: "text", text: textInstruction });
+
+      // Add attached files
+      if (files && Array.isArray(files)) {
+        for (const file of files) {
+          if (file.type === 'application/pdf') {
+            userContent.push({
+              type: "file",
+              file: {
+                filename: file.name || "documento.pdf",
+                file_data: `data:application/pdf;base64,${file.base64}`
+              }
+            });
+          } else if (file.type?.startsWith('image/')) {
+            userContent.push({
+              type: "image_url",
+              image_url: {
+                url: `data:${file.type};base64,${file.base64}`
+              }
+            });
+          }
+        }
+      }
+    } else {
+      // Standard INPI resource flow
+      const { fileBase64, fileType } = body;
+
+      if (!fileBase64 || !fileType) {
+        return new Response(
+          JSON.stringify({ error: 'Parâmetros obrigatórios ausentes (fileBase64, fileType)' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const resourceTypeLabel = RESOURCE_TYPE_LABELS[resourceType] || 'RECURSO ADMINISTRATIVO';
+      systemPrompt = buildSystemPrompt(resourceTypeLabel, currentDate, agentStrategy, agentName);
+
+      userContent.push({
         type: "text",
         text: "Analise o documento PDF anexado do INPI e elabore o recurso administrativo COMPLETO, EXTENSO e ROBUSTO conforme as instruções. O recurso deve ter no MÍNIMO 3.000 palavras, seguindo rigorosamente TODAS as 8 seções obrigatórias com a extensão mínima especificada para cada uma. NÃO simplifique, NÃO encurte, NÃO produza texto genérico. Cada argumento deve ser desenvolvido em múltiplos parágrafos com profundidade jurídica real."
-      }
-    ];
+      });
 
-    if (fileType === 'application/pdf') {
-      userContent.push({
-        type: "file",
-        file: {
-          filename: "documento_inpi.pdf",
-          file_data: `data:application/pdf;base64,${fileBase64}`
-        }
-      });
-    } else {
-      userContent.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${fileType};base64,${fileBase64}`
-        }
-      });
+      if (fileType === 'application/pdf') {
+        userContent.push({
+          type: "file",
+          file: {
+            filename: "documento_inpi.pdf",
+            file_data: `data:application/pdf;base64,${fileBase64}`
+          }
+        });
+      } else {
+        userContent.push({
+          type: "image_url",
+          image_url: {
+            url: `data:${fileType};base64,${fileBase64}`
+          }
+        });
+      }
     }
 
-    console.log('Calling AI with elite legal prompt, agent:', agentName || 'default');
+    console.log('Calling AI with prompt for:', resourceType, ', agent:', agentName || 'default');
 
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -411,6 +622,8 @@ serve(async (req) => {
         resource_content: content
       };
     }
+
+    const resourceTypeLabel = RESOURCE_TYPE_LABELS[resourceType] || 'RECURSO ADMINISTRATIVO';
 
     return new Response(
       JSON.stringify({

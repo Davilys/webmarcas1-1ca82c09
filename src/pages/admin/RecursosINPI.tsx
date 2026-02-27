@@ -13,7 +13,8 @@ import {
   History, Plus, Eye, Search, X, Calendar, Scale, Shield, Gavel, 
   AlertTriangle, Sparkles, ArrowRight, Brain, Zap,
   BarChart3, Clock, CheckCircle2, XCircle, Trash2, MoreVertical,
-  RotateCcw, RefreshCw, Crown, Flame, Target, Sword, BookOpen
+  RotateCcw, RefreshCw, Crown, Flame, Target, Sword, BookOpen,
+  FileWarning, Image as ImageIcon
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -48,12 +49,28 @@ interface INPIResource {
   approved_at: string | null;
 }
 
-type Step = 'list' | 'select-type' | 'select-agent' | 'upload' | 'processing' | 'review' | 'approved';
+interface NotificanteData {
+  nome: string;
+  cpf_cnpj: string;
+  endereco: string;
+  processo_inpi: string;
+  registro_marca: string;
+  marca: string;
+}
+
+interface NotificadoData {
+  nome: string;
+  cpf_cnpj: string;
+  endereco: string;
+}
+
+type Step = 'list' | 'select-type' | 'select-agent' | 'notificacao-data' | 'upload' | 'processing' | 'review' | 'approved';
 
 const RESOURCE_TYPE_LABELS: Record<string, string> = {
   indeferimento: 'Recurso contra Indeferimento',
   exigencia_merito: 'Exigência de Mérito',
-  oposicao: 'Manifestação à Oposição'
+  oposicao: 'Manifestação à Oposição',
+  notificacao_extrajudicial: 'Notificação Extrajudicial'
 };
 
 const RESOURCE_TYPE_CONFIG: Record<string, { icon: typeof Gavel; color: string; gradient: string; description: string }> = {
@@ -74,6 +91,12 @@ const RESOURCE_TYPE_CONFIG: Record<string, { icon: typeof Gavel; color: string; 
     color: 'text-blue-500',
     gradient: 'from-blue-500/10 to-blue-600/5 border-blue-500/20 hover:border-blue-500/40',
     description: 'Para responder a oposições de terceiros contra a marca com análise comparativa detalhada.'
+  },
+  notificacao_extrajudicial: {
+    icon: FileWarning,
+    color: 'text-purple-500',
+    gradient: 'from-purple-500/10 to-purple-600/5 border-purple-500/20 hover:border-purple-500/40',
+    description: 'Para notificar pessoa ou empresa que esteja usando sua marca indevidamente. Documento jurídico completo com fundamentação legal.'
   }
 };
 
@@ -187,6 +210,7 @@ type AgentId = keyof typeof AI_AGENTS;
 const STEPS_FLOW = [
   { key: 'select-type', label: 'Tipo', icon: Gavel },
   { key: 'select-agent', label: 'Estratégia', icon: Brain },
+  { key: 'notificacao-data', label: 'Dados', icon: FileText },
   { key: 'upload', label: 'Documento', icon: Upload },
   { key: 'processing', label: 'IA Processando', icon: Zap },
   { key: 'review', label: 'Revisão', icon: Edit3 },
@@ -205,6 +229,7 @@ export default function RecursosINPI() {
   const [resourceType, setResourceType] = useState('');
   const [selectedAgent, setSelectedAgent] = useState<AgentId>('mazzola');
   const [file, setFile] = useState<File | null>(null);
+  const [multipleFiles, setMultipleFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [draftContent, setDraftContent] = useState('');
@@ -222,6 +247,16 @@ export default function RecursosINPI() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [editingResource, setEditingResource] = useState<INPIResource | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const multiFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Notificação Extrajudicial state
+  const [notificanteData, setNotificanteData] = useState<NotificanteData>({
+    nome: '', cpf_cnpj: '', endereco: '', processo_inpi: '', registro_marca: '', marca: ''
+  });
+  const [notificadoData, setNotificadoData] = useState<NotificadoData>({
+    nome: '', cpf_cnpj: '', endereco: ''
+  });
+  const [userInstructions, setUserInstructions] = useState('');
 
   useEffect(() => { fetchResources(); }, []);
 
@@ -302,23 +337,40 @@ export default function RecursosINPI() {
     }
   };
 
+  const handleMultiFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files);
+      setMultipleFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const removeMultiFile = (index: number) => {
+    setMultipleFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const processDocument = async () => {
+    if (resourceType === 'notificacao_extrajudicial') {
+      return processNotificacao();
+    }
     if (!file || !resourceType) return;
     setIsProcessing(true);
     setStep('processing');
 
     try {
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]);
-        };
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(file);
-      const fileBase64 = await base64Promise;
-
+      const fileBase64 = await fileToBase64(file);
       const agent = AI_AGENTS[selectedAgent];
 
       const { data, error } = await supabase.functions.invoke('process-inpi-resource', {
@@ -359,6 +411,75 @@ export default function RecursosINPI() {
       console.error('Error processing document:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao processar documento');
       setStep('upload');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const processNotificacao = async () => {
+    if (!notificanteData.nome || !notificadoData.nome) {
+      toast.error('Preencha pelo menos o nome do notificante e do notificado');
+      return;
+    }
+    setIsProcessing(true);
+    setStep('processing');
+
+    try {
+      const agent = AI_AGENTS[selectedAgent];
+
+      // Convert files to base64
+      const filesBase64 = await Promise.all(
+        multipleFiles.map(async (f) => ({
+          base64: await fileToBase64(f),
+          type: f.type,
+          name: f.name,
+        }))
+      );
+
+      const { data, error } = await supabase.functions.invoke('process-inpi-resource', {
+        body: {
+          resourceType: 'notificacao_extrajudicial',
+          agentStrategy: agent.promptExtra,
+          agentName: agent.name,
+          notificanteData,
+          notificadoData,
+          userInstructions,
+          files: filesBase64,
+        }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Erro ao processar notificação');
+
+      setExtractedData(data.extracted_data);
+      setDraftContent(data.resource_content);
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: insertedResource, error: insertError } = await supabase
+        .from('inpi_resources')
+        .insert({
+          user_id: user?.id,
+          resource_type: 'notificacao_extrajudicial',
+          process_number: notificanteData.processo_inpi || null,
+          brand_name: notificanteData.marca || null,
+          holder: notificanteData.nome,
+          examiner_or_opponent: notificadoData.nome,
+          draft_content: data.resource_content,
+          status: 'pending_review'
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      setCurrentResourceId(insertedResource.id);
+      setProcessingProgress(100);
+      setTimeout(() => setStep('review'), 500);
+      toast.success(`Notificação Extrajudicial gerada com sucesso pela estratégia ${agent.name}!`);
+    } catch (error) {
+      console.error('Error processing notificacao:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar notificação');
+      setStep('notificacao-data');
     } finally {
       setIsProcessing(false);
     }
@@ -419,6 +540,7 @@ export default function RecursosINPI() {
     setResourceType('');
     setSelectedAgent('mazzola');
     setFile(null);
+    setMultipleFiles([]);
     setExtractedData(null);
     setDraftContent('');
     setAdjustmentNotes('');
@@ -426,7 +548,11 @@ export default function RecursosINPI() {
     setSelectedResource(null);
     setEditingResource(null);
     setProcessingProgress(0);
+    setNotificanteData({ nome: '', cpf_cnpj: '', endereco: '', processo_inpi: '', registro_marca: '', marca: '' });
+    setNotificadoData({ nome: '', cpf_cnpj: '', endereco: '' });
+    setUserInstructions('');
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (multiFileInputRef.current) multiFileInputRef.current.value = '';
   };
 
   const getStatusBadge = (status: string) => {
@@ -458,10 +584,18 @@ export default function RecursosINPI() {
     indeferimento: resources.filter(r => r.resource_type === 'indeferimento').length,
     exigencia_merito: resources.filter(r => r.resource_type === 'exigencia_merito').length,
     oposicao: resources.filter(r => r.resource_type === 'oposicao').length,
+    notificacao_extrajudicial: resources.filter(r => r.resource_type === 'notificacao_extrajudicial').length,
   };
-  const maxDispatch = Math.max(dispatchStats.indeferimento, dispatchStats.exigencia_merito, dispatchStats.oposicao, 1);
+  const maxDispatch = Math.max(dispatchStats.indeferimento, dispatchStats.exigencia_merito, dispatchStats.oposicao, dispatchStats.notificacao_extrajudicial, 1);
 
-  const currentStepIndex = STEPS_FLOW.findIndex(s => s.key === step);
+  const getVisibleSteps = () => {
+    if (resourceType === 'notificacao_extrajudicial') {
+      return STEPS_FLOW.filter(s => s.key !== 'upload');
+    }
+    return STEPS_FLOW.filter(s => s.key !== 'notificacao-data');
+  };
+
+  const currentStepIndex = getVisibleSteps().findIndex(s => s.key === step);
   const agent = AI_AGENTS[selectedAgent];
 
   return (
@@ -525,7 +659,7 @@ export default function RecursosINPI() {
             </motion.div>
 
             {/* Dispatch Type Summary — Premium Cards */}
-            <motion.div {...fadeIn} transition={{ delay: 0.2 }} className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <motion.div {...fadeIn} transition={{ delay: 0.2 }} className="grid grid-cols-1 md:grid-cols-4 gap-5">
               {[
                 { 
                   label: 'Indeferimentos', 
@@ -562,6 +696,18 @@ export default function RecursosINPI() {
                   ringBg: 'stroke-blue-500/15',
                   tagBg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
                   approved: resources.filter(r => r.resource_type === 'oposicao' && r.status === 'approved').length,
+                },
+                { 
+                  label: 'Notificações', 
+                  subtitle: 'Extrajudicial',
+                  count: dispatchStats.notificacao_extrajudicial, 
+                  icon: FileWarning, 
+                  gradient: 'from-purple-500 to-violet-600',
+                  glowColor: 'hsla(270, 70%, 50%, 0.15)',
+                  ringColor: 'stroke-purple-500',
+                  ringBg: 'stroke-purple-500/15',
+                  tagBg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+                  approved: resources.filter(r => r.resource_type === 'notificacao_extrajudicial' && r.status === 'approved').length,
                 },
               ].map((item, i) => {
                 const pct = stats.total > 0 ? Math.round((item.count / stats.total) * 100) : 0;
@@ -641,7 +787,7 @@ export default function RecursosINPI() {
         {/* Step Indicator */}
         {step !== 'list' && (
           <motion.div {...fadeIn} className="flex items-center justify-center gap-1 md:gap-2 py-2 overflow-x-auto">
-            {STEPS_FLOW.map((s, i) => {
+            {getVisibleSteps().map((s, i) => {
               const isActive = s.key === step;
               const isPast = i < currentStepIndex;
               const Icon = s.icon;
@@ -655,7 +801,7 @@ export default function RecursosINPI() {
                     <Icon className="h-3.5 w-3.5" />
                     <span className="hidden md:inline">{s.label}</span>
                   </div>
-                  {i < STEPS_FLOW.length - 1 && (
+                  {i < getVisibleSteps().length - 1 && (
                     <div className={`w-4 md:w-8 h-0.5 rounded-full transition-colors ${isPast ? 'bg-primary' : 'bg-muted'}`} />
                   )}
                 </div>
@@ -688,12 +834,7 @@ export default function RecursosINPI() {
                     </div>
                     <div className="relative">
                       <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input type="date" value={searchDate} onChange={(e) => setSearchDate(e.target.value)} className="pl-9 w-full sm:w-44 rounded-xl" />
-                      {searchDate && (
-                        <button onClick={() => setSearchDate('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
+                      <Input type="date" value={searchDate} onChange={(e) => setSearchDate(e.target.value)} className="pl-9 rounded-xl w-full sm:w-44" />
                     </div>
                   </div>
 
@@ -792,7 +933,7 @@ export default function RecursosINPI() {
                 <h2 className="text-xl font-bold">Qual tipo de recurso deseja gerar?</h2>
                 <p className="text-muted-foreground text-sm mt-1">Selecione o tipo e avance para escolher a estratégia jurídica</p>
               </div>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-4 gap-4">
                 {Object.entries(RESOURCE_TYPE_CONFIG).map(([key, config]) => {
                   const Icon = config.icon;
                   const isSelected = resourceType === key;
@@ -943,17 +1084,237 @@ export default function RecursosINPI() {
 
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" onClick={() => setStep('select-type')} className="rounded-xl">Voltar</Button>
+                {resourceType === 'notificacao_extrajudicial' ? (
+                  <Button 
+                    onClick={() => setStep('notificacao-data')} 
+                    size="lg" 
+                    className={`flex-1 gap-3 rounded-xl h-14 text-base shadow-xl bg-gradient-to-r ${agent.color} hover:opacity-90 transition-opacity`}
+                  >
+                    <agent.icon className="h-5 w-5" />
+                    Usar {agent.name} e Preencher Dados
+                    <ArrowRight className="h-4 w-4 ml-auto" />
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={() => fileInputRef.current?.click()} 
+                    size="lg" 
+                    className={`flex-1 gap-3 rounded-xl h-14 text-base shadow-xl bg-gradient-to-r ${agent.color} hover:opacity-90 transition-opacity`}
+                  >
+                    <agent.icon className="h-5 w-5" />
+                    Usar {agent.name} e Anexar PDF
+                    <ArrowRight className="h-4 w-4 ml-auto" />
+                  </Button>
+                )}
+              </div>
+              <input ref={fileInputRef} type="file" accept=".pdf" className="hidden" onChange={handleFileSelect} />
+            </motion.div>
+          )}
+
+          {/* NOTIFICAÇÃO EXTRAJUDICIAL DATA FORM */}
+          {step === 'notificacao-data' && (
+            <motion.div key="notificacao-data" {...fadeIn} className="space-y-6">
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-bold">Dados da Notificação Extrajudicial</h2>
+                <p className="text-muted-foreground text-sm mt-1">Preencha os dados do notificante e do notificado para a IA gerar a notificação</p>
+              </div>
+
+              {/* Notificante */}
+              <Card className="border-purple-500/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-purple-500" />
+                    Dados do Notificante (Titular da Marca)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nome / Razão Social *</Label>
+                      <Input
+                        placeholder="Nome completo ou razão social"
+                        value={notificanteData.nome}
+                        onChange={(e) => setNotificanteData(prev => ({ ...prev, nome: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CPF / CNPJ</Label>
+                      <Input
+                        placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                        value={notificanteData.cpf_cnpj}
+                        onChange={(e) => setNotificanteData(prev => ({ ...prev, cpf_cnpj: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <Label>Endereço</Label>
+                      <Input
+                        placeholder="Endereço completo"
+                        value={notificanteData.endereco}
+                        onChange={(e) => setNotificanteData(prev => ({ ...prev, endereco: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nome da Marca *</Label>
+                      <Input
+                        placeholder="Nome da marca registrada"
+                        value={notificanteData.marca}
+                        onChange={(e) => setNotificanteData(prev => ({ ...prev, marca: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nº Processo INPI</Label>
+                      <Input
+                        placeholder="Ex: 920123456"
+                        value={notificanteData.processo_inpi}
+                        onChange={(e) => setNotificanteData(prev => ({ ...prev, processo_inpi: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nº Registro da Marca</Label>
+                      <Input
+                        placeholder="Número do registro"
+                        value={notificanteData.registro_marca}
+                        onChange={(e) => setNotificanteData(prev => ({ ...prev, registro_marca: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Notificado */}
+              <Card className="border-red-500/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                    Dados do Notificado (Infrator)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nome / Razão Social *</Label>
+                      <Input
+                        placeholder="Nome completo ou razão social do infrator"
+                        value={notificadoData.nome}
+                        onChange={(e) => setNotificadoData(prev => ({ ...prev, nome: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CPF / CNPJ</Label>
+                      <Input
+                        placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                        value={notificadoData.cpf_cnpj}
+                        onChange={(e) => setNotificadoData(prev => ({ ...prev, cpf_cnpj: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <Label>Endereço</Label>
+                      <Input
+                        placeholder="Endereço completo do infrator"
+                        value={notificadoData.endereco}
+                        onChange={(e) => setNotificadoData(prev => ({ ...prev, endereco: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Instruções */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-primary" />
+                    Instruções para o Agente de IA
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    placeholder="Descreva o contexto da infração: como a marca está sendo usada indevidamente, onde (loja, site, redes sociais), há quanto tempo, em quais produtos/serviços, e qualquer outra informação relevante para a elaboração da notificação..."
+                    value={userInstructions}
+                    onChange={(e) => setUserInstructions(e.target.value)}
+                    rows={6}
+                    className="rounded-xl resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Quanto mais detalhes você fornecer, mais precisa e robusta será a notificação gerada pela IA.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Anexar Documentos */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Upload className="h-5 w-5 text-primary" />
+                    Anexar Documentos (Provas)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Anexe PDFs, fotos, prints e outros documentos que comprovem o uso indevido da marca. (Opcional)
+                  </p>
+                  
+                  <div 
+                    onClick={() => multiFileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 rounded-xl cursor-pointer transition-colors hover:bg-muted/50"
+                  >
+                    <Upload className="h-6 w-6 text-muted-foreground mb-2" />
+                    <p className="text-sm font-medium">Clique para selecionar arquivos</p>
+                    <p className="text-xs text-muted-foreground">PDFs, imagens (JPG, PNG) e documentos</p>
+                  </div>
+                  <input 
+                    ref={multiFileInputRef} 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp" 
+                    multiple 
+                    className="hidden" 
+                    onChange={handleMultiFileSelect} 
+                  />
+
+                  {multipleFiles.length > 0 && (
+                    <div className="space-y-2">
+                      {multipleFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl border">
+                          {f.type.startsWith('image/') ? (
+                            <ImageIcon className="h-5 w-5 text-blue-500 shrink-0" />
+                          ) : (
+                            <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{f.name}</p>
+                            <p className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeMultiFile(i)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setStep('select-agent')} className="rounded-xl">Voltar</Button>
                 <Button 
-                  onClick={() => fileInputRef.current?.click()} 
+                  onClick={processDocument}
+                  disabled={!notificanteData.nome || !notificadoData.nome}
                   size="lg" 
                   className={`flex-1 gap-3 rounded-xl h-14 text-base shadow-xl bg-gradient-to-r ${agent.color} hover:opacity-90 transition-opacity`}
                 >
-                  <agent.icon className="h-5 w-5" />
-                  Usar {agent.name} e Anexar PDF
+                  <Zap className="h-5 w-5" />
+                  Gerar Notificação com {agent.name}
                   <ArrowRight className="h-4 w-4 ml-auto" />
                 </Button>
               </div>
-              <input ref={fileInputRef} type="file" accept=".pdf" className="hidden" onChange={handleFileSelect} />
             </motion.div>
           )}
 
@@ -1037,7 +1398,12 @@ export default function RecursosINPI() {
                     </div>
                     <div>
                       <h3 className="text-xl font-bold mb-2">{agent.name} Processando</h3>
-                      <p className="text-muted-foreground">Aplicando estratégia "{agent.style}" com jurisprudência real e fundamentação completa...</p>
+                      <p className="text-muted-foreground">
+                        {resourceType === 'notificacao_extrajudicial' 
+                          ? `Elaborando Notificação Extrajudicial com estratégia "${agent.style}" e fundamentação legal completa...`
+                          : `Aplicando estratégia "${agent.style}" com jurisprudência real e fundamentação completa...`
+                        }
+                      </p>
                     </div>
                     <div className="w-full space-y-2">
                       <div className="flex justify-between text-sm">
@@ -1052,7 +1418,10 @@ export default function RecursosINPI() {
                       </div>
                     </div>
                     <div className="flex flex-wrap justify-center gap-2 pt-2">
-                      {['Lendo PDF', 'Extraindo dados', 'Analisando fundamentos', 'Aplicando estratégia', 'Elaborando recurso'].map((label, i) => (
+                      {(resourceType === 'notificacao_extrajudicial' 
+                        ? ['Analisando dados', 'Processando provas', 'Fundamentação legal', 'Elaborando notificação', 'Revisão final']
+                        : ['Lendo PDF', 'Extraindo dados', 'Analisando fundamentos', 'Aplicando estratégia', 'Elaborando recurso']
+                      ).map((label, i) => (
                         <Badge key={i} variant="outline" className={`text-xs ${processingProgress > (i + 1) * 18 ? 'border-primary/50 text-primary' : 'text-muted-foreground'}`}>
                           {processingProgress > (i + 1) * 18 ? <Check className="h-3 w-3 mr-1" /> : <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
                           {label}
@@ -1073,19 +1442,24 @@ export default function RecursosINPI() {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                       <FileCheck className="h-5 w-5 text-primary" />
-                      Dados Extraídos do Documento
+                      {resourceType === 'notificacao_extrajudicial' ? 'Dados da Notificação' : 'Dados Extraídos do Documento'}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {[
+                      {(resourceType === 'notificacao_extrajudicial' ? [
+                        { label: 'Marca', value: extractedData.brand_name, icon: '®️' },
+                        { label: 'Processo INPI', value: extractedData.process_number, icon: '📋' },
+                        { label: 'Notificante', value: extractedData.holder, icon: '👤' },
+                        { label: 'Notificado', value: extractedData.examiner_or_opponent, icon: '⚠️' },
+                      ] : [
                         { label: 'Processo', value: extractedData.process_number, icon: '📋' },
                         { label: 'Marca', value: extractedData.brand_name, icon: '®️' },
                         { label: 'Classe NCL', value: extractedData.ncl_class, icon: '📑' },
                         { label: 'Titular', value: extractedData.holder, icon: '👤' },
                         { label: 'Oponente', value: extractedData.examiner_or_opponent, icon: '⚖️' },
                         { label: 'Fundamento Legal', value: extractedData.legal_basis, icon: '📖' },
-                      ].map((item, i) => (
+                      ]).map((item, i) => (
                         <div key={i} className="p-3 rounded-xl bg-muted/50 border border-border/50">
                           <span className="text-xs text-muted-foreground flex items-center gap-1">{item.icon} {item.label}</span>
                           <p className="font-medium text-sm mt-1 truncate">{item.value || '-'}</p>
@@ -1100,7 +1474,7 @@ export default function RecursosINPI() {
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Edit3 className="h-5 w-5 text-primary" />
-                    Rascunho do Recurso
+                    {resourceType === 'notificacao_extrajudicial' ? 'Rascunho da Notificação' : 'Rascunho do Recurso'}
                     <Badge variant="outline" className="ml-auto text-xs border-amber-500/30 text-amber-600 bg-amber-500/10">Revisão obrigatória</Badge>
                   </CardTitle>
                 </CardHeader>
@@ -1116,7 +1490,10 @@ export default function RecursosINPI() {
                     </Label>
                     <Textarea
                       id="adjustments"
-                      placeholder="Descreva os ajustes desejados. Ex: Reforce a argumentação no item III, adicione referência ao art. 124 da LPI..."
+                      placeholder={resourceType === 'notificacao_extrajudicial' 
+                        ? "Descreva os ajustes desejados. Ex: Reforce a fundamentação no item III, adicione mais detalhes sobre o uso indevido..."
+                        : "Descreva os ajustes desejados. Ex: Reforce a argumentação no item III, adicione referência ao art. 124 da LPI..."
+                      }
                       value={adjustmentNotes}
                       onChange={(e) => setAdjustmentNotes(e.target.value)}
                       rows={4}
@@ -1132,7 +1509,7 @@ export default function RecursosINPI() {
                     </Button>
                     <Button onClick={handleApproveResource} className="flex-1 gap-2 rounded-xl h-11 shadow-lg shadow-primary/15">
                       <CheckCircle2 className="h-4 w-4" />
-                      Aprovar Recurso Final
+                      {resourceType === 'notificacao_extrajudicial' ? 'Aprovar Notificação Final' : 'Aprovar Recurso Final'}
                     </Button>
                   </div>
                 </CardContent>
@@ -1155,8 +1532,15 @@ export default function RecursosINPI() {
                     >
                       <CheckCircle2 className="h-8 w-8 text-emerald-500" />
                     </motion.div>
-                    <h3 className="text-xl font-bold">Recurso Aprovado com Sucesso!</h3>
-                    <p className="text-muted-foreground max-w-md mx-auto">O recurso foi aprovado e está pronto para geração do PDF final com papel timbrado oficial.</p>
+                    <h3 className="text-xl font-bold">
+                      {resourceType === 'notificacao_extrajudicial' ? 'Notificação Aprovada com Sucesso!' : 'Recurso Aprovado com Sucesso!'}
+                    </h3>
+                    <p className="text-muted-foreground max-w-md mx-auto">
+                      {resourceType === 'notificacao_extrajudicial' 
+                        ? 'A notificação foi aprovada e está pronta para geração do PDF final com papel timbrado oficial da WebMarcas.'
+                        : 'O recurso foi aprovado e está pronto para geração do PDF final com papel timbrado oficial.'
+                      }
+                    </p>
                   </div>
                   
                   <div className="grid sm:grid-cols-3 gap-3">
@@ -1191,7 +1575,7 @@ export default function RecursosINPI() {
                     </Button>
                     <Button variant="ghost" onClick={resetFlow} className="gap-2 rounded-xl h-12">
                       <Plus className="h-4 w-4" />
-                      Novo Recurso
+                      {resourceType === 'notificacao_extrajudicial' ? 'Nova Notificação' : 'Novo Recurso'}
                     </Button>
                   </div>
                 </CardContent>
@@ -1206,13 +1590,17 @@ export default function RecursosINPI() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                Recurso Administrativo — Papel Timbrado
+                {selectedResource?.resource_type === 'notificacao_extrajudicial' 
+                  ? 'Notificação Extrajudicial — Papel Timbrado'
+                  : 'Recurso Administrativo — Papel Timbrado'
+                }
               </DialogTitle>
             </DialogHeader>
             {selectedResource && (
               <INPIResourcePDFPreview
                 resource={selectedResource}
                 content={selectedResource.final_content || selectedResource.draft_content || draftContent}
+                resourceType={selectedResource.resource_type}
               />
             )}
           </DialogContent>
