@@ -1990,10 +1990,30 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                       setSelectedTemplate(template || null);
                       if (template) {
                         const docType = getDocumentTypeFromTemplateName(template.name);
+                        // Auto-generate subject based on template name
+                        const tName = template.name.toLowerCase();
+                        let autoSubject = '';
+                        if (tName.includes('monitoramento') || tName.includes('manutencao') || tName.includes('manutenção')) {
+                          autoSubject = 'PLANO DE MONITORAMENTO E MANUTENÇÃO - PÓS CERTIFICADO';
+                        } else if (tName.includes('registro de marca')) {
+                          autoSubject = 'CONTRATO REGISTRO DE MARCA';
+                        } else if (tName.includes('procuração') || tName.includes('procuracao')) {
+                          autoSubject = 'PROCURAÇÃO INPI';
+                        } else if (tName.includes('distrato')) {
+                          autoSubject = tName.includes('multa') && !tName.includes('sem') ? 'DISTRATO COM MULTA' : 'DISTRATO SEM MULTA';
+                        } else {
+                          autoSubject = template.name.toUpperCase();
+                        }
+                        // Append brand name if available
+                        const brandName = formData.brand_name;
+                        if (brandName) {
+                          autoSubject += ` - ${brandName.toUpperCase()}`;
+                        }
                         setFormData(prev => ({ 
                           ...prev, 
                           document_type: docType,
-                          template_id: template.id
+                          template_id: template.id,
+                          subject: autoSubject,
                         }));
                       }
                     }}
