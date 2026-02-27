@@ -170,7 +170,7 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
       pdf.setFontSize(22);
       pdf.setTextColor(30, 58, 95);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('WEBMARCAS', textX, yPos + 6);
+      pdf.text('WEBMARCAS INTELLIGENCE PI', textX, yPos + 6);
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(10);
       pdf.setTextColor(100, 100, 100);
@@ -421,7 +421,7 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
                 style={{ width: '75px', height: '75px' }} 
               />
               <div>
-                <h1 className="text-2xl font-bold tracking-wider" style={{ color: '#1e3a5f', letterSpacing: '0.15em' }}>WEBMARCAS</h1>
+                <h1 className="text-2xl font-bold tracking-wider" style={{ color: '#1e3a5f', letterSpacing: '0.15em' }}>WEBMARCAS INTELLIGENCE PI</h1>
                 <p className="text-sm mt-1" style={{ color: '#666' }}>Propriedade Intelectual e Registro de Marcas</p>
               </div>
             </div>
