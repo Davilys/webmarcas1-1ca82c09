@@ -114,7 +114,7 @@ IV – DA NOTIFICAÇÃO E INTIMAÇÃO
   b) RETIRAR de circulação todos os materiais (físicos e digitais) que contenham a marca
   c) REMOVER das redes sociais, sites, plataformas digitais qualquer referência à marca
   d) ABSTER-SE de utilizar a marca em qualquer meio
-- Prazo de 15 (quinze) dias corridos para cumprimento integral
+- Prazo de 30 (trinta) dias corridos para cumprimento integral
 - A presente notificação serve como marco de ciência inequívoca da irregularidade
 
 V – DAS CONSEQUÊNCIAS DO DESCUMPRIMENTO
