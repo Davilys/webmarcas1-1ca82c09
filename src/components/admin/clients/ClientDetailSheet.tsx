@@ -515,7 +515,9 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
     try {
       const { data: { user } } = await supabase.auth.getUser();
       for (const file of Array.from(files)) {
-        const fileName = `clients/${client.id}/${Date.now()}_${file.name}`;
+        const ext = file.name.split('.').pop() || 'bin';
+        const sanitized = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 80);
+        const fileName = `clients/${client.id}/${Date.now()}_${sanitized}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('documents').upload(fileName, file, { upsert: false });
         if (uploadError) { toast.error(`Erro: ${uploadError.message}`); continue; }
         const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(fileName);
