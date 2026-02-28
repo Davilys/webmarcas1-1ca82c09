@@ -14,11 +14,38 @@ import { ptBR } from 'date-fns/locale';
 import {
   X, Edit3, Bell, ExternalLink, Upload, Gavel, Trash2, Receipt,
   Users, Eye, Activity, FileText, Search, CheckCircle2, Newspaper,
-  Shield, Award, RefreshCw,
+  Shield, Award, RefreshCw, FileCheck, TrendingUp, Star, Check, Package,
 } from 'lucide-react';
 import type { Publicacao, PubStatus, LogEntry } from './types';
 import { STATUS_CONFIG } from './types';
 import { getDaysLeft, getScheduledAlerts } from './helpers';
+
+const SERVICE_TYPES = [
+  { id: 'pedido_registro', label: 'Pedido de Registro', description: 'Solicitação inicial junto ao INPI', icon: FileText },
+  { id: 'cumprimento_exigencia', label: 'Cumprimento de Exigência', description: 'Resposta a exigência formal do INPI', icon: FileCheck },
+  { id: 'oposicao', label: 'Manifestação de Oposição', description: 'Defesa contra oposição de terceiros', icon: Shield },
+  { id: 'recurso', label: 'Recurso Administrativo', description: 'Recurso contra indeferimento do INPI', icon: TrendingUp },
+  { id: 'renovacao', label: 'Renovação de Marca', description: 'Renovação do registro decenal', icon: RefreshCw },
+  { id: 'notificacao', label: 'Notificação Extrajudicial', description: 'Cessação de uso indevido', icon: Bell },
+  { id: 'deferimento', label: 'Deferimento', description: 'Pedido aprovado, aguardando concessão', icon: CheckCircle2 },
+  { id: 'certificado', label: 'Certificado', description: 'Marca registrada e certificada', icon: Star },
+  { id: 'distrato', label: 'Distrato', description: 'Serviço cancelado ou encerrado', icon: X },
+];
+
+const SERVICE_TO_STATUS: Record<string, string> = {
+  pedido_registro: 'depositada',
+  cumprimento_exigencia: 'publicada',
+  oposicao: 'oposicao',
+  recurso: 'indeferida',
+  renovacao: 'renovacao_pendente',
+  notificacao: 'publicada',
+  deferimento: 'deferida',
+  certificado: 'certificada',
+  distrato: 'arquivada',
+};
+
+const STATUS_TO_SERVICE: Record<string, string> = {};
+Object.entries(SERVICE_TO_STATUS).forEach(([svc, st]) => { if (!STATUS_TO_SERVICE[st]) STATUS_TO_SERVICE[st] = svc; });
 
 const TIMELINE_STEPS = [
   { key: 'data_deposito', label: 'Depósito', icon: FileText, description: 'Pedido protocolado no INPI' },
@@ -61,6 +88,7 @@ export function PublicacaoDetailPanel({
   const [editableBrandName, setEditableBrandName] = useState('');
   const [editableProcessNumber, setEditableProcessNumber] = useState('');
   const [editableNclClass, setEditableNclClass] = useState('');
+  const [selectedServiceType, setSelectedServiceType] = useState(() => STATUS_TO_SERVICE[selected?.status || ''] || '');
   const clientAssignRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -229,7 +257,46 @@ export function PublicacaoDetailPanel({
                 })}
               </div>
 
-              {/* Scheduled alerts */}
+              {/* Tipo de Serviço */}
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Package className="w-3.5 h-3.5 text-primary" />
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tipo de Serviço</p>
+                </div>
+                <div className="space-y-1.5">
+                  {SERVICE_TYPES.map(svc => {
+                    const Icon = svc.icon;
+                    const isSelected = selectedServiceType === svc.id;
+                    return (
+                      <motion.button
+                        key={svc.id}
+                        whileTap={{ scale: 0.98 }}
+                        className={cn(
+                          'w-full flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all',
+                          isSelected ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-primary/20 hover:bg-muted/30'
+                        )}
+                        onClick={() => {
+                          setSelectedServiceType(svc.id);
+                          const newStatus = SERVICE_TO_STATUS[svc.id];
+                          if (newStatus && newStatus !== selected.status) {
+                            onUpdateFields(selected.id, { status: newStatus }, selected);
+                          }
+                        }}
+                      >
+                        <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0', isSelected ? 'bg-primary/20' : 'bg-muted/50')}>
+                          <Icon className={cn('h-3.5 w-3.5', isSelected ? 'text-primary' : 'text-muted-foreground')} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn('text-xs font-medium', isSelected && 'text-primary')}>{svc.label}</p>
+                          <p className="text-[10px] text-muted-foreground leading-tight">{svc.description}</p>
+                        </div>
+                        {isSelected && <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {selected.proximo_prazo_critico && (() => {
                 const alerts = getScheduledAlerts(selected.proximo_prazo_critico);
                 if (alerts.length === 0) return null;
