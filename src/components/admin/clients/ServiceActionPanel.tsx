@@ -155,10 +155,10 @@ export function ServiceActionPanel({ client, stage, onClose, onUpdate }: Service
 
       // 4. If email, also send rich email with attachment
       if (sendEmail && client.email) {
-        const attachments = docUrl ? [{ filename: file?.name || 'documento.pdf', path: docUrl }] : [];
+        const attachments = docUrl ? [{ url: docUrl, filename: file?.name || 'documento.pdf' }] : [];
         await supabase.functions.invoke('send-email', {
           body: {
-            to: client.email,
+            to: [client.email],
             subject: `Exigência INPI – ${stage.label} – ${client.brand_name || 'Marca'}`,
             body: finalMessage,
             attachments,
