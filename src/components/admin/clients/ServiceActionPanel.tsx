@@ -135,20 +135,20 @@ export function ServiceActionPanel({ client, stage, onClose, onUpdate }: Service
         ? message + `\n\nLink de pagamento: ${paymentLink}`
         : message;
 
-      // 3. Send multichannel notification
+      // 3. Send multichannel notification (CRM + WhatsApp)
+      const notifChannels: string[] = ['crm'];
+      if (sendWhatsApp) notifChannels.push('whatsapp');
+
       await supabase.functions.invoke('send-multichannel-notification', {
         body: {
           user_id: client.id,
           event_type: 'cobranca_gerada',
-          channels: [
-            ...(sendEmail ? ['email'] : []),
-            ...(sendWhatsApp ? ['whatsapp'] : []),
-          ],
+          channels: notifChannels,
           custom_message: finalMessage,
-          metadata: {
-            stage: stage.label,
-            valor,
-            invoice_url: paymentLink,
+          data: {
+            link: paymentLink,
+            valor: String(valor),
+            marca: client.brand_name || 'sua marca',
           },
         },
       });
