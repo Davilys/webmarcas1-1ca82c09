@@ -30,7 +30,7 @@ import {
   Package, BarChart3, Wallet, FileCheck, Lock, Video
 } from 'lucide-react';
 import type { ClientWithProcess } from './ClientKanbanBoard';
-import { PIPELINE_STAGES } from './ClientKanbanBoard';
+import { PIPELINE_STAGES, COMMERCIAL_PIPELINE_STAGES } from './ClientKanbanBoard';
 import { usePricing } from '@/hooks/usePricing';
 import { EmailCompose } from '@/components/admin/email/EmailCompose';
 import { CreateInvoiceDialog } from './CreateInvoiceDialog';
@@ -65,7 +65,8 @@ const useServicePricingOptions = () => {
   ], [pricing]);
 };
 
-const SERVICE_TYPES = [
+// Legacy SERVICE_TYPES kept as fallback for orphan detection
+const LEGACY_SERVICE_TYPES = [
   { id: 'pedido_registro', label: 'Pedido de Registro', description: 'Solicitação inicial junto ao INPI', stage: 'protocolado', icon: FileText },
   { id: 'cumprimento_exigencia', label: 'Cumprimento de Exigência', description: 'Resposta a exigência formal do INPI', stage: '003', icon: FileCheck },
   { id: 'oposicao', label: 'Manifestação de Oposição', description: 'Defesa contra oposição de terceiros', stage: 'oposicao', icon: Shield },
@@ -79,7 +80,7 @@ const SERVICE_TYPES = [
 
 const SERVICE_TYPE_TO_STAGE: Record<string, string> = {};
 const STAGE_TO_SERVICE_TYPE: Record<string, string> = {};
-SERVICE_TYPES.forEach(s => { SERVICE_TYPE_TO_STAGE[s.id] = s.stage; STAGE_TO_SERVICE_TYPE[s.stage] = s.id; });
+LEGACY_SERVICE_TYPES.forEach(s => { SERVICE_TYPE_TO_STAGE[s.id] = s.stage; STAGE_TO_SERVICE_TYPE[s.stage] = s.id; });
 
 const AVAILABLE_TAGS = ['VIP', 'Urgente', 'Novo', 'Renovação', 'Em Risco', 'Inativo', 'Prioritário', 'Pendente'];
 
@@ -264,6 +265,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
   const [notificationForm, setNotificationForm] = useState({ title: '', message: '', type: 'info', link: '/cliente/processos' });
   const [clientTags, setClientTags] = useState<string[]>([]);
   const [selectedServiceType, setSelectedServiceType] = useState('pedido_registro');
+  const [dynamicServiceStages, setDynamicServiceStages] = useState<any[] | null>(null);
 
   const [editData, setEditData] = useState({ priority: '', origin: '', contract_value: 0, pipeline_stage: '' });
   const [editFormData, setEditFormData] = useState({
@@ -278,8 +280,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
       fetchClientData();
       setShowProcessDetails(false);
       setEditData({ priority: client.priority || 'medium', origin: client.origin || 'site', contract_value: client.contract_value || 0, pipeline_stage: client.pipeline_stage || 'protocolado' });
-      const matchingServiceType = STAGE_TO_SERVICE_TYPE[client.pipeline_stage || 'protocolado'];
-      setSelectedServiceType(matchingServiceType || 'pedido_registro');
+      setSelectedServiceType(client.pipeline_stage || 'protocolado');
       setEditFormData({
         full_name: client.full_name || '', email: client.email || '', phone: client.phone || '',
         cpf: '', cnpj: '', company_name: client.company_name || '',
@@ -292,6 +293,25 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
       else if (client.contract_value && client.contract_value > 0) { setSelectedPricing('personalizado'); setCustomValue(client.contract_value); }
     }
   }, [client, open]);
+
+  // Load dynamic stages from system_settings for the services tab
+  useEffect(() => {
+    if (!client || !open) return;
+    const funnelType = client.client_funnel_type || 'juridico';
+    const settingsKey = funnelType === 'comercial' ? 'admin_kanban_comercial_stages' : 'admin_kanban_juridico_stages';
+    supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', settingsKey)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value && typeof data.value === 'object' && 'stages' in (data.value as any)) {
+          setDynamicServiceStages((data.value as any).stages);
+        } else {
+          setDynamicServiceStages(null);
+        }
+      });
+  }, [client?.id, client?.client_funnel_type, open]);
 
   // Auto-open process details when prop is set
   useEffect(() => {
@@ -894,7 +914,10 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
 
   if (!client) return null;
 
-  const currentStage = PIPELINE_STAGES.find(s => s.id === (editData.pipeline_stage || client.pipeline_stage || 'protocolado'));
+  const funnelType = client.client_funnel_type || 'juridico';
+  const fallbackStages = funnelType === 'comercial' ? COMMERCIAL_PIPELINE_STAGES : PIPELINE_STAGES;
+  const activeStages = dynamicServiceStages || fallbackStages;
+  const currentStage = activeStages.find(s => s.id === (editData.pipeline_stage || client.pipeline_stage || 'protocolado'));
   const priCfg = PRIORITY_CONFIG[client.priority || 'medium'] || PRIORITY_CONFIG.medium;
   const initials = (client.full_name || 'C').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
   const isSigned = invoices.length > 0 || documents.length > 0;
@@ -1687,8 +1710,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                           </div>
                           <Select value={editData.pipeline_stage} onValueChange={async (v) => {
                             setEditData(prev => ({ ...prev, pipeline_stage: v }));
-                            const matching = STAGE_TO_SERVICE_TYPE[v];
-                            if (matching) setSelectedServiceType(matching);
+                            setSelectedServiceType(v);
                             if (client.process_id) {
                               await supabase.from('brand_processes').update({ pipeline_stage: v }).eq('id', client.process_id);
                               toast.success('Pipeline atualizado!');
@@ -1699,53 +1721,54 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {PIPELINE_STAGES.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
+                              {activeStages.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
                             </SelectContent>
                           </Select>
                         </div>
                         {currentStage && (
-                          <div className={cn('rounded-xl p-3 text-sm font-medium flex items-center gap-2', currentStage.color)}>
+                          <div className={cn('rounded-xl p-3 text-sm font-medium flex items-center gap-2', currentStage.bgColor, currentStage.textColor)}>
                             <div className="w-2 h-2 rounded-full bg-current opacity-80" />
                             {currentStage.label}
                           </div>
                         )}
                       </div>
 
-                      {/* Service types */}
+                      {/* Service types - dynamic from Kanban stages */}
                       <div className="rounded-2xl border border-border bg-card p-4">
                         <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
                           <Package className="h-4 w-4 text-primary" />
                           <span className="text-sm font-semibold">Tipo de Serviço</span>
                         </div>
                         <div className="space-y-2">
-                          {SERVICE_TYPES.map(svc => {
-                            const Icon = svc.icon;
-                            const isSelected = selectedServiceType === svc.id;
+                          {activeStages.map((stage, idx) => {
+                            const isSelected = (editData.pipeline_stage || selectedServiceType) === stage.id;
                             return (
                               <motion.button
-                                key={svc.id}
+                                key={stage.id}
                                 whileTap={{ scale: 0.98 }}
                                 className={cn(
                                   'w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all',
                                   isSelected ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-primary/20 hover:bg-muted/30'
                                 )}
                                 onClick={async () => {
-                                  setSelectedServiceType(svc.id);
-                                  const newStage = SERVICE_TYPE_TO_STAGE[svc.id];
-                                  setEditData(prev => ({ ...prev, pipeline_stage: newStage }));
+                                  setSelectedServiceType(stage.id);
+                                  setEditData(prev => ({ ...prev, pipeline_stage: stage.id }));
                                   if (client.process_id) {
-                                    await supabase.from('brand_processes').update({ pipeline_stage: newStage }).eq('id', client.process_id);
-                                    toast.success(`Serviço: ${svc.label}`);
+                                    await supabase.from('brand_processes').update({ pipeline_stage: stage.id }).eq('id', client.process_id);
+                                    toast.success(`Serviço: ${stage.label}`);
                                     onUpdate();
                                   }
                                 }}
                               >
-                                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', isSelected ? 'bg-primary/20' : 'bg-muted/50')}>
-                                  <Icon className={cn('h-4 w-4', isSelected ? 'text-primary' : 'text-muted-foreground')} />
+                                <div className={cn(
+                                  'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+                                  isSelected ? 'bg-primary/20' : 'bg-muted/50'
+                                )}>
+                                  <span className={cn('text-xs font-bold', isSelected ? 'text-primary' : 'text-muted-foreground')}>{idx + 1}</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className={cn('text-sm font-medium', isSelected && 'text-primary')}>{svc.label}</p>
-                                  <p className="text-xs text-muted-foreground">{svc.description}</p>
+                                  <p className={cn('text-sm font-medium', isSelected && 'text-primary')}>{stage.label}</p>
+                                  {stage.description && <p className="text-xs text-muted-foreground">{stage.description}</p>}
                                 </div>
                                 {isSelected && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
                               </motion.button>
