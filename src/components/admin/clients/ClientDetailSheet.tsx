@@ -378,7 +378,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
         return;
       }
 
-      const [notesRes, appointmentsRes, docsRes, invoicesRes, profileRes, contractRes, brandsRes] = await Promise.all([
+      const [notesRes, appointmentsRes, docsRes, invoicesRes, profileRes, contractRes, brandsRes, pubsRes] = await Promise.all([
         supabase.from('client_notes').select('*').eq('user_id', client.id).order('created_at', { ascending: false }),
         supabase.from('client_appointments').select('*').eq('user_id', client.id).order('scheduled_at', { ascending: true }),
         supabase.from('documents').select('*').eq('user_id', client.id).order('created_at', { ascending: false }),
@@ -386,6 +386,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
         supabase.from('profiles').select('cpf, cnpj, company_name, address, neighborhood, city, state, zip_code, assigned_to, contract_value, origin, client_funnel_type, full_name, email, phone').eq('id', client.id).maybeSingle(),
         supabase.from('contracts').select('contract_value, payment_method, signature_status').eq('user_id', client.id).order('created_at', { ascending: false }).limit(1),
         supabase.from('brand_processes').select('id, brand_name, business_area, process_number, pipeline_stage, status, created_at, updated_at, ncl_classes, inpi_protocol, deposit_date, grant_date, expiry_date, next_step, next_step_date, notes').eq('user_id', client.id).order('created_at', { ascending: false }),
+        supabase.from('publicacoes_marcas').select('*').eq('client_id', client.id).order('proximo_prazo_critico', { ascending: true, nullsFirst: false }),
       ]);
       setNotes(notesRes.data || []);
       setAppointments(appointmentsRes.data || []);
@@ -393,6 +394,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
       setInvoices(invoicesRes.data || []);
       setProfileData(profileRes.data);
       setClientBrands(brandsRes.data || (client.brands ? client.brands.map(b => ({ ...b, business_area: null, status: null, created_at: null, updated_at: null, ncl_classes: null })) : []));
+      setProcessPublicacoes(pubsRes.data || []);
       if (contractRes.data && contractRes.data.length > 0) {
         const contract = contractRes.data[0];
         if (contract.contract_value && contract.contract_value > 0) {
@@ -993,6 +995,39 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                         {client.brand_name}
                       </span>
                     )}
+                    {/* Publication status badge in header */}
+                    {processPublicacoes.length > 0 && (() => {
+                      const latestPub = processPublicacoes[0];
+                      const STATUS_HEADER: Record<string, { label: string; bg: string }> = {
+                        depositada: { label: 'Depositada', bg: 'bg-blue-400/30' },
+                        publicada: { label: 'Publicada', bg: 'bg-cyan-400/30' },
+                        oposicao: { label: 'Oposição', bg: 'bg-amber-400/30' },
+                        deferida: { label: 'Deferida', bg: 'bg-emerald-400/30' },
+                        certificada: { label: 'Certificada', bg: 'bg-purple-400/30' },
+                        indeferida: { label: 'Indeferida', bg: 'bg-red-400/30' },
+                        arquivada: { label: 'Arquivada', bg: 'bg-zinc-400/30' },
+                        renovacao_pendente: { label: 'Renovação Pendente', bg: 'bg-orange-400/30' },
+                      };
+                      const sCfg = STATUS_HEADER[latestPub.status] || STATUS_HEADER.depositada;
+                      const dLeft = latestPub.proximo_prazo_critico ? Math.ceil((new Date(latestPub.proximo_prazo_critico).getTime() - Date.now()) / 86400000) : null;
+                      return (
+                        <>
+                          <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-white text-xs font-medium', sCfg.bg)}>
+                            <Newspaper className="h-3 w-3" />
+                            {sCfg.label}
+                          </span>
+                          {dLeft !== null && (
+                            <span className={cn(
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-white text-xs font-medium',
+                              dLeft < 0 ? 'bg-red-500/40 animate-pulse' : dLeft <= 7 ? 'bg-red-400/30' : dLeft <= 30 ? 'bg-amber-400/30' : 'bg-emerald-400/30'
+                            )}>
+                              <Clock className="h-3 w-3" />
+                              {dLeft < 0 ? `${Math.abs(dLeft)}d atrasado` : `${dLeft}d restantes`}
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -1623,6 +1658,108 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                       </div>
                     )}
                   </div>
+
+                  {/* ── PUBLICAÇÕES DO CLIENTE ── */}
+                  {processPublicacoes.length > 0 && (
+                    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Newspaper className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-semibold">Publicações INPI</span>
+                          <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{processPublicacoes.length}</Badge>
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-primary" onClick={() => handleQuickAction('processo')}>
+                          Ver Ciclo Completo <ChevronRight className="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      <div className="space-y-3">
+                        {processPublicacoes.slice(0, 5).map((pub: any) => {
+                          const brandName = pub.brand_name_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.brand_name || '—';
+                          const processNum = pub.process_number_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.process_number || '';
+                          const PUB_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+                            depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
+                            publicada: { label: 'Publicada', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
+                            oposicao: { label: 'Oposição', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
+                            deferida: { label: 'Deferida', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+                            certificada: { label: 'Certificada', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40' },
+                            indeferida: { label: 'Indeferida', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
+                            arquivada: { label: 'Arquivada', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
+                            renovacao_pendente: { label: 'Renovação Pendente', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+                          };
+                          const sCfg = PUB_STATUS[pub.status] || PUB_STATUS.depositada;
+                          const dLeft = pub.proximo_prazo_critico ? Math.ceil((new Date(pub.proximo_prazo_critico).getTime() - Date.now()) / 86400000) : null;
+
+                          const MINI_STEPS = [
+                            { key: 'data_deposito', label: 'Depósito', icon: FileText },
+                            { key: 'data_publicacao_rpi', label: 'RPI', icon: Newspaper },
+                            { key: 'prazo_oposicao', label: 'Oposição', icon: Gavel },
+                            { key: 'data_decisao', label: 'Decisão', icon: Shield },
+                            { key: 'data_certificado', label: 'Certificado', icon: Award },
+                            { key: 'data_renovacao', label: 'Renovação', icon: RefreshCw },
+                          ] as const;
+
+                          return (
+                            <div key={pub.id} className="rounded-xl border border-border p-3 space-y-2.5 hover:border-primary/20 transition-colors">
+                              {/* Header row */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold truncate">{brandName}</p>
+                                  {processNum && <p className="text-[10px] text-muted-foreground font-mono">{processNum}</p>}
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <Badge className={cn('text-[10px] border-0', sCfg.bg, sCfg.color)}>{sCfg.label}</Badge>
+                                  {dLeft !== null && (
+                                    <Badge variant={dLeft < 0 ? 'destructive' : 'outline'} className={cn(
+                                      'text-[10px]',
+                                      dLeft < 0 && 'animate-pulse',
+                                      dLeft >= 0 && dLeft <= 7 && 'border-red-500/50 text-red-600 dark:text-red-400',
+                                      dLeft > 7 && dLeft <= 30 && 'border-amber-500/50 text-amber-600 dark:text-amber-400',
+                                      dLeft > 30 && 'text-emerald-600 dark:text-emerald-400',
+                                    )}>
+                                      {dLeft < 0 ? `${Math.abs(dLeft)}d atrasado` : `${dLeft}d`}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Deadline description */}
+                              {pub.descricao_prazo && (
+                                <p className="text-[10px] text-primary font-medium">{pub.descricao_prazo}</p>
+                              )}
+
+                              {/* Mini timeline */}
+                              <div className="flex items-center gap-0.5">
+                                {MINI_STEPS.map((step, idx) => {
+                                  const date = pub[step.key] as string | null;
+                                  const isCompleted = !!date && new Date(date) <= new Date();
+                                  const StepIcon = step.icon;
+                                  return (
+                                    <div key={step.key} className="flex items-center">
+                                      <div
+                                        className={cn(
+                                          'w-6 h-6 rounded-full flex items-center justify-center transition-all',
+                                          isCompleted
+                                            ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400'
+                                            : 'bg-muted text-muted-foreground/50'
+                                        )}
+                                        title={`${step.label}${date ? ` — ${format(new Date(date), 'dd/MM/yyyy')}` : ''}`}
+                                      >
+                                        <StepIcon className="w-3 h-3" />
+                                      </div>
+                                      {idx < MINI_STEPS.length - 1 && (
+                                        <div className={cn('w-2 h-0.5', isCompleted ? 'bg-emerald-400' : 'bg-border')} />
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
 
                 {/* ─── CONTACTS TAB ──────────────────────────────────────── */}
@@ -2364,6 +2501,36 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                                     <div className="min-w-0">
                                       <p className="font-semibold text-sm truncate">{brand.brand_name}</p>
                                       {brand.business_area && <p className="text-xs text-muted-foreground truncate">{brand.business_area}</p>}
+                                      {/* Publication status for this brand */}
+                                      {(() => {
+                                        const linkedPub = processPublicacoes.find((p: any) => p.process_id === brand.id);
+                                        if (!linkedPub) return null;
+                                        const BRAND_PUB_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+                                          depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
+                                          publicada: { label: 'Publicada', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
+                                          oposicao: { label: 'Oposição', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
+                                          deferida: { label: 'Deferida', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+                                          certificada: { label: 'Certificada', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40' },
+                                          indeferida: { label: 'Indeferida', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
+                                          arquivada: { label: 'Arquivada', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
+                                          renovacao_pendente: { label: 'Renovação Pendente', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+                                        };
+                                        const bCfg = BRAND_PUB_STATUS[linkedPub.status] || BRAND_PUB_STATUS.depositada;
+                                        const bDays = linkedPub.proximo_prazo_critico ? Math.ceil((new Date(linkedPub.proximo_prazo_critico).getTime() - Date.now()) / 86400000) : null;
+                                        return (
+                                          <div className="flex items-center gap-1.5 mt-1">
+                                            <Badge className={cn('text-[9px] h-4 px-1.5 border-0', bCfg.bg, bCfg.color)}>{bCfg.label}</Badge>
+                                            {bDays !== null && (
+                                              <span className={cn('text-[9px] font-medium',
+                                                bDays < 0 ? 'text-red-500' : bDays <= 7 ? 'text-red-400' : bDays <= 30 ? 'text-amber-500' : 'text-emerald-500'
+                                              )}>
+                                                {bDays < 0 ? `${Math.abs(bDays)}d atrasado` : `${bDays}d`}
+                                              </span>
+                                            )}
+                                            {linkedPub.descricao_prazo && <span className="text-[9px] text-muted-foreground truncate max-w-[120px]">{linkedPub.descricao_prazo}</span>}
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-2">
