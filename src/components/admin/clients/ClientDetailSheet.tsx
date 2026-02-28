@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import type { ClientWithProcess } from './ClientKanbanBoard';
 import { PIPELINE_STAGES, COMMERCIAL_PIPELINE_STAGES } from './ClientKanbanBoard';
+import { ServiceActionPanel } from './ServiceActionPanel';
 import { usePricing } from '@/hooks/usePricing';
 import { EmailCompose } from '@/components/admin/email/EmailCompose';
 import { CreateInvoiceDialog } from './CreateInvoiceDialog';
@@ -266,6 +267,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
   const [clientTags, setClientTags] = useState<string[]>([]);
   const [selectedServiceType, setSelectedServiceType] = useState('pedido_registro');
   const [dynamicServiceStages, setDynamicServiceStages] = useState<any[] | null>(null);
+  const [expandedStageAction, setExpandedStageAction] = useState<string | null>(null);
 
   const [editData, setEditData] = useState({ priority: '', origin: '', contract_value: 0, pipeline_stage: '' });
   const [editFormData, setEditFormData] = useState({
@@ -1753,6 +1755,8 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                                 onClick={async () => {
                                   setSelectedServiceType(stage.id);
                                   setEditData(prev => ({ ...prev, pipeline_stage: stage.id }));
+                                  // Toggle action panel
+                                  setExpandedStageAction(prev => prev === stage.id ? null : stage.id);
                                   if (client.process_id) {
                                     await supabase.from('brand_processes').update({ pipeline_stage: stage.id }).eq('id', client.process_id);
                                     toast.success(`Serviço: ${stage.label}`);
@@ -1775,6 +1779,31 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                             );
                           })}
                         </div>
+
+                        {/* Service Action Panel */}
+                        <AnimatePresence>
+                          {expandedStageAction && (() => {
+                            const actionStage = activeStages.find(s => s.id === expandedStageAction);
+                            if (!actionStage) return null;
+                            return (
+                              <ServiceActionPanel
+                                key={expandedStageAction}
+                                client={{
+                                  id: client.id,
+                                  full_name: client.full_name,
+                                  email: client.email,
+                                  phone: client.phone,
+                                  brand_name: client.brand_name,
+                                  process_number: client.process_number,
+                                  process_id: client.process_id,
+                                }}
+                                stage={actionStage}
+                                onClose={() => setExpandedStageAction(null)}
+                                onUpdate={onUpdate}
+                              />
+                            );
+                          })()}
+                        </AnimatePresence>
                       </div>
                     </div>
                   ) : (
