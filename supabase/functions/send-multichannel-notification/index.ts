@@ -306,13 +306,31 @@ const handler = async (req: Request): Promise<Response> => {
     const smsSettings = (smsRow.data?.value as Record<string, unknown>) ?? { enabled: false };
     const botSettings = (botRow.data?.value as Record<string, unknown>) ?? { enabled: false };
 
-    // ── If user_id provided but phone/nome missing, resolve from profiles ─────
-    const nome  = recipient.nome  || 'Cliente';
-    let   phone = recipient.phone || '';
+    // ── Resolve recipient: support both { recipient: {...} } and { user_id } ──
+    let resolvedRecipient = recipient || {} as Record<string, unknown>;
 
-    if (recipient.user_id && !phone) {
+    // If no recipient but user_id at top level, resolve from profiles
+    const topLevelUserId = (payload as Record<string, unknown>).user_id as string | undefined;
+    if ((!resolvedRecipient.nome && !resolvedRecipient.phone) && topLevelUserId) {
       const { data: profile } = await supabase
-        .from('profiles').select('phone, full_name').eq('id', recipient.user_id).maybeSingle();
+        .from('profiles').select('phone, full_name, email').eq('id', topLevelUserId).maybeSingle();
+      if (profile) {
+        resolvedRecipient = {
+          nome: profile.full_name || 'Cliente',
+          phone: profile.phone || '',
+          email: profile.email || '',
+          user_id: topLevelUserId,
+          ...resolvedRecipient,
+        };
+      }
+    }
+
+    const nome  = resolvedRecipient.nome  || 'Cliente';
+    let   phone = resolvedRecipient.phone || '';
+
+    if (resolvedRecipient.user_id && !phone) {
+      const { data: profile } = await supabase
+        .from('profiles').select('phone, full_name').eq('id', resolvedRecipient.user_id).maybeSingle();
       if (profile?.phone) phone = profile.phone;
     }
 
