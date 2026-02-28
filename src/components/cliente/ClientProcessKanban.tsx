@@ -114,13 +114,14 @@ export function ClientProcessKanban({ userId }: ClientProcessKanbanProps) {
 
   return (
     <>
-      <div className="flex items-center justify-end mb-2">
-        {isAdmin && (
-          <Button variant="ghost" size="icon" onClick={() => setConfigOpen(true)} title="Configurar etapas">
-            <Settings2 className="h-5 w-5" />
+      {isAdmin && (
+        <div className="flex items-center justify-end mb-3">
+          <Button variant="outline" size="sm" onClick={() => setConfigOpen(true)} className="gap-2">
+            <Settings2 className="h-4 w-4" />
+            Configurar Etapas
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex gap-4 pb-4">
