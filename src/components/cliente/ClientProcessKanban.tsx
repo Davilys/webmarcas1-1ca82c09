@@ -4,7 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { FileText, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { FileText, ChevronRight, Settings2 } from 'lucide-react';
+import { ClientKanbanConfig, type KanbanStage } from './ClientKanbanConfig';
 
 interface ClientProcessKanbanProps {
   userId?: string;
@@ -18,19 +20,53 @@ interface BrandProcess {
   updated_at: string;
 }
 
-const kanbanColumns = [
-  { id: 'em_andamento', label: 'Em Andamento', color: 'bg-blue-500' },
-  { id: 'publicado_rpi', label: 'Publicado RPI', color: 'bg-purple-500' },
-  { id: 'em_exame', label: 'Em Exame', color: 'bg-amber-500' },
-  { id: 'deferido', label: 'Deferido', color: 'bg-emerald-500' },
-  { id: 'concedido', label: 'Concedido', color: 'bg-green-600' },
-  { id: 'indeferido', label: 'Indeferido', color: 'bg-red-500' },
-  { id: 'arquivado', label: 'Arquivado', color: 'bg-gray-500' },
+const DEFAULT_STAGES: KanbanStage[] = [
+  { id: 'em_andamento', name: 'Em Andamento', color: '#3B82F6' },
+  { id: 'publicado_rpi', name: 'Publicado RPI', color: '#8B5CF6' },
+  { id: 'em_exame', name: 'Em Exame', color: '#F59E0B' },
+  { id: 'deferido', name: 'Deferido', color: '#10B981' },
+  { id: 'concedido', name: 'Concedido', color: '#22C55E' },
+  { id: 'indeferido', name: 'Indeferido', color: '#EF4444' },
+  { id: 'arquivado', name: 'Arquivado', color: '#6B7280' },
 ];
 
 export function ClientProcessKanban({ userId }: ClientProcessKanbanProps) {
   const [processes, setProcesses] = useState<BrandProcess[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stages, setStages] = useState<KanbanStage[]>(DEFAULT_STAGES);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const loadStages = async () => {
+    const { data } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'client_kanban_stages')
+      .maybeSingle();
+
+    if (data?.value && typeof data.value === 'object' && 'stages' in (data.value as any)) {
+      setStages((data.value as any).stages);
+    }
+  };
+
+  useEffect(() => {
+    loadStages();
+  }, []);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      setIsAdmin(!!data);
+    };
+    checkAdmin();
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
@@ -77,58 +113,75 @@ export function ClientProcessKanban({ userId }: ClientProcessKanbanProps) {
   }
 
   return (
-    <ScrollArea className="w-full whitespace-nowrap">
-      <div className="flex gap-4 pb-4">
-        {kanbanColumns.map((column) => {
-          const columnProcesses = getProcessesByStatus(column.id);
-          
-          return (
-            <div key={column.id} className="min-w-[300px] max-w-[300px]">
-              <Card className="h-full">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center justify-between text-sm font-medium">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${column.color}`} />
-                      {column.label}
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {columnProcesses.length}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {columnProcesses.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">
-                      Nenhum processo
-                    </p>
-                  ) : (
-                    columnProcesses.map((process) => (
-                      <Link
-                        key={process.id}
-                        to={`/cliente/processos/${process.id}`}
-                        className="block p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors group"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                              {process.brand_name}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {process.process_number || 'Aguardando protocolo'}
-                            </p>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform group-hover:translate-x-1" />
-                        </div>
-                      </Link>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          );
-        })}
+    <>
+      <div className="flex items-center justify-end mb-2">
+        {isAdmin && (
+          <Button variant="ghost" size="icon" onClick={() => setConfigOpen(true)} title="Configurar etapas">
+            <Settings2 className="h-5 w-5" />
+          </Button>
+        )}
       </div>
-      <ScrollBar orientation="horizontal" />
-    </ScrollArea>
+
+      <ScrollArea className="w-full whitespace-nowrap">
+        <div className="flex gap-4 pb-4">
+          {stages.map((column) => {
+            const columnProcesses = getProcessesByStatus(column.id);
+
+            return (
+              <div key={column.id} className="min-w-[300px] max-w-[300px]">
+                <Card className="h-full">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center justify-between text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: column.color }} />
+                        {column.name}
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {columnProcesses.length}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {columnProcesses.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4">
+                        Nenhum processo
+                      </p>
+                    ) : (
+                      columnProcesses.map((process) => (
+                        <Link
+                          key={process.id}
+                          to={`/cliente/processos/${process.id}`}
+                          className="block p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                                {process.brand_name}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {process.process_number || 'Aguardando protocolo'}
+                              </p>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform group-hover:translate-x-1" />
+                          </div>
+                        </Link>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })}
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+
+      <ClientKanbanConfig
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        stages={stages}
+        onSaved={loadStages}
+      />
+    </>
   );
 }
