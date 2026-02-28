@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { supabase as supabaseClient } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,6 +69,8 @@ interface ClientKanbanBoardProps {
   adminUsers?: { id: string; full_name: string | null; email: string }[];
   canAssign?: boolean;
   canViewFinancialValues?: boolean;
+  onConfigOpen?: () => void;
+  stagesVersion?: number;
 }
 
 // COMMERCIAL FUNNEL STAGES (for sales pipeline)
@@ -97,17 +100,36 @@ const ORIGIN_CONFIG: Record<string, { icon: typeof MessageCircle; color: string;
   'indicacao': { icon: UserPlus, color: 'text-purple-600', bg: 'bg-purple-100', label: 'Ind' },
 };
 
-export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, funnelType = 'juridico', adminUsers = [], canAssign = false, canViewFinancialValues = true }: ClientKanbanBoardProps) {
+export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, funnelType = 'juridico', adminUsers = [], canAssign = false, canViewFinancialValues = true, onConfigOpen, stagesVersion = 0 }: ClientKanbanBoardProps) {
   const [draggedClient, setDraggedClient] = useState<ClientWithProcess | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
+  const [dynamicStages, setDynamicStages] = useState<typeof PIPELINE_STAGES | null>(null);
   const MAX_VISIBLE = 20;
 
-  // Select stages based on funnel type
-  const activePipelineStages = funnelType === 'comercial' ? COMMERCIAL_PIPELINE_STAGES : PIPELINE_STAGES;
-  const defaultStage = funnelType === 'comercial' ? 'assinou_contrato' : 'protocolado';
+  // Load dynamic stages from system_settings
+  useEffect(() => {
+    const settingsKey = funnelType === 'comercial' ? 'admin_kanban_comercial_stages' : 'admin_kanban_juridico_stages';
+    supabaseClient
+      .from('system_settings')
+      .select('value')
+      .eq('key', settingsKey)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value && typeof data.value === 'object' && 'stages' in (data.value as any)) {
+          setDynamicStages((data.value as any).stages);
+        } else {
+          setDynamicStages(null);
+        }
+      });
+  }, [funnelType, stagesVersion]);
+
+  // Select stages based on funnel type (dynamic > fallback)
+  const fallbackStages = funnelType === 'comercial' ? COMMERCIAL_PIPELINE_STAGES : PIPELINE_STAGES;
+  const activePipelineStages = dynamicStages || fallbackStages;
+  const defaultStage = funnelType === 'comercial' ? 'assinou_contrato' : (activePipelineStages[0]?.id || 'protocolado');
 
   // Apply filters
   const filteredClients = useMemo(() => {

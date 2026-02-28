@@ -7,13 +7,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, LayoutGrid, List, RefreshCw, Users, Filter, X, Upload, Briefcase, Scale, Star, UserCheck, UserPlus, Mail } from 'lucide-react';
+import { Search, LayoutGrid, List, RefreshCw, Users, Filter, X, Upload, Briefcase, Scale, Star, UserCheck, UserPlus, Mail, Settings2 } from 'lucide-react';
 import { useCanViewFinancialValues } from '@/hooks/useCanViewFinancialValues';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-import { ClientKanbanBoard, type ClientWithProcess, type KanbanFilters, type FunnelType } from '@/components/admin/clients/ClientKanbanBoard';
+import { ClientKanbanBoard, COMMERCIAL_PIPELINE_STAGES, PIPELINE_STAGES, type ClientWithProcess, type KanbanFilters, type FunnelType } from '@/components/admin/clients/ClientKanbanBoard';
+import { AdminKanbanConfig, type AdminKanbanStage } from '@/components/admin/clients/AdminKanbanConfig';
 import { ClientListView } from '@/components/admin/clients/ClientListView';
 import { ClientImportExportDialog } from '@/components/admin/clients/ClientImportExportDialog';
 import { ClientRemarketingPanel } from '@/components/admin/clients/ClientRemarketingPanel';
@@ -58,6 +59,9 @@ export default function AdminClientes() {
   const [funnelType, setFunnelType] = useState<FunnelType>('comercial');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showRemarketing, setShowRemarketing] = useState(false);
+  const [kanbanConfigOpen, setKanbanConfigOpen] = useState(false);
+  const [kanbanStages, setKanbanStages] = useState<AdminKanbanStage[]>([]);
+  const [stagesVersion, setStagesVersion] = useState(0);
   const { canViewFinancialValues } = useCanViewFinancialValues();
 
   // Debounce search input — avoids re-rendering 2300+ cards on every keystroke
@@ -66,6 +70,22 @@ export default function AdminClientes() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  // Load kanban stages for the current funnel type
+  useEffect(() => {
+    const key = funnelType === 'comercial' ? 'admin_kanban_comercial_stages' : 'admin_kanban_juridico_stages';
+    supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', key)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value && typeof data.value === 'object' && 'stages' in (data.value as any)) {
+          setKanbanStages((data.value as any).stages);
+        } else {
+          setKanbanStages(funnelType === 'comercial' ? COMMERCIAL_PIPELINE_STAGES : PIPELINE_STAGES);
+        }
+      });
+  }, [funnelType, stagesVersion]);
 
   // Wait for auth session before fetching — fixes intermittent "0 clients" bug
   useEffect(() => {
@@ -620,14 +640,28 @@ export default function AdminClientes() {
             </div>
           </div>
 
-          {/* Active Filters + Date Period */}
+          {/* Active Filters + Date Period + Kanban Config Gear */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <DatePeriodFilter
-              dateFilter={dateFilter}
-              onDateFilterChange={setDateFilter}
-              selectedMonth={selectedMonth}
-              onMonthChange={setSelectedMonth}
-            />
+            <div className="flex items-center gap-2">
+              <DatePeriodFilter
+                dateFilter={dateFilter}
+                onDateFilterChange={setDateFilter}
+                selectedMonth={selectedMonth}
+                onMonthChange={setSelectedMonth}
+              />
+              {viewMode === 'kanban' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-1.5"
+                  onClick={() => setKanbanConfigOpen(true)}
+                  title="Configurar etapas do Kanban"
+                >
+                  <Settings2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Configurar Etapas</span>
+                </Button>
+              )}
+            </div>
             
             {(dateFilter !== 'all' || filters.priority.length > 0 || filters.origin.length > 0) && (
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -703,6 +737,8 @@ export default function AdminClientes() {
             adminUsers={adminUsers}
             canAssign={!viewOwnOnly}
             canViewFinancialValues={canViewFinancialValues}
+            onConfigOpen={() => setKanbanConfigOpen(true)}
+            stagesVersion={stagesVersion}
           />
         ) : (
           <ClientListView
@@ -739,6 +775,15 @@ export default function AdminClientes() {
             contract_value: c.contract_value,
           }))}
           onImportComplete={refreshClients}
+        />
+
+        {/* Admin Kanban Config Dialog */}
+        <AdminKanbanConfig
+          open={kanbanConfigOpen}
+          onOpenChange={setKanbanConfigOpen}
+          stages={kanbanStages}
+          funnelType={funnelType}
+          onSaved={() => setStagesVersion(v => v + 1)}
         />
       </div>
     </AdminLayout>
