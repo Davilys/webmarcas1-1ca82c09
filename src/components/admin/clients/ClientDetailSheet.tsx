@@ -166,6 +166,9 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
   const [profileData, setProfileData] = useState<any>(null);
   const [clientBrands, setClientBrands] = useState<any[]>([]);
+  const [expandedBrandId, setExpandedBrandId] = useState<string | null>(null);
+  const [editingBrandData, setEditingBrandData] = useState<any>({});
+  const [savingBrand, setSavingBrand] = useState(false);
   const [adminUsersList, setAdminUsersList] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
   const [showEmailCompose, setShowEmailCompose] = useState(false);
   const [adminEmailAccount, setAdminEmailAccount] = useState<{ id: string; email_address: string } | null>(null);
@@ -377,7 +380,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
         supabase.from('invoices').select('*').eq('user_id', client.id).order('due_date', { ascending: false }),
         supabase.from('profiles').select('cpf, cnpj, company_name, address, neighborhood, city, state, zip_code, assigned_to, contract_value').eq('id', client.id).maybeSingle(),
         supabase.from('contracts').select('contract_value, payment_method, signature_status').eq('user_id', client.id).order('created_at', { ascending: false }).limit(1),
-        supabase.from('brand_processes').select('id, brand_name, business_area, process_number, pipeline_stage, status, created_at, updated_at, ncl_classes').eq('user_id', client.id).order('created_at', { ascending: false }),
+        supabase.from('brand_processes').select('id, brand_name, business_area, process_number, pipeline_stage, status, created_at, updated_at, ncl_classes, inpi_protocol, deposit_date, grant_date, expiry_date, next_step, next_step_date, notes').eq('user_id', client.id).order('created_at', { ascending: false }),
       ]);
       setNotes(notesRes.data || []);
       setAppointments(appointmentsRes.data || []);
@@ -2123,56 +2126,224 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                       <AnimatePresence>
                         {clientBrands.map((brand, i) => {
                           const stageInfo = PIPELINE_STAGES.find(s => s.id === brand.pipeline_stage) || PIPELINE_STAGES[0];
+                          const isExpanded = expandedBrandId === brand.id;
                           return (
-                            <motion.div
-                              key={brand.id}
-                              initial={{ opacity: 0, y: -6 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: i * 0.05 }}
-                              className="rounded-2xl border border-border bg-card p-4 space-y-3"
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${stageInfo.color}20` }}>
-                                    <Tag className="h-4 w-4" style={{ color: stageInfo.color }} />
+                            <div key={brand.id}>
+                              <motion.div
+                                initial={{ opacity: 0, y: -6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.05 }}
+                                className={cn(
+                                  "rounded-2xl border border-border bg-card p-4 space-y-3 cursor-pointer transition-all hover:shadow-md hover:border-primary/30",
+                                  isExpanded && "border-primary/50 shadow-md"
+                                )}
+                                onClick={() => {
+                                  if (isExpanded) {
+                                    setExpandedBrandId(null);
+                                  } else {
+                                    setExpandedBrandId(brand.id);
+                                    setEditingBrandData({
+                                      brand_name: brand.brand_name || '',
+                                      process_number: brand.process_number || '',
+                                      inpi_protocol: brand.inpi_protocol || '',
+                                      ncl_classes: brand.ncl_classes ? brand.ncl_classes.join(', ') : '',
+                                      business_area: brand.business_area || '',
+                                      status: brand.status || 'em_andamento',
+                                      pipeline_stage: brand.pipeline_stage || 'protocolado',
+                                      deposit_date: brand.deposit_date || '',
+                                      grant_date: brand.grant_date || '',
+                                      expiry_date: brand.expiry_date || '',
+                                      next_step: brand.next_step || '',
+                                      next_step_date: brand.next_step_date || '',
+                                      notes: brand.notes || '',
+                                    });
+                                  }
+                                }}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${stageInfo.color}20` }}>
+                                      <Tag className="h-4 w-4" style={{ color: stageInfo.color }} />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-semibold text-sm truncate">{brand.brand_name}</p>
+                                      {brand.business_area && <p className="text-xs text-muted-foreground truncate">{brand.business_area}</p>}
+                                    </div>
                                   </div>
-                                  <div className="min-w-0">
-                                    <p className="font-semibold text-sm truncate">{brand.brand_name}</p>
-                                    {brand.business_area && <p className="text-xs text-muted-foreground truncate">{brand.business_area}</p>}
+                                  <div className="flex items-center gap-2">
+                                    <Badge className="border text-[10px] h-5 px-2 flex-shrink-0" style={{ backgroundColor: `${stageInfo.color}15`, color: stageInfo.color, borderColor: `${stageInfo.color}30` }}>
+                                      {stageInfo.label}
+                                    </Badge>
+                                    <ChevronRight className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
                                   </div>
                                 </div>
-                                <Badge className="border text-[10px] h-5 px-2 flex-shrink-0" style={{ backgroundColor: `${stageInfo.color}15`, color: stageInfo.color, borderColor: `${stageInfo.color}30` }}>
-                                  {stageInfo.label}
-                                </Badge>
-                              </div>
 
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                {brand.process_number && (
-                                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                                    <Hash className="h-3 w-3" />
-                                    <span className="font-mono">{brand.process_number}</span>
-                                  </div>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  {brand.process_number && (
+                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                      <Hash className="h-3 w-3" />
+                                      <span className="font-mono">{brand.process_number}</span>
+                                    </div>
+                                  )}
+                                  {brand.ncl_classes && brand.ncl_classes.length > 0 && (
+                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                      <Briefcase className="h-3 w-3" />
+                                      <span>NCL: {brand.ncl_classes.join(', ')}</span>
+                                    </div>
+                                  )}
+                                  {brand.status && (
+                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                      <Activity className="h-3 w-3" />
+                                      <span>{brand.status === 'em_andamento' ? 'Em andamento' : brand.status}</span>
+                                    </div>
+                                  )}
+                                  {brand.created_at && (
+                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                      <CalendarIcon className="h-3 w-3" />
+                                      <span>{format(new Date(brand.created_at), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+
+                              {/* ─── INLINE BRAND EDITOR ─── */}
+                              <AnimatePresence>
+                                {isExpanded && (
+                                  <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                                    className="overflow-hidden"
+                                  >
+                                    <div className="rounded-2xl border border-border bg-card p-5 mt-2 space-y-4" onClick={(e) => e.stopPropagation()}>
+                                      <div className="flex items-center justify-between">
+                                        <h4 className="text-sm font-bold flex items-center gap-2">
+                                          <Edit2 className="h-4 w-4 text-primary" />
+                                          Detalhes da Marca
+                                        </h4>
+                                        <div className="flex items-center gap-2">
+                                          <Button size="sm" variant="ghost" onClick={() => setExpandedBrandId(null)}>
+                                            <X className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                          <Label className="text-xs">Nome da Marca</Label>
+                                          <Input value={editingBrandData.brand_name || ''} onChange={(e) => setEditingBrandData((p: any) => ({ ...p, brand_name: e.target.value }))} className="h-9 text-sm" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          <Label className="text-xs">Nº Processo INPI</Label>
+                                          <Input value={editingBrandData.process_number || ''} onChange={(e) => setEditingBrandData((p: any) => ({ ...p, process_number: e.target.value }))} className="h-9 text-sm font-mono" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          <Label className="text-xs">Protocolo INPI</Label>
+                                          <Input value={editingBrandData.inpi_protocol || ''} onChange={(e) => setEditingBrandData((p: any) => ({ ...p, inpi_protocol: e.target.value }))} className="h-9 text-sm font-mono" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          <Label className="text-xs">Classes NCL (vírgula)</Label>
+                                          <Input value={editingBrandData.ncl_classes || ''} onChange={(e) => setEditingBrandData((p: any) => ({ ...p, ncl_classes: e.target.value }))} className="h-9 text-sm" placeholder="25, 35" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          <Label className="text-xs">Ramo de Atividade</Label>
+                                          <Input value={editingBrandData.business_area || ''} onChange={(e) => setEditingBrandData((p: any) => ({ ...p, business_area: e.target.value }))} className="h-9 text-sm" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          <Label className="text-xs">Status</Label>
+                                          <Select value={editingBrandData.status || 'em_andamento'} onValueChange={(v) => setEditingBrandData((p: any) => ({ ...p, status: v }))}>
+                                            <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="em_andamento">Em andamento</SelectItem>
+                                              <SelectItem value="deferido">Deferido</SelectItem>
+                                              <SelectItem value="indeferido">Indeferido</SelectItem>
+                                              <SelectItem value="arquivado">Arquivado</SelectItem>
+                                              <SelectItem value="certificado">Certificado</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                        <div className="space-y-1.5 col-span-2">
+                                          <Label className="text-xs">Fase do Pipeline</Label>
+                                          <Select value={editingBrandData.pipeline_stage || 'protocolado'} onValueChange={(v) => setEditingBrandData((p: any) => ({ ...p, pipeline_stage: v }))}>
+                                            <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                              {PIPELINE_STAGES.map(stage => (
+                                                <SelectItem key={stage.id} value={stage.id}>{stage.label}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          <Label className="text-xs">Data Depósito</Label>
+                                          <Input type="date" value={editingBrandData.deposit_date || ''} onChange={(e) => setEditingBrandData((p: any) => ({ ...p, deposit_date: e.target.value }))} className="h-9 text-sm" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          <Label className="text-xs">Data Concessão</Label>
+                                          <Input type="date" value={editingBrandData.grant_date || ''} onChange={(e) => setEditingBrandData((p: any) => ({ ...p, grant_date: e.target.value }))} className="h-9 text-sm" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          <Label className="text-xs">Data Validade</Label>
+                                          <Input type="date" value={editingBrandData.expiry_date || ''} onChange={(e) => setEditingBrandData((p: any) => ({ ...p, expiry_date: e.target.value }))} className="h-9 text-sm" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                          <Label className="text-xs">Data Próximo Passo</Label>
+                                          <Input type="date" value={editingBrandData.next_step_date || ''} onChange={(e) => setEditingBrandData((p: any) => ({ ...p, next_step_date: e.target.value }))} className="h-9 text-sm" />
+                                        </div>
+                                        <div className="space-y-1.5 col-span-2">
+                                          <Label className="text-xs">Próximo Passo</Label>
+                                          <Input value={editingBrandData.next_step || ''} onChange={(e) => setEditingBrandData((p: any) => ({ ...p, next_step: e.target.value }))} className="h-9 text-sm" placeholder="Ex: Aguardando publicação RPI" />
+                                        </div>
+                                        <div className="space-y-1.5 col-span-2">
+                                          <Label className="text-xs">Notas / Observações</Label>
+                                          <Textarea value={editingBrandData.notes || ''} onChange={(e) => setEditingBrandData((p: any) => ({ ...p, notes: e.target.value }))} className="text-sm min-h-[80px]" placeholder="Observações gerais sobre esta marca..." />
+                                        </div>
+                                      </div>
+
+                                      <Button
+                                        className="w-full"
+                                        disabled={savingBrand || !editingBrandData.brand_name?.trim()}
+                                        onClick={async () => {
+                                          setSavingBrand(true);
+                                          try {
+                                            const nclParsed = editingBrandData.ncl_classes
+                                              ? editingBrandData.ncl_classes.split(',').map((c: string) => parseInt(c.trim(), 10)).filter((n: number) => !isNaN(n))
+                                              : null;
+                                            const { error } = await supabase.from('brand_processes').update({
+                                              brand_name: editingBrandData.brand_name,
+                                              process_number: editingBrandData.process_number || null,
+                                              inpi_protocol: editingBrandData.inpi_protocol || null,
+                                              ncl_classes: nclParsed && nclParsed.length > 0 ? nclParsed : null,
+                                              business_area: editingBrandData.business_area || null,
+                                              status: editingBrandData.status,
+                                              pipeline_stage: editingBrandData.pipeline_stage,
+                                              deposit_date: editingBrandData.deposit_date || null,
+                                              grant_date: editingBrandData.grant_date || null,
+                                              expiry_date: editingBrandData.expiry_date || null,
+                                              next_step: editingBrandData.next_step || null,
+                                              next_step_date: editingBrandData.next_step_date || null,
+                                              notes: editingBrandData.notes || null,
+                                            }).eq('id', brand.id);
+                                            if (error) throw error;
+                                            toast.success('Marca atualizada com sucesso!');
+                                            setExpandedBrandId(null);
+                                            fetchClientData();
+                                            onUpdate();
+                                          } catch (err: any) {
+                                            toast.error('Erro ao salvar: ' + err.message);
+                                          } finally {
+                                            setSavingBrand(false);
+                                          }
+                                        }}
+                                      >
+                                        {savingBrand ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                                        Salvar Alterações
+                                      </Button>
+                                    </div>
+                                  </motion.div>
                                 )}
-                                {brand.ncl_classes && brand.ncl_classes.length > 0 && (
-                                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                                    <Briefcase className="h-3 w-3" />
-                                    <span>NCL: {brand.ncl_classes.join(', ')}</span>
-                                  </div>
-                                )}
-                                {brand.status && (
-                                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                                    <Activity className="h-3 w-3" />
-                                    <span>{brand.status === 'em_andamento' ? 'Em andamento' : brand.status}</span>
-                                  </div>
-                                )}
-                                {brand.created_at && (
-                                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                                    <CalendarIcon className="h-3 w-3" />
-                                    <span>{format(new Date(brand.created_at), 'dd/MM/yyyy', { locale: ptBR })}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </motion.div>
+                              </AnimatePresence>
+                            </div>
                           );
                         })}
                       </AnimatePresence>
