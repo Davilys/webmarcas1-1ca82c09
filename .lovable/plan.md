@@ -1,100 +1,55 @@
 
 
-# Ficha Editavel de Marca (inline na aba Marcas)
+# Editor Inline de Contatos na Ficha do Cliente
 
 ## Objetivo
-
-Ao clicar em um card de marca na aba "Marcas" do ficheiro do cliente, abre uma view inline (dentro do proprio ficheiro) onde o usuario pode visualizar e editar todas as informacoes da marca, incluindo:
-- Nome da marca
-- Numero do processo INPI
-- Protocolo INPI
-- Classes NCL
-- Ramo de atividade
-- Status do processo
-- Fase do pipeline
-- Datas (deposito, concessao, validade)
-- Proximo passo e data
-- Notas/observacoes
-
-## Funcionamento
-
-```text
-[Card Marca 1]  <-- clicado
-[Card Marca 2]
-
-  +----------------------------------------------+
-  | DETALHES DA MARCA - WebMarcas       [X] [Salvar] |
-  |                                              |
-  | Nome da Marca:      [________________]       |
-  | Numero do Processo:  [________________]       |
-  | Protocolo INPI:      [________________]       |
-  | Classes NCL:         [________________]       |
-  | Ramo de Atividade:   [________________]       |
-  | Status:              [select___________]      |
-  | Fase do Pipeline:    [select___________]      |
-  |                                              |
-  | Data Deposito:       [____/____/____]        |
-  | Data Concessao:      [____/____/____]        |
-  | Data Validade:       [____/____/____]        |
-  | Proximo Passo:       [________________]       |
-  | Data Proximo Passo:  [____/____/____]        |
-  |                                              |
-  | Notas:                                       |
-  | [__________________________________]         |
-  |                                              |
-  | [====== SALVAR ALTERACOES ======]            |
-  +----------------------------------------------+
-```
+Adicionar um botao "Editar" na aba Contatos que transforma os campos de somente-leitura em inputs editaveis, permitindo completar/corrigir todas as informacoes do cliente (nome, CPF, CNPJ, email, telefone, empresa, endereco, informacoes comerciais).
 
 ## Arquivo a modificar
+`src/components/admin/clients/ClientDetailSheet.tsx`
 
-### `src/components/admin/clients/ClientDetailSheet.tsx`
+## Alteracoes
 
-**Adicionar estado:**
-- `expandedBrandId: string | null` - controla qual marca esta expandida para edicao
-- `editingBrandData: object` - dados temporarios do formulario de edicao
+### 1. Novos estados (junto aos existentes, ~linha 171)
+- `editingContacts: boolean` - alterna entre modo leitura e edicao
+- `contactForm: object` - dados temporarios (full_name, email, cpf, cnpj, phone, company_name, address, neighborhood, city, state, zip_code, origin, client_funnel_type, assigned_to)
+- `savingContacts: boolean` - loading do botao salvar
 
-**Modificar a aba Marcas (linhas ~2111-2181):**
-- Tornar cada card de marca clicavel (cursor-pointer, hover effect)
-- Ao clicar, expandir abaixo do card um formulario inline com todos os campos da tabela `brand_processes`
-- Formulario com inputs para: brand_name, process_number, inpi_protocol, ncl_classes (input de texto com virgulas), business_area, status (select), pipeline_stage (select com etapas dinamicas), deposit_date, grant_date, expiry_date, next_step, next_step_date, notes
-- Botao "Salvar" que faz update na tabela `brand_processes` e recarrega os dados
-- Botao "X" para fechar sem salvar
-- Animacao com framer-motion (AnimatePresence) para abrir/fechar suavemente
+### 2. Atualizar query do perfil (linha 381)
+Adicionar `origin, client_funnel_type, full_name, email, phone` ao SELECT da tabela `profiles`.
 
-**Campos editaveis:**
+### 3. Refatorar aba Contatos (linhas 1672-1701)
 
-| Campo | Tipo | Descricao |
-|-------|------|-----------|
-| brand_name | Input texto | Nome da marca |
-| process_number | Input texto | Numero do processo INPI |
-| inpi_protocol | Input texto | Protocolo INPI |
-| ncl_classes | Input texto | Classes NCL (separadas por virgula) |
-| business_area | Input texto | Ramo de atividade |
-| status | Select | em_andamento, deferido, indeferido, arquivado, certificado |
-| pipeline_stage | Select | Etapas dinamicas do Kanban |
-| deposit_date | Input date | Data de deposito |
-| grant_date | Input date | Data de concessao |
-| expiry_date | Input date | Data de validade |
-| next_step | Input texto | Proximo passo |
-| next_step_date | Input date | Data do proximo passo |
-| notes | Textarea | Observacoes gerais |
+**Card Dados Pessoais (linha 1675-1686):**
+- Adicionar botao "Editar" no header ao lado de "Dados Pessoais"
+- Ao clicar "Editar", o estado `editingContacts` muda para `true` e `contactForm` e populado com os dados atuais
+- Em modo edicao: cada InfoRow vira um Input com Label:
+  - Nome Completo (input texto)
+  - E-mail (input email, disabled pois e login)
+  - CPF (input texto)
+  - CNPJ (input texto)
+  - Telefone (input texto)
+  - Empresa (input texto)
+- Botoes "Cancelar" e "Salvar" no rodape do card
 
-## Detalhes Tecnicos
+**Card Endereco (linhas 1688-1698):**
+- Sempre visivel em modo edicao (remover condicional `profileData?.address || profileData?.city`)
+- Em modo edicao: inputs para Logradouro, Bairro, Cidade, Estado (UF), CEP
 
-### Persistencia
-- Update direto na tabela `brand_processes` via Supabase client
-- Apos salvar, chama `fetchClientData()` para recarregar e `onUpdate()` para atualizar o Kanban
+**Novo card Informacoes Comerciais (apenas em modo edicao):**
+- Select Origem: site, indicacao, google, instagram, facebook, whatsapp, outro
+- Select Funil: comercial, juridico
+- Select Responsavel: lista dinamica de admins (ja carregada em `adminUsersList`)
 
-### Seguranca
-- Nenhuma tabela nova criada
-- Nenhuma coluna nova criada
-- Usa apenas colunas ja existentes na tabela `brand_processes`
-- Componente isolado dentro da aba Marcas, sem afetar nenhuma outra funcionalidade
+### 4. Logica de salvamento
+- Update na tabela `profiles` com todos os campos do contactForm
+- Atualiza `cpf_cnpj` automaticamente (usa CPF se preenchido, senao CNPJ)
+- Apos salvar: `fetchClientData()` + `onUpdate()` para sincronizar
+- Toast de sucesso/erro
+- Volta ao modo leitura apos salvar
 
-### UI
-- O formulario aparece com animacao suave (framer-motion)
-- Layout em grid de 2 colunas para campos curtos, 1 coluna para notas
-- Estilo consistente com o restante do ficheiro (rounded-2xl, border-border, bg-card)
-- Ao salvar exibe toast de sucesso
+## Seguranca
+- Nenhuma tabela ou coluna nova
+- Usa apenas colunas ja existentes na tabela `profiles`
+- Sem afetar outras abas ou funcionalidades
 
