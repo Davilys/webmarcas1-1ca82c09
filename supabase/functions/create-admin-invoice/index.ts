@@ -62,8 +62,53 @@ serve(async (req) => {
     // ========================================
     const cpfCnpj = profile.cpf_cnpj?.replace(/\D/g, '') || '';
     
+    // If no CPF/CNPJ, create local-only invoice (skip Asaas)
     if (!cpfCnpj) {
-      throw new Error('Cliente sem CPF/CNPJ cadastrado');
+      console.log('No CPF/CNPJ — creating local-only invoice');
+
+      const paymentMethodLabel = invoiceData.payment_method === 'pix' ? 'PIX' : 
+                                 invoiceData.payment_method === 'boleto' ? 'Boleto' : 'Cartão';
+
+      const { data: invoice, error: invoiceError } = await supabaseAdmin
+        .from('invoices')
+        .insert({
+          user_id: invoiceData.user_id,
+          process_id: invoiceData.process_id || null,
+          description: invoiceData.description,
+          amount: invoiceData.total_value,
+          due_date: invoiceData.due_date,
+          status: 'pending',
+          payment_method: `${paymentMethodLabel} (À Vista)`,
+        })
+        .select('id')
+        .single();
+
+      if (invoiceError) {
+        console.error('Error creating local invoice:', invoiceError);
+        throw new Error('Erro ao salvar fatura no banco de dados');
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          invoice_id: invoice?.id,
+          asaas_payment_id: null,
+          status: 'PENDING_LOCAL',
+          billing_type: paymentMethodLabel,
+          installments: 1,
+          value: invoiceData.total_value,
+          due_date: invoiceData.due_date,
+          invoice_url: null,
+          bank_slip_url: null,
+          pix_qr_code: null,
+          pix_code: null,
+          warning: 'Cliente sem CPF/CNPJ — fatura criada localmente sem cobrança Asaas.',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
     }
 
     let customerId: string;
@@ -85,7 +130,6 @@ serve(async (req) => {
       customerId = existingCustomerData.data[0].id;
       console.log('Found existing Asaas customer:', customerId);
       
-      // Update asaas_customer_id in profile if not set
       if (!profile.asaas_customer_id) {
         await supabaseAdmin
           .from('profiles')
@@ -93,7 +137,6 @@ serve(async (req) => {
           .eq('id', invoiceData.user_id);
       }
     } else {
-      // Create new customer
       const customerPayload = {
         name: profile.company_name || profile.full_name || profile.email,
         cpfCnpj: cpfCnpj,
@@ -125,7 +168,6 @@ serve(async (req) => {
 
       customerId = customerData.id;
       
-      // Save asaas_customer_id in profile
       await supabaseAdmin
         .from('profiles')
         .update({ asaas_customer_id: customerId })
@@ -143,7 +185,6 @@ serve(async (req) => {
 
     if (invoiceData.payment_method === 'pix') {
       billingType = 'PIX';
-      // PIX is always single payment
       installmentCount = 1;
     } else if (invoiceData.payment_method === 'boleto') {
       billingType = 'BOLETO';
@@ -158,7 +199,7 @@ serve(async (req) => {
         installmentValue = Math.ceil((invoiceData.total_value / installmentCount) * 100) / 100;
       }
     } else {
-      billingType = 'UNDEFINED'; // Let customer choose
+      billingType = 'UNDEFINED';
     }
 
     // ========================================
@@ -173,7 +214,6 @@ serve(async (req) => {
       externalReference: `admin_invoice_${Date.now()}`,
     };
 
-    // Add installments for boleto and credit card
     if (installmentCount > 1 && billingType !== 'PIX') {
       paymentPayload.installmentCount = installmentCount;
       paymentPayload.installmentValue = installmentValue;
