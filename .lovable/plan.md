@@ -1,62 +1,57 @@
 
 
-# Unificar Informacoes de Publicacoes no Ficheiro do Cliente
+# Corrigir Importacao com Atualizacao de Clientes Existentes
 
-## Objetivo
-Integrar automaticamente os dados de publicacoes (status do processo, timeline, prazos criticos) diretamente nas abas principais do ficheiro do cliente, sem precisar clicar em "Ciclo Completo" ou sair para o modulo de publicacoes.
+## Problema Atual
+Quando o usuario ativa "Atualizar clientes existentes", os clientes duplicados (que ja existem no sistema) continuam **desmarcados** na tabela de preview. Isso acontece porque a logica de pre-selecao em `handleMappingConfirm` exclui todos os emails duplicados antes mesmo do usuario ver o toggle. Resultado: o toggle nao tem efeito pratico.
 
-## Arquivo a modificar
-`src/components/admin/clients/ClientDetailSheet.tsx`
+## Arquivos a Modificar
 
-## Alteracoes
+### 1. `src/components/admin/clients/ClientImportExportDialog.tsx`
 
-### 1. Carregar publicacoes automaticamente ao abrir o ficheiro
-Atualmente os dados de publicacoes so sao carregados quando o usuario clica no botao "Ciclo Completo" (acao `processo`, linha ~700). A mudanca e carregar `publicacoes_marcas` junto com os outros dados na funcao `fetchClientData()` (linha ~300-400), para que estejam disponiveis nas abas desde o inicio.
+**Mover o toggle "Atualizar clientes existentes" para ANTES do preview (etapa mapping ou inicio do preview):**
+- Quando `updateExisting = true`: incluir clientes duplicados na selecao automatica (nao excluir da pre-selecao)
+- Quando `updateExisting = false`: manter comportamento atual (duplicados ficam desmarcados)
 
-- Adicionar query `publicacoes_marcas` filtrada por `client_id` (ou `process_id` para orfaos) dentro de `fetchClientData()`
-- Salvar resultado em `processPublicacoes` (estado ja existente)
+**Reprocessar selecao quando o toggle mudar:**
+- Adicionar um `useEffect` ou callback que reprocessa `selectedRows` quando `updateExisting` muda, incluindo/excluindo os duplicados conforme o valor
 
-### 2. Adicionar card de Publicacoes na aba "Geral" (overview)
-Inserir um novo card apos o card de "Notas Internas" (linha ~1625) na aba overview que mostra:
+### 2. `src/components/admin/clients/ImportPreviewTable.tsx`
 
-- Numero de publicacoes vinculadas ao cliente
-- Para cada publicacao:
-  - Nome da marca + numero do processo
-  - Badge de status (Depositada, Publicada, Deferida, etc.) usando STATUS_CONFIG existente
-  - Prazo critico com indicador de urgencia (dias restantes ou atrasado)
-  - Mini-timeline com icones (6 etapas: Deposito, Publicacao RPI, Oposicao, Decisao, Certificado, Renovacao)
-- Botao "Ver Ciclo Completo" que aciona `handleQuickAction('processo')`
+**Melhorar a indicacao visual de clientes que serao atualizados:**
+- Quando `updateExisting = true` e o email ja existe: mostrar badge "Sera atualizado" (azul) em vez de "Ja existe" (amarelo/warning)
+- Quando `updateExisting = false` e o email ja existe: manter badge "Ja existe" (amarelo) com tom de aviso
+- Passar nova prop `updateExisting: boolean` para o componente
 
-### 3. Mostrar status da publicacao no header do ficheiro
-No header do ficheiro (linha ~1050-1100), abaixo do nome do cliente e da marca, adicionar:
-- Badge do status da publicacao mais recente (ex: "Deferida", "Publicada")
-- Prazo critico proximo com cor de urgencia
+## Detalhes Tecnicos
 
-### 4. Exibir detalhes da publicacao na aba "Marcas"
-Na aba "Marcas" (valor `brands`), para cada marca listada, cruzar com `processPublicacoes` via `process_id` e mostrar:
-- Status atual da publicacao vinculada
-- Proximo prazo critico
-- Descricao do prazo
+**ClientImportExportDialog.tsx - handleMappingConfirm (linhas 130-141):**
+```text
+// Logica atual exclui duplicados sempre:
+.filter(({ client }) => !isDuplicate)
 
-## Detalhes tecnicos
+// Nova logica:
+.filter(({ client }) => {
+  const isDuplicate = existingEmails.includes(email);
+  // Se updateExisting, incluir duplicados (serao atualizados)
+  return rowErrors.length === 0 && (updateExisting || !isDuplicate);
+})
+```
 
-**Dados reutilizados (sem novas queries):**
-- `processPublicacoes` (estado ja existente, apenas carregado mais cedo)
-- `clientBrands` (ja carregado no fetchClientData)
-- `STATUS_CONFIG` inline (ja definido no componente)
+**ClientImportExportDialog.tsx - useEffect para reagir ao toggle:**
+```text
+useEffect(() => {
+  if (importStep !== 'preview') return;
+  // Recalcular selectedRows baseado no novo valor de updateExisting
+}, [updateExisting]);
+```
 
-**Componentes reutilizados:**
-- Timeline inline (TIMELINE_STEPS_INLINE, ja implementado nas linhas 1237-1328)
-- Badge de urgencia (logica getDaysLeft, ja implementada)
-- STATUS_CONFIG_INLINE (ja definido nas linhas 1245-1254)
-
-**Sem dependencias novas:**
-- Nenhuma tabela nova
-- Nenhuma query adicional alem da que ja existe para publicacoes
-- Nenhum componente externo novo
+**ImportPreviewTable.tsx - badge condicional:**
+- Receber prop `updateExisting`
+- Se `updateExisting && isDuplicate`: Badge azul "Sera atualizado"
+- Se `!updateExisting && isDuplicate`: Badge amarelo "Ja existe"
 
 ## Impacto
-- O ficheiro do cliente passa a mostrar o status do processo e publicacoes sem necessidade de navegar para outra tela
-- O "Ciclo Completo" continua existindo para quem quiser ver a timeline detalhada com contratos e faturas
-- Nenhuma funcionalidade existente e removida ou alterada
-
+- Nenhuma tabela ou coluna nova
+- Nenhuma alteracao na Edge Function (ja suporta `updateExisting`)
+- Apenas correcao de logica no frontend para que o toggle funcione corretamente
