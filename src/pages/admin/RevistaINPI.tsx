@@ -65,6 +65,8 @@ interface Profile {
   full_name: string | null;
   email: string;
   company_name: string | null;
+  cpf_cnpj: string | null;
+  phone: string | null;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────
@@ -200,8 +202,18 @@ export default function RevistaINPI() {
 
   // ─── Data fetching (unchanged logic) ──────────────────────────────
   const fetchClients = async () => {
-    const { data } = await supabase.from('profiles').select('id, full_name, email, company_name').order('full_name');
-    setAvailableClients(data || []);
+    const allClients: Profile[] = [];
+    let from = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data, error } = await supabase.from('profiles').select('id, full_name, email, company_name, cpf_cnpj, phone').order('full_name').range(from, from + pageSize - 1);
+      if (error) { console.error('Error fetching clients:', error); break; }
+      if (!data || data.length === 0) break;
+      allClients.push(...(data as Profile[]));
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    setAvailableClients(allClients);
   };
 
   const fetchAvailableRpis = async () => {
@@ -372,7 +384,7 @@ export default function RevistaINPI() {
   const filteredClients = availableClients.filter(client => {
     if (!clientSearch) return true;
     const s = clientSearch.toLowerCase();
-    return client.full_name?.toLowerCase().includes(s) || client.email?.toLowerCase().includes(s) || client.company_name?.toLowerCase().includes(s);
+    return client.full_name?.toLowerCase().includes(s) || client.email?.toLowerCase().includes(s) || client.company_name?.toLowerCase().includes(s) || client.cpf_cnpj?.replace(/\D/g, '').includes(s.replace(/\D/g, '')) || client.phone?.includes(s);
   });
 
   const handleAssignClient = async () => {
