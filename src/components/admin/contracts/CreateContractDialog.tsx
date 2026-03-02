@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -60,6 +61,62 @@ interface ContractTemplate {
 }
 
 type DocumentType = 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa';
+
+// NCL class descriptions (Nice Classification - 45 classes)
+const NCL_CLASS_DESCRIPTIONS: Record<number, string> = {
+  1: 'Produtos químicos',
+  2: 'Tintas e vernizes',
+  3: 'Cosméticos e produtos de limpeza',
+  4: 'Óleos e combustíveis',
+  5: 'Produtos farmacêuticos',
+  6: 'Metais comuns',
+  7: 'Máquinas e ferramentas',
+  8: 'Ferramentas manuais',
+  9: 'Aparelhos eletrônicos e tecnologia',
+  10: 'Equipamentos médicos',
+  11: 'Iluminação e climatização',
+  12: 'Veículos',
+  13: 'Armas de fogo',
+  14: 'Joalheria e relojoaria',
+  15: 'Instrumentos musicais',
+  16: 'Papel e impressos',
+  17: 'Borracha e plásticos',
+  18: 'Couro e artigos de viagem',
+  19: 'Materiais de construção',
+  20: 'Móveis',
+  21: 'Utensílios domésticos',
+  22: 'Cordas e fibras têxteis',
+  23: 'Fios para uso têxtil',
+  24: 'Tecidos e coberturas',
+  25: 'Vestuário, calçados e chapelaria',
+  26: 'Rendas e bordados',
+  27: 'Tapetes e revestimentos',
+  28: 'Jogos e brinquedos',
+  29: 'Alimentos de origem animal',
+  30: 'Alimentos de origem vegetal',
+  31: 'Produtos agrícolas',
+  32: 'Cervejas e bebidas não alcoólicas',
+  33: 'Bebidas alcoólicas',
+  34: 'Tabaco',
+  35: 'Publicidade e negócios',
+  36: 'Seguros e finanças',
+  37: 'Construção e reparos',
+  38: 'Telecomunicações',
+  39: 'Transporte e armazenagem',
+  40: 'Tratamento de materiais',
+  41: 'Educação e entretenimento',
+  42: 'Serviços de TI e científicos',
+  43: 'Alimentação e hospedagem',
+  44: 'Serviços médicos',
+  45: 'Serviços jurídicos e segurança',
+};
+
+interface ClientBrand {
+  id: string;
+  brand_name: string;
+  business_area: string | null;
+  ncl_classes: number[] | null;
+}
 
 // Always returns the production domain to avoid broken links when admin is in Lovable preview
 const getProductionBaseUrl = () => {
@@ -126,6 +183,11 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
   const [suggestedClasses, setSuggestedClasses] = useState<{ classes: number[]; descriptions: string[] } | null>(null);
   const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
   const [loadingClasses, setLoadingClasses] = useState(false);
+
+  // Brand data tab states (existing client flow)
+  const [clientBrands, setClientBrands] = useState<ClientBrand[]>([]);
+  const [useExistingBrand, setUseExistingBrand] = useState(true);
+  const [existingBrandId, setExistingBrandId] = useState<string>('');
 
   // Client search autocomplete state
   const [clientSearch, setClientSearch] = useState('');
@@ -258,11 +320,24 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         );
       }).slice(0, 15);
 
-  const handleSelectClient = (profile: Profile) => {
+  const handleSelectClient = async (profile: Profile) => {
     setSelectedProfile(profile);
     setFormData(prev => ({ ...prev, user_id: profile.id }));
     setClientSearch(profile.full_name || profile.email);
     setClientDropdownOpen(false);
+
+    // Fetch client brands
+    try {
+      const { data: brands } = await supabase
+        .from('brand_processes')
+        .select('id, brand_name, business_area, ncl_classes')
+        .eq('user_id', profile.id)
+        .order('brand_name');
+      setClientBrands(brands || []);
+    } catch (err) {
+      console.log('Could not fetch client brands:', err);
+      setClientBrands([]);
+    }
   };
 
   const fetchData = async () => {
@@ -565,13 +640,17 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
           },
           brandData: {
             brandName: effectiveBrandName,
-            businessArea: '', // Use default or get from form
+            businessArea: brandData.businessArea || '',
             hasCNPJ: (selectedProfile.cpf_cnpj?.replace(/[^\d]/g, '').length === 14) || !!formData.signatory_cnpj,
             cnpj: selectedProfile.cpf_cnpj?.replace(/[^\d]/g, '').length === 14 
               ? selectedProfile.cpf_cnpj : formData.signatory_cnpj || '',
             companyName: selectedProfile.company_name || '',
           },
-          paymentMethod: paymentMethod, // Use selected payment method
+          paymentMethod: paymentMethod,
+          selectedClasses: selectedClasses.length > 0 ? selectedClasses : undefined,
+          classDescriptions: selectedClasses.length > 0 
+            ? selectedClasses.map(c => NCL_CLASS_DESCRIPTIONS[c] || `Classe ${c}`) 
+            : undefined,
         });
       }
     }
@@ -850,7 +929,13 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         visible_to_client: true,
         lead_id: leadId || null,
         created_by: adminUser?.id || null,
-        suggested_classes: suggestedClasses ? { classes: suggestedClasses.classes, descriptions: suggestedClasses.descriptions, selected: selectedClasses } : null,
+        suggested_classes: selectedClasses.length > 0
+          ? { 
+              classes: suggestedClasses?.classes || selectedClasses, 
+              descriptions: suggestedClasses?.descriptions || selectedClasses.map(c => NCL_CLASS_DESCRIPTIONS[c] || `Classe ${c}`), 
+              selected: selectedClasses 
+            }
+          : (suggestedClasses ? { classes: suggestedClasses.classes, descriptions: suggestedClasses.descriptions, selected: selectedClasses } : null),
       } as any).select().single();
 
       if (error) throw error;
@@ -1051,6 +1136,10 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     setSuggestedClasses(null);
     setSelectedClasses([]);
     setLoadingClasses(false);
+    // Reset brand data tab states
+    setClientBrands([]);
+    setUseExistingBrand(true);
+    setExistingBrandId('');
   };
 
   const handleProfileChange = async (userId: string) => {
@@ -1101,6 +1190,19 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         // Auto-generate subject if empty
         subject: prev.subject || `Documento - ${profile.full_name || profile.email}`,
       }));
+
+      // Fetch client brands for brand data tab
+      try {
+        const { data: allBrands } = await supabase
+          .from('brand_processes')
+          .select('id, brand_name, business_area, ncl_classes')
+          .eq('user_id', userId)
+          .order('brand_name');
+        setClientBrands(allBrands || []);
+      } catch (err) {
+        console.log('Could not fetch client brands:', err);
+        setClientBrands([]);
+      }
     } else {
       setFormData(prev => ({ ...prev, user_id: userId }));
     }
@@ -2032,8 +2134,11 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                 </div>
 
                 <Tabs defaultValue="basic" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className={cn("grid w-full", isStandardContractTemplate && !isMonitoramentoTemplate ? "grid-cols-3" : "grid-cols-2")}>
                     <TabsTrigger value="basic">Informações Básicas</TabsTrigger>
+                    {isStandardContractTemplate && !isMonitoramentoTemplate && (
+                      <TabsTrigger value="brand_data">Dados da Marca</TabsTrigger>
+                    )}
                     <TabsTrigger value="details">Dados do Signatário</TabsTrigger>
                   </TabsList>
 
@@ -2191,6 +2296,265 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                       )}
                     </div>
                   </TabsContent>
+
+                  {/* Brand Data Tab - only for standard contract (Registro de Marca) */}
+                  {isStandardContractTemplate && !isMonitoramentoTemplate && (
+                    <TabsContent value="brand_data" className="space-y-4 mt-4">
+                      {/* Toggle: existing brand vs new brand */}
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant={useExistingBrand ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            setUseExistingBrand(true);
+                            setSelectedClasses([]);
+                            setSuggestedClasses(null);
+                          }}
+                        >
+                          Marca já registrada
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={!useExistingBrand ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            setUseExistingBrand(false);
+                            setExistingBrandId('');
+                            setSelectedClasses([]);
+                            setSuggestedClasses(null);
+                          }}
+                        >
+                          Nova marca
+                        </Button>
+                      </div>
+
+                      {useExistingBrand ? (
+                        <div className="space-y-4">
+                          {/* Select existing brand */}
+                          <div className="space-y-2">
+                            <Label>Selecionar Marca do Cliente</Label>
+                            {clientBrands.length > 0 ? (
+                              <Select
+                                value={existingBrandId}
+                                onValueChange={(brandId) => {
+                                  setExistingBrandId(brandId);
+                                  const brand = clientBrands.find(b => b.id === brandId);
+                                  if (brand) {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      brand_name: brand.brand_name,
+                                      subject: `CONTRATO REGISTRO DE MARCA - ${brand.brand_name.toUpperCase()}`,
+                                    }));
+                                    // Reset class selection when switching brands
+                                    setSelectedClasses([]);
+                                  }
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Escolha uma marca" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {clientBrands.map(brand => (
+                                    <SelectItem key={brand.id} value={brand.id}>
+                                      {brand.brand_name}
+                                      {brand.ncl_classes && brand.ncl_classes.length > 0 && (
+                                        <span className="text-muted-foreground ml-2">
+                                          (Classes: {brand.ncl_classes.join(', ')})
+                                        </span>
+                                      )}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                Este cliente não possui marcas registradas. Use "Nova marca".
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Show existing classes as badges */}
+                          {existingBrandId && (() => {
+                            const selectedBrand = clientBrands.find(b => b.id === existingBrandId);
+                            const existingClasses = selectedBrand?.ncl_classes || [];
+                            return existingClasses.length > 0 ? (
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">Classes já registradas:</Label>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {existingClasses.map(cls => (
+                                    <Badge key={cls} variant="secondary" className="text-xs">
+                                      {cls} - {NCL_CLASS_DESCRIPTIONS[cls] || `Classe ${cls}`}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+
+                          {/* NCL class selection - full list */}
+                          {existingBrandId && (
+                            <div className="space-y-2">
+                              <Label>Selecionar Novas Classes NCL</Label>
+                              <p className="text-xs text-muted-foreground">
+                                Selecione as classes adicionais para registrar esta marca.
+                              </p>
+                              <ScrollArea className="h-[300px] rounded-md border p-3">
+                                <div className="space-y-1">
+                                  {Object.entries(NCL_CLASS_DESCRIPTIONS).map(([num, desc]) => {
+                                    const cls = parseInt(num);
+                                    const existingClasses = clientBrands.find(b => b.id === existingBrandId)?.ncl_classes || [];
+                                    const isExisting = existingClasses.includes(cls);
+                                    const isSelected = selectedClasses.includes(cls);
+                                    return (
+                                      <label
+                                        key={cls}
+                                        className={cn(
+                                          "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
+                                          isExisting ? "opacity-50 cursor-not-allowed bg-muted/50" :
+                                          isSelected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"
+                                        )}
+                                      >
+                                        <Checkbox
+                                          checked={isSelected || isExisting}
+                                          disabled={isExisting}
+                                          onCheckedChange={() => !isExisting && toggleClassSelection(cls)}
+                                        />
+                                        <span className="inline-flex items-center justify-center w-7 h-7 rounded text-xs font-bold bg-muted text-muted-foreground shrink-0">
+                                          {String(cls).padStart(2, '0')}
+                                        </span>
+                                        <span className="text-sm">{desc}</span>
+                                        {isExisting && <Badge variant="outline" className="text-[10px] ml-auto">Já registrada</Badge>}
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </ScrollArea>
+                              {selectedClasses.length > 0 && (
+                                <p className="text-sm font-medium text-primary">
+                                  {selectedClasses.length} nova{selectedClasses.length > 1 ? 's' : ''} classe{selectedClasses.length > 1 ? 's' : ''} selecionada{selectedClasses.length > 1 ? 's' : ''}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {/* New brand inputs */}
+                          <div className="space-y-2">
+                            <Label>Nome da Marca *</Label>
+                            <Input
+                              value={formData.brand_name}
+                              onChange={(e) => {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  brand_name: e.target.value,
+                                  subject: e.target.value ? `CONTRATO REGISTRO DE MARCA - ${e.target.value.toUpperCase()}` : prev.subject,
+                                }));
+                                setBrandData(prev => ({ ...prev, brandName: e.target.value }));
+                              }}
+                              placeholder="Ex: Minha Marca"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Ramo de Atividade *</Label>
+                            <Input
+                              value={brandData.businessArea}
+                              onChange={(e) => setBrandData(prev => ({ ...prev, businessArea: e.target.value }))}
+                              placeholder="Ex: Alimentação, Tecnologia, Moda..."
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleGenerateClasses}
+                            disabled={loadingClasses || !formData.brand_name || !brandData.businessArea}
+                            className="w-full"
+                          >
+                            {loadingClasses ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Brain className="h-4 w-4 mr-2" />
+                            )}
+                            Gerar Classes por IA
+                          </Button>
+
+                          {/* Show AI suggested classes */}
+                          {suggestedClasses && suggestedClasses.classes.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs text-muted-foreground">Classes sugeridas pela IA:</Label>
+                                <Button type="button" variant="ghost" size="sm" onClick={selectAllClasses}>
+                                  <CheckSquare className="h-3.5 w-3.5 mr-1" />
+                                  {selectedClasses.length === suggestedClasses.classes.length ? 'Desmarcar todas' : 'Selecionar todas'}
+                                </Button>
+                              </div>
+                              {suggestedClasses.classes.map((cls, idx) => {
+                                const isSelected = selectedClasses.includes(cls);
+                                return (
+                                  <label
+                                    key={cls}
+                                    className={cn(
+                                      "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
+                                      isSelected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"
+                                    )}
+                                  >
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onCheckedChange={() => toggleClassSelection(cls)}
+                                    />
+                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded text-xs font-bold bg-muted text-muted-foreground shrink-0">
+                                      {String(cls).padStart(2, '0')}
+                                    </span>
+                                    <span className="text-sm">{suggestedClasses.descriptions[idx] || NCL_CLASS_DESCRIPTIONS[cls] || `Classe ${cls}`}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Full NCL list for manual selection */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Todas as Classes NCL (seleção manual):</Label>
+                            <ScrollArea className="h-[250px] rounded-md border p-3">
+                              <div className="space-y-1">
+                                {Object.entries(NCL_CLASS_DESCRIPTIONS).map(([num, desc]) => {
+                                  const cls = parseInt(num);
+                                  const isSelected = selectedClasses.includes(cls);
+                                  const isSuggested = suggestedClasses?.classes.includes(cls);
+                                  return (
+                                    <label
+                                      key={cls}
+                                      className={cn(
+                                        "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
+                                        isSelected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"
+                                      )}
+                                    >
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onCheckedChange={() => toggleClassSelection(cls)}
+                                      />
+                                      <span className="inline-flex items-center justify-center w-7 h-7 rounded text-xs font-bold bg-muted text-muted-foreground shrink-0">
+                                        {String(cls).padStart(2, '0')}
+                                      </span>
+                                      <span className="text-sm">{desc}</span>
+                                      {isSuggested && <Badge variant="outline" className="text-[10px] ml-auto">IA</Badge>}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </ScrollArea>
+                          </div>
+
+                          {selectedClasses.length > 0 && (
+                            <p className="text-sm font-medium text-primary">
+                              {selectedClasses.length} classe{selectedClasses.length > 1 ? 's' : ''} selecionada{selectedClasses.length > 1 ? 's' : ''}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </TabsContent>
+                  )}
 
                   <TabsContent value="details" className="space-y-4 mt-4">
                     <p className="text-sm text-muted-foreground mb-4">
