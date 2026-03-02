@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -381,11 +381,18 @@ export default function RevistaINPI() {
     setAssignDialogOpen(true);
   };
 
-  const filteredClients = availableClients.filter(client => {
-    if (!clientSearch) return true;
-    const s = clientSearch.toLowerCase();
-    return client.full_name?.toLowerCase().includes(s) || client.email?.toLowerCase().includes(s) || client.company_name?.toLowerCase().includes(s) || client.cpf_cnpj?.replace(/\D/g, '').includes(s.replace(/\D/g, '')) || client.phone?.includes(s);
-  });
+  const filteredClients = useMemo(() => {
+    if (!clientSearch || clientSearch.trim().length < 2) return [];
+    const s = clientSearch.trim().toLowerCase();
+    return availableClients.filter(client => {
+      const name = (client.full_name || '').toLowerCase();
+      const email = (client.email || '').toLowerCase();
+      const company = (client.company_name || '').toLowerCase();
+      const cpf = (client.cpf_cnpj || '').replace(/\D/g, '');
+      const phone = (client.phone || '');
+      return name.includes(s) || email.includes(s) || company.includes(s) || cpf.includes(s.replace(/\D/g, '')) || phone.includes(s);
+    });
+  }, [clientSearch, availableClients]);
 
   const handleAssignClient = async () => {
     if (!assignEntry || !selectedClient) return;
@@ -1295,10 +1302,10 @@ export default function RevistaINPI() {
                 <Label>Selecionar Cliente</Label>
                 <ScrollArea className="h-[200px] border rounded-xl p-2">
                   {filteredClients.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground text-sm">{clientSearch ? 'Nenhum cliente encontrado' : 'Digite para buscar'}</div>
+                    <div className="text-center py-8 text-muted-foreground text-sm">{clientSearch && clientSearch.trim().length >= 2 ? 'Nenhum cliente encontrado' : 'Digite ao menos 2 letras para buscar'}</div>
                   ) : (
                     <div className="space-y-1">
-                      {filteredClients.slice(0, 20).map(client => (
+                      {filteredClients.slice(0, 50).map(client => (
                         <div
                           key={client.id}
                           onClick={() => setSelectedClient(client)}
