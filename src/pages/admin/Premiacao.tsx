@@ -48,8 +48,50 @@ interface TeamMember {
   email: string;
 }
 
-// ---- Calculation helpers ----
-function calcRegistroMarcaPremium(entries: AwardEntry[]): number {
+// ---- Config type (matches AwardSettings) ----
+interface AwardConfig {
+  enabled: boolean;
+  registro_marca: {
+    base_rate: number;
+    above_goal_avista_rate: number;
+    above_goal_parcelado_rate: number;
+    monthly_goal: number;
+  };
+  publicacao: {
+    base_rate: number;
+    above_goal_rate: number;
+    monthly_goal: number;
+    milestone_interval: number;
+    milestone_bonus: number;
+  };
+  cobranca: {
+    tiers: { min: number; max: number; rate: number }[];
+    milestone_interval: number;
+    milestone_bonus: number;
+  };
+  master_admin_email: string;
+}
+
+const DEFAULT_CONFIG: AwardConfig = {
+  enabled: true,
+  registro_marca: { base_rate: 50, above_goal_avista_rate: 100, above_goal_parcelado_rate: 50, monthly_goal: 30 },
+  publicacao: { base_rate: 50, above_goal_rate: 100, monthly_goal: 50, milestone_interval: 10, milestone_bonus: 100 },
+  cobranca: {
+    tiers: [
+      { min: 199, max: 397, rate: 10 },
+      { min: 398, max: 597, rate: 25 },
+      { min: 598, max: 999, rate: 50 },
+      { min: 1000, max: 1500, rate: 75 },
+      { min: 1518, max: 99999, rate: 100 },
+    ],
+    milestone_interval: 10,
+    milestone_bonus: 50,
+  },
+  master_admin_email: 'davillys@gmail.com',
+};
+
+// ---- Calculation helpers (config-aware) ----
+function calcRegistroMarcaPremium(entries: AwardEntry[], cfg: AwardConfig['registro_marca']): number {
   let total = 0;
   const sorted = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
   let accumulated = 0;
@@ -57,51 +99,52 @@ function calcRegistroMarcaPremium(entries: AwardEntry[]): number {
     const qty = entry.brand_quantity || 1;
     for (let i = 0; i < qty; i++) {
       accumulated++;
-      if (accumulated <= 30) {
-        total += 50;
+      if (accumulated <= cfg.monthly_goal) {
+        total += cfg.base_rate;
       } else {
-        total += entry.payment_type === 'avista' ? 100 : 50;
+        total += entry.payment_type === 'avista' ? cfg.above_goal_avista_rate : cfg.above_goal_parcelado_rate;
       }
     }
   }
   return total;
 }
 
-function calcPublicacaoPremium(entries: AwardEntry[]): number {
+function calcPublicacaoPremium(entries: AwardEntry[], cfg: AwardConfig['publicacao']): number {
   const totalPubs = entries.reduce((s, e) => s + (e.pub_quantity || 1), 0);
-  const rate = totalPubs >= 50 ? 100 : 50;
+  const rate = totalPubs >= cfg.monthly_goal ? cfg.above_goal_rate : cfg.base_rate;
   return totalPubs * rate;
 }
 
-// Bônus de milestone: a cada 10 publicações resolvidas → +R$100
-function calcPublicacaoMilestoneBonus(entries: AwardEntry[]): { bonus: number; milestones: number; nextAt: number } {
+function calcPublicacaoMilestoneBonus(entries: AwardEntry[], cfg: AwardConfig['publicacao']): { bonus: number; milestones: number; nextAt: number } {
   const totalPubs = entries.reduce((s, e) => s + (e.pub_quantity || 1), 0);
-  const milestones = Math.floor(totalPubs / 10);
-  const bonus = milestones * 100;
-  const nextAt = (milestones + 1) * 10;
+  const interval = cfg.milestone_interval || 10;
+  const milestones = Math.floor(totalPubs / interval);
+  const bonus = milestones * (cfg.milestone_bonus || 100);
+  const nextAt = (milestones + 1) * interval;
   return { bonus, milestones, nextAt };
 }
 
-// Bônus de milestone: a cada 10 cobranças resolvidas → +R$50
-function calcCobrancaMilestoneBonus(entries: AwardEntry[]): { bonus: number; milestones: number; nextAt: number } {
+function calcCobrancaMilestoneBonus(entries: AwardEntry[], cfg: AwardConfig['cobranca']): { bonus: number; milestones: number; nextAt: number } {
   const totalCob = entries.length;
-  const milestones = Math.floor(totalCob / 10);
-  const bonus = milestones * 50;
-  const nextAt = (milestones + 1) * 10;
+  const interval = cfg.milestone_interval || 10;
+  const milestones = Math.floor(totalCob / interval);
+  const bonus = milestones * (cfg.milestone_bonus || 50);
+  const nextAt = (milestones + 1) * interval;
   return { bonus, milestones, nextAt };
 }
 
-function calcCobrancaPremium(entries: AwardEntry[]): number {
+function calcCobrancaPremium(entries: AwardEntry[], cfg: AwardConfig['cobranca']): number {
   let total = 0;
   for (const entry of entries) {
     if (!entry.total_resolved_value || !entry.installments_paid || entry.installments_paid === 0) continue;
     const perInstallment = entry.total_resolved_value / entry.installments_paid;
     let rate = 0;
-    if (perInstallment >= 199 && perInstallment <= 397) rate = 10;
-    else if (perInstallment >= 398 && perInstallment <= 597) rate = 25;
-    else if (perInstallment >= 598 && perInstallment <= 999) rate = 50;
-    else if (perInstallment >= 1000 && perInstallment <= 1500) rate = 75;
-    else if (perInstallment > 1518) rate = 100;
+    for (const tier of cfg.tiers) {
+      if (perInstallment >= tier.min && perInstallment <= tier.max) {
+        rate = tier.rate;
+        break;
+      }
+    }
     total += rate * entry.installments_paid;
   }
   return total;
@@ -144,8 +187,26 @@ export default function Premiacao() {
     },
   });
 
-  const MASTER_ADMIN_EMAIL = 'davillys@gmail.com';
-  const isMaster = currentUser?.email === MASTER_ADMIN_EMAIL;
+  // Load award config from system_settings
+  const { data: awardConfig } = useQuery({
+    queryKey: ['award-config'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'award_config')
+        .maybeSingle();
+      if (data?.value) {
+        return { ...DEFAULT_CONFIG, ...(data.value as unknown as AwardConfig) };
+      }
+      return DEFAULT_CONFIG;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const cfg = awardConfig || DEFAULT_CONFIG;
+
+  const isMaster = currentUser?.email === cfg.master_admin_email;
 
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
@@ -244,11 +305,11 @@ export default function Premiacao() {
   const publicacaoEntries = filteredEntries.filter(e => e.entry_type === 'publicacao');
   const cobrancaEntries = filteredEntries.filter(e => e.entry_type === 'cobranca');
 
-  const totalRegistroPremium = calcRegistroMarcaPremium(registroEntries);
-  const totalPublicacaoPremium = calcPublicacaoPremium(publicacaoEntries);
-  const totalCobrancaPremium = calcCobrancaPremium(cobrancaEntries);
-  const pubMilestone = calcPublicacaoMilestoneBonus(publicacaoEntries);
-  const cobMilestone = calcCobrancaMilestoneBonus(cobrancaEntries);
+  const totalRegistroPremium = calcRegistroMarcaPremium(registroEntries, cfg.registro_marca);
+  const totalPublicacaoPremium = calcPublicacaoPremium(publicacaoEntries, cfg.publicacao);
+  const totalCobrancaPremium = calcCobrancaPremium(cobrancaEntries, cfg.cobranca);
+  const pubMilestone = calcPublicacaoMilestoneBonus(publicacaoEntries, cfg.publicacao);
+  const cobMilestone = calcCobrancaMilestoneBonus(cobrancaEntries, cfg.cobranca);
   const totalMilestoneBonus = pubMilestone.bonus + cobMilestone.bonus;
   const totalPremium = totalRegistroPremium + totalPublicacaoPremium + totalCobrancaPremium + totalMilestoneBonus;
   const totalBrands = registroEntries.reduce((s, e) => s + (e.brand_quantity || 1), 0);
@@ -362,9 +423,9 @@ export default function Premiacao() {
       const reg = userEntries.filter(e => e.entry_type === 'registro_marca');
       const pub = userEntries.filter(e => e.entry_type === 'publicacao');
       const cob = userEntries.filter(e => e.entry_type === 'cobranca');
-      const userPubMilestone = calcPublicacaoMilestoneBonus(pub);
-      const userCobMilestone = calcCobrancaMilestoneBonus(cob);
-      const basePremium = calcRegistroMarcaPremium(reg) + calcPublicacaoPremium(pub) + calcCobrancaPremium(cob);
+      const userPubMilestone = calcPublicacaoMilestoneBonus(pub, cfg.publicacao);
+      const userCobMilestone = calcCobrancaMilestoneBonus(cob, cfg.cobranca);
+      const basePremium = calcRegistroMarcaPremium(reg, cfg.registro_marca) + calcPublicacaoPremium(pub, cfg.publicacao) + calcCobrancaPremium(cob, cfg.cobranca);
       map.set(member.id, {
         registro: reg.reduce((s, e) => s + (e.brand_quantity || 1), 0),
         publicacao: pub.reduce((s, e) => s + (e.pub_quantity || 1), 0),
@@ -375,7 +436,7 @@ export default function Premiacao() {
       });
     }
     return map;
-  }, [teamMembers, filteredEntries]);
+  }, [teamMembers, filteredEntries, cfg]);
 
   // ---- Render helpers ----
 
