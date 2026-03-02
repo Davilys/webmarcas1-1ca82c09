@@ -945,47 +945,90 @@ export default function PublicacaoTab() {
   // The pub used for building the ClientDetailSheet (uses sheetPubId, NOT selectedId)
   const sheetPub = useMemo(() => publicacoes.find(p => p.id === sheetPubId) || null, [publicacoes, sheetPubId]);
 
-  // Build ClientWithProcess for the ClientDetailSheet — uses sheetPub (independent of side panel)
-  // MUST match EXACTLY how Clientes.tsx builds ClientWithProcess so the ficheiro is identical
-  const selectedClientForSheet = useMemo<ClientWithProcess | null>(() => {
-    if (!sheetPub || !sheetPub.client_id) return null;
-    const client = clientMap.get(sheetPub.client_id);
-    if (!client) return null;
+  // Fetched client for the ClientDetailSheet — loaded on click, identical to Clientes.tsx
+  const [fetchedClientForSheet, setFetchedClientForSheet] = useState<ClientWithProcess | null>(null);
+  const [fetchingClient, setFetchingClient] = useState(false);
 
-    const userProcesses = processes.filter(p => p.user_id === sheetPub.client_id);
-    const mainProcess = userProcesses[0] || null;
-    const brands = userProcesses.map(p => ({
-      id: p.id,
-      brand_name: p.brand_name,
-      pipeline_stage: p.pipeline_stage || ((client as any).client_funnel_type === 'comercial' ? 'assinou_contrato' : 'protocolado'),
-      process_number: p.process_number || undefined,
-    }));
+  const fetchClientForSheet = useCallback(async (clientId: string) => {
+    setFetchingClient(true);
+    try {
+      // Parallel fetch: profile, processes, contracts — same as Clientes.tsx
+      const [profileRes, processesRes, contractsRes] = await Promise.all([
+        supabase.from('profiles')
+          .select('id, full_name, email, phone, cpf_cnpj, company_name, priority, origin, contract_value, created_at, last_contact, client_funnel_type, created_by, assigned_to')
+          .eq('id', clientId)
+          .single(),
+        supabase.from('brand_processes')
+          .select('id, user_id, brand_name, business_area, pipeline_stage, status, process_number')
+          .eq('user_id', clientId),
+        supabase.from('contracts')
+          .select('user_id, contract_value, payment_method')
+          .eq('user_id', clientId)
+          .order('created_at', { ascending: false })
+          .limit(1),
+      ]);
 
-    return {
-      id: client.id,
-      full_name: client.full_name || '',
-      email: client.email || '',
-      phone: (client as any).phone || null,
-      company_name: (client as any).company_name || null,
-      priority: (client as any).priority || 'medium',
-      origin: (client as any).origin || 'site',
-      contract_value: (client as any).contract_value || 0,
-      process_id: mainProcess?.id || null,
-      brand_name: mainProcess?.brand_name || null,
-      business_area: mainProcess?.business_area || null,
-      pipeline_stage: mainProcess?.pipeline_stage || ((client as any).client_funnel_type === 'comercial' ? 'assinou_contrato' : 'protocolado'),
-      process_status: mainProcess ? (mainProcess as any).status || null : null,
-      process_number: mainProcess?.process_number || undefined,
-      created_at: (client as any).created_at || undefined,
-      cpf_cnpj: (client as any).cpf_cnpj || undefined,
-      client_funnel_type: (client as any).client_funnel_type || 'juridico',
-      created_by: (client as any).created_by || null,
-      assigned_to: (client as any).assigned_to || null,
-      created_by_name: null,
-      assigned_to_name: null,
-      brands,
-    } as ClientWithProcess;
-  }, [sheetPub, clientMap, processes]);
+      const profile = profileRes.data;
+      if (!profile) { setFetchingClient(false); return; }
+
+      const userProcesses = processesRes.data || [];
+      const latestContract = contractsRes.data?.[0];
+
+      // Resolve admin names
+      const adminIds = [profile.created_by, profile.assigned_to].filter(Boolean) as string[];
+      let adminNameMap: Record<string, string> = {};
+      if (adminIds.length > 0) {
+        const { data: adminProfiles } = await supabase.from('profiles').select('id, full_name, email').in('id', adminIds);
+        for (const a of adminProfiles || []) {
+          adminNameMap[a.id] = a.full_name || a.email;
+        }
+      }
+
+      const createdByName = profile.created_by ? adminNameMap[profile.created_by] || null : null;
+      const assignedToName = profile.assigned_to ? adminNameMap[profile.assigned_to] || null : null;
+      const contractVal = latestContract?.contract_value ? Number(latestContract.contract_value) : profile.contract_value;
+
+      const mainProcess = userProcesses[0] || null;
+      const brands = userProcesses.map(p => ({
+        id: p.id,
+        brand_name: p.brand_name,
+        pipeline_stage: p.pipeline_stage || ((profile as any).client_funnel_type === 'comercial' ? 'assinou_contrato' : 'protocolado'),
+        process_number: p.process_number || undefined,
+      }));
+
+      const clientObj: ClientWithProcess = {
+        id: profile.id,
+        full_name: profile.full_name || '',
+        email: profile.email || '',
+        phone: profile.phone || null,
+        company_name: profile.company_name || null,
+        priority: profile.priority || 'medium',
+        origin: profile.origin || 'site',
+        contract_value: contractVal || 0,
+        process_id: mainProcess?.id || null,
+        brand_name: mainProcess?.brand_name || null,
+        business_area: mainProcess?.business_area || null,
+        pipeline_stage: mainProcess?.pipeline_stage || ((profile as any).client_funnel_type === 'comercial' ? 'assinou_contrato' : 'protocolado'),
+        process_status: mainProcess?.status || null,
+        process_number: mainProcess?.process_number || undefined,
+        created_at: profile.created_at || undefined,
+        cpf_cnpj: profile.cpf_cnpj || undefined,
+        client_funnel_type: (profile as any).client_funnel_type || 'juridico',
+        created_by: profile.created_by || null,
+        assigned_to: profile.assigned_to || null,
+        created_by_name: createdByName,
+        assigned_to_name: assignedToName,
+        brands,
+      };
+
+      setFetchedClientForSheet(clientObj);
+    } catch (err) {
+      console.error('Error fetching client for sheet:', err);
+      toast.error('Erro ao carregar ficha do cliente');
+    } finally {
+      setFetchingClient(false);
+    }
+  }, []);
 
   // ─── Alert toast on mount ────
   useEffect(() => {
@@ -1629,9 +1672,14 @@ export default function PublicacaoTab() {
               clientMap={clientMap}
               adminMap={adminMap}
               onSelect={id => {
-                setSheetPubId(id);
-                setShowClientSheet(true);
-                setShowProcessDetailFromSheet(true);
+                const pub = publicacoes.find(p => p.id === id);
+                if (pub?.client_id) {
+                  setSheetPubId(id);
+                  fetchClientForSheet(pub.client_id).then(() => {
+                    setShowClientSheet(true);
+                    setShowProcessDetailFromSheet(true);
+                  });
+                }
               }}
               selectedId={sheetPubId}
               onStatusChange={handleKanbanStatusChange}
@@ -1677,9 +1725,13 @@ export default function PublicacaoTab() {
                             key={pub.id}
                             className={cn('cursor-pointer', sheetPubId === pub.id && 'bg-accent')}
                             onClick={() => {
-                              setSheetPubId(pub.id);
-                              setShowClientSheet(true);
-                              setShowProcessDetailFromSheet(true);
+                              if (pub.client_id) {
+                                setSheetPubId(pub.id);
+                                fetchClientForSheet(pub.client_id).then(() => {
+                                  setShowClientSheet(true);
+                                  setShowProcessDetailFromSheet(true);
+                                });
+                              }
                             }}
                           >
                             <TableCell onClick={e => e.stopPropagation()}>
@@ -1991,11 +2043,11 @@ export default function PublicacaoTab() {
         </AlertDialogContent>
       </AlertDialog>
       {/* ─── CLIENT DETAIL SHEET (from Kanban click) ─── */}
-      {showClientSheet && selectedClientForSheet && (
+      {showClientSheet && fetchedClientForSheet && (
         <ClientDetailSheet
-          client={selectedClientForSheet}
+          client={fetchedClientForSheet}
           open={showClientSheet}
-          onOpenChange={(open) => { setShowClientSheet(open); if (!open) { setShowProcessDetailFromSheet(false); setSheetPubId(null); setClientAssignSearch(''); setShowClientAssignDropdown(false); } }}
+          onOpenChange={(open) => { setShowClientSheet(open); if (!open) { setShowProcessDetailFromSheet(false); setSheetPubId(null); setFetchedClientForSheet(null); setClientAssignSearch(''); setShowClientAssignDropdown(false); } }}
           onUpdate={() => queryClient.invalidateQueries({ queryKey: ['profiles-pub'] })}
           initialShowProcessDetails={showProcessDetailFromSheet}
           extraActions={
