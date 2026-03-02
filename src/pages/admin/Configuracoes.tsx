@@ -18,11 +18,12 @@ import { AutomatedEmailSettings } from '@/components/admin/settings/AutomatedEma
 import { AutomatedSMSSettings } from '@/components/admin/settings/AutomatedSMSSettings';
 import { AutomatedWhatsAppSettings } from '@/components/admin/settings/AutomatedWhatsAppSettings';
 import { AISettings } from '@/components/admin/settings/AISettings';
+import { AwardSettings } from '@/components/admin/settings/AwardSettings';
 import { cn } from '@/lib/utils';
 import {
   Settings, Database, Webhook, Mail, MessageCircle, Bell, Shield,
   Palette, FileSignature, GitBranch, Wallet, HardDrive, Tag, Zap,
-  ChevronRight, Cpu, Activity, Smartphone, MessageSquare, Brain
+  ChevronRight, Cpu, Activity, Smartphone, MessageSquare, Brain, Trophy
 } from 'lucide-react';
 
 // ─── Nav config ───────────────────────────────────
@@ -43,6 +44,7 @@ const NAV_GROUPS = [
       { value: 'contratos',  label: 'Contratos',          icon: FileSignature,  color: '#f59e0b', glow: '#f59e0b18', desc: 'Modelos e assinaturas' },
       { value: 'processos',  label: 'Processos',          icon: GitBranch,      color: '#06b6d4', glow: '#06b6d418', desc: 'Pipeline e etapas' },
       { value: 'financeiro', label: 'Financeiro',         icon: Wallet,         color: '#22c55e', glow: '#22c55e18', desc: 'Cobranças e faturas' },
+      { value: 'premiacao', label: 'Premiação',           icon: Trophy,         color: '#f59e0b', glow: '#f59e0b18', desc: 'Bônus e metas da equipe', badge: 'Novo' },
     ],
   },
   {
@@ -236,6 +238,7 @@ function SettingsContent({ active }: { active: string }) {
     processos:   <ProcessSettings />,
     financeiro:  <FinancialSettings />,
     backup:      <BackupSettings />,
+    premiacao:   <AwardSettings />,
   };
   return (
     <AnimatePresence mode="wait">
