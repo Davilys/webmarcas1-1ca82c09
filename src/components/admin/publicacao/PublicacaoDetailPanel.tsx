@@ -33,15 +33,15 @@ const SERVICE_TYPES = [
 ];
 
 const SERVICE_TO_STATUS: Record<string, string> = {
-  pedido_registro: 'depositada',
-  cumprimento_exigencia: 'publicada',
+  pedido_registro: '003',
+  cumprimento_exigencia: 'exigencia_merito',
   oposicao: 'oposicao',
-  recurso: 'indeferida',
-  renovacao: 'renovacao_pendente',
-  notificacao: 'publicada',
-  deferimento: 'deferida',
-  certificado: 'certificada',
-  distrato: 'arquivada',
+  recurso: 'indeferimento',
+  renovacao: 'renovacao',
+  notificacao: '003',
+  deferimento: 'deferimento',
+  certificado: 'certificado',
+  distrato: 'arquivado',
 };
 
 const STATUS_TO_SERVICE: Record<string, string> = {};

@@ -749,7 +749,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
   const handleEditPub = (pub: any) => {
     setEditingPubData({
       id: pub.id,
-      status: pub.status || 'depositada',
+      status: pub.status || '003',
       data_deposito: pub.data_deposito || '',
       data_publicacao_rpi: pub.data_publicacao_rpi || '',
       prazo_oposicao: pub.prazo_oposicao || '',
@@ -827,7 +827,7 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
     const brandName = pub.brand_name_rpi || client?.brand_name || 'Marca';
     setSchedulingForm({
       title: `Reunião: ${brandName}`,
-      description: `Publicação: ${pub.process_number_rpi || ''} — Status: ${pub.status || 'depositada'}`,
+      description: `Publicação: ${pub.process_number_rpi || ''} — Status: ${pub.status || '003'}`,
       date: new Date(),
       time: '10:00',
       duration: '30',
@@ -999,14 +999,14 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                     {processPublicacoes.length > 0 && (() => {
                       const latestPub = processPublicacoes[0];
                       const STATUS_HEADER: Record<string, { label: string; bg: string }> = {
-                        depositada: { label: 'Depositada', bg: 'bg-blue-400/30' },
-                        publicada: { label: 'Publicada', bg: 'bg-cyan-400/30' },
-                        oposicao: { label: 'Oposição', bg: 'bg-amber-400/30' },
-                        deferida: { label: 'Deferida', bg: 'bg-emerald-400/30' },
-                        certificada: { label: 'Certificada', bg: 'bg-purple-400/30' },
-                        indeferida: { label: 'Indeferida', bg: 'bg-red-400/30' },
-                        arquivada: { label: 'Arquivada', bg: 'bg-zinc-400/30' },
-                        renovacao_pendente: { label: 'Renovação Pendente', bg: 'bg-orange-400/30' },
+                        '003': { label: '003', bg: 'bg-yellow-400/30' },
+                        oposicao: { label: 'Oposição', bg: 'bg-orange-400/30' },
+                        exigencia_merito: { label: 'Exig. Mérito', bg: 'bg-violet-400/30' },
+                        indeferimento: { label: 'Indeferimento', bg: 'bg-red-400/30' },
+                        deferimento: { label: 'Deferimento', bg: 'bg-emerald-400/30' },
+                        certificado: { label: 'Certificado', bg: 'bg-teal-400/30' },
+                        renovacao: { label: 'Renovação', bg: 'bg-cyan-400/30' },
+                        arquivado: { label: 'Arquivado', bg: 'bg-zinc-400/30' },
                       };
                       const sCfg = STATUS_HEADER[latestPub.status] || STATUS_HEADER.depositada;
                       const dLeft = latestPub.proximo_prazo_critico ? Math.ceil((new Date(latestPub.proximo_prazo_critico).getTime() - Date.now()) / 86400000) : null;
@@ -1278,14 +1278,14 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                         { key: 'data_renovacao', label: 'Renovação (9 anos)', icon: RefreshCw, description: 'Prazo ordinário + 6m ord. + 6m extra' },
                       ] as const;
                       const STATUS_CONFIG_INLINE: Record<string, { label: string; color: string; bg: string }> = {
-                        depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
-                        publicada: { label: 'Publicada', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
-                        oposicao: { label: 'Oposição', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
-                        deferida: { label: 'Deferida', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
-                        certificada: { label: 'Certificada', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40' },
-                        indeferida: { label: 'Indeferida', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
-                        arquivada: { label: 'Arquivada', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
-                        renovacao_pendente: { label: 'Renovação Pendente', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+                        '003': { label: '003', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/40' },
+                        oposicao: { label: 'Oposição', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+                        exigencia_merito: { label: 'Exig. Mérito', color: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/40' },
+                        indeferimento: { label: 'Indeferimento', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
+                        deferimento: { label: 'Deferimento', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+                        certificado: { label: 'Certificado', color: 'text-teal-700 dark:text-teal-400', bg: 'bg-teal-100 dark:bg-teal-900/40' },
+                        renovacao: { label: 'Renovação', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
+                        arquivado: { label: 'Arquivado', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
                       };
                       const statusCfg = STATUS_CONFIG_INLINE[pub.status] || STATUS_CONFIG_INLINE.depositada;
                       const getDaysLeft = (dateStr: string | null): number | null => {
@@ -1678,16 +1678,16 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                           const brandName = pub.brand_name_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.brand_name || '—';
                           const processNum = pub.process_number_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.process_number || '';
                           const PUB_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-                            depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
-                            publicada: { label: 'Publicada', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
-                            oposicao: { label: 'Oposição', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
-                            deferida: { label: 'Deferida', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
-                            certificada: { label: 'Certificada', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40' },
-                            indeferida: { label: 'Indeferida', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
-                            arquivada: { label: 'Arquivada', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
-                            renovacao_pendente: { label: 'Renovação Pendente', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+                            '003': { label: '003', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/40' },
+                            oposicao: { label: 'Oposição', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+                            exigencia_merito: { label: 'Exig. Mérito', color: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/40' },
+                            indeferimento: { label: 'Indeferimento', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
+                            deferimento: { label: 'Deferimento', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+                            certificado: { label: 'Certificado', color: 'text-teal-700 dark:text-teal-400', bg: 'bg-teal-100 dark:bg-teal-900/40' },
+                            renovacao: { label: 'Renovação', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
+                            arquivado: { label: 'Arquivado', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
                           };
-                          const sCfg = PUB_STATUS[pub.status] || PUB_STATUS.depositada;
+                          const sCfg = PUB_STATUS[pub.status] || PUB_STATUS['003'];
                           const dLeft = pub.proximo_prazo_critico ? Math.ceil((new Date(pub.proximo_prazo_critico).getTime() - Date.now()) / 86400000) : null;
 
                           const MINI_STEPS = [
@@ -2506,14 +2506,14 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                                         const linkedPub = processPublicacoes.find((p: any) => p.process_id === brand.id);
                                         if (!linkedPub) return null;
                                         const BRAND_PUB_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-                                          depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
-                                          publicada: { label: 'Publicada', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
-                                          oposicao: { label: 'Oposição', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
-                                          deferida: { label: 'Deferida', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
-                                          certificada: { label: 'Certificada', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40' },
-                                          indeferida: { label: 'Indeferida', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
-                                          arquivada: { label: 'Arquivada', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
-                                          renovacao_pendente: { label: 'Renovação Pendente', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+                                          '003': { label: '003', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/40' },
+                                          oposicao: { label: 'Oposição', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+                                          exigencia_merito: { label: 'Exig. Mérito', color: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/40' },
+                                          indeferimento: { label: 'Indeferimento', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
+                                          deferimento: { label: 'Deferimento', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+                                          certificado: { label: 'Certificado', color: 'text-teal-700 dark:text-teal-400', bg: 'bg-teal-100 dark:bg-teal-900/40' },
+                                          renovacao: { label: 'Renovação', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
+                                          arquivado: { label: 'Arquivado', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
                                         };
                                         const bCfg = BRAND_PUB_STATUS[linkedPub.status] || BRAND_PUB_STATUS.depositada;
                                         const bDays = linkedPub.proximo_prazo_critico ? Math.ceil((new Date(linkedPub.proximo_prazo_critico).getTime() - Date.now()) / 86400000) : null;
@@ -2918,8 +2918,8 @@ export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraA
                   <Select value={editingPubData.status} onValueChange={(v) => setEditingPubData((prev: any) => ({ ...prev, status: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {['depositada','publicada','oposicao','deferida','certificada','indeferida','arquivada','renovacao_pendente'].map(s => (
-                        <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</SelectItem>
+                      {['003','oposicao','exigencia_merito','indeferimento','deferimento','certificado','renovacao','arquivado'].map(s => (
+                        <SelectItem key={s} value={s}>{s === '003' ? '003' : s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

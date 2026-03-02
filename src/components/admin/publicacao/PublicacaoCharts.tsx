@@ -25,14 +25,14 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  depositada: 'Depositada',
-  publicada: 'Publicada',
+  '003': '003',
   oposicao: 'Oposição',
-  deferida: 'Deferida',
-  certificada: 'Certificada',
-  indeferida: 'Indeferida',
-  arquivada: 'Arquivada',
-  renovacao_pendente: 'Renovação',
+  exigencia_merito: 'Exig. Mérito',
+  indeferimento: 'Indeferimento',
+  deferimento: 'Deferimento',
+  certificado: 'Certificado',
+  renovacao: 'Renovação',
+  arquivado: 'Arquivado',
 };
 
 interface Props {

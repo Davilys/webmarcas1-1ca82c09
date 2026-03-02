@@ -39,7 +39,7 @@ import { CreateInvoiceDialog } from '@/components/admin/clients/CreateInvoiceDia
 import type { ClientWithProcess } from '@/components/admin/clients/ClientKanbanBoard';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type PubStatus = 'depositada' | 'publicada' | 'oposicao' | 'deferida' | 'certificada' | 'indeferida' | 'arquivada' | 'renovacao_pendente';
+type PubStatus = '003' | 'oposicao' | 'exigencia_merito' | 'indeferimento' | 'deferimento' | 'certificado' | 'renovacao' | 'arquivado';
 type PubTipo = 'publicacao_rpi' | 'decisao' | 'certificado' | 'renovacao';
 type PrazoFilter = 'todos' | 'hoje' | '7dias' | '30dias' | 'atrasados';
 type SortKey = 'cliente' | 'marca' | 'data_pub' | 'prazo' | 'status';
@@ -85,14 +85,14 @@ interface LogEntry {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<PubStatus, { label: string; color: string; bg: string }> = {
-  depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
-  publicada: { label: 'Publicada', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
-  oposicao: { label: 'Oposição', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/40' },
-  deferida: { label: 'Deferida', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
-  certificada: { label: 'Certificada', color: 'text-purple-700 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-900/40' },
-  indeferida: { label: 'Indeferida', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
-  arquivada: { label: 'Arquivada', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
-  renovacao_pendente: { label: 'Renovação Pendente', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+  '003': { label: '003', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/40' },
+  oposicao: { label: 'Oposição', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
+  exigencia_merito: { label: 'Exigência de Mérito', color: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/40' },
+  indeferimento: { label: 'Indeferimento', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/40' },
+  deferimento: { label: 'Deferimento', color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/40' },
+  certificado: { label: 'Certificado', color: 'text-teal-700 dark:text-teal-400', bg: 'bg-teal-100 dark:bg-teal-900/40' },
+  renovacao: { label: 'Renovação', color: 'text-cyan-700 dark:text-cyan-400', bg: 'bg-cyan-100 dark:bg-cyan-900/40' },
+  arquivado: { label: 'Arquivado', color: 'text-zinc-700 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-900/40' },
 };
 
 const TIPO_CONFIG: Record<PubTipo, string> = {
@@ -117,15 +117,15 @@ const SERVICE_TYPES = [
 ];
 
 const SERVICE_TO_STATUS: Record<string, string> = {
-  pedido_registro: 'depositada',
-  cumprimento_exigencia: 'publicada',
+  pedido_registro: '003',
+  cumprimento_exigencia: 'exigencia_merito',
   oposicao: 'oposicao',
-  recurso: 'indeferida',
-  renovacao: 'renovacao_pendente',
-  notificacao: 'publicada',
-  deferimento: 'deferida',
-  certificado: 'certificada',
-  distrato: 'arquivada',
+  recurso: 'indeferimento',
+  renovacao: 'renovacao',
+  notificacao: '003',
+  deferimento: 'deferimento',
+  certificado: 'certificado',
+  distrato: 'arquivado',
 };
 
 const STATUS_TO_SERVICE: Record<string, string> = {};
@@ -161,7 +161,7 @@ function calcDeadlineFromDispatch(dispatchText: string | null, publicationDate: 
   if (text.includes('recurso'))
     return { days: 60, desc: 'Prazo para recurso' };
   if (text.includes('certificado de registro') || text.includes('concessao') || text.includes('concessão') || text.includes('registro concedido'))
-    return { days: 3285, desc: 'Prazo para renovação ordinária (9 anos)', status: 'certificada' as PubStatus };
+    return { days: 3285, desc: 'Prazo para renovação ordinária (9 anos)', status: 'certificado' as PubStatus };
   if (text.includes('deferido') || text.includes('deferimento'))
     return { days: 60, desc: 'Pagamento de taxas (deferimento)' };
   if (text.includes('indeferido') || text.includes('indeferimento'))
@@ -534,13 +534,14 @@ export default function PublicacaoTab() {
         }
 
         // Determine status from dispatch
-        let status: PubStatus = 'publicada';
+        let status: PubStatus = '003';
         const dispatchText = (entry.dispatch_text || '').toLowerCase();
-        if (dispatchText.includes('certificado de registro') || dispatchText.includes('concessao') || dispatchText.includes('concessão') || dispatchText.includes('registro concedido')) status = 'certificada';
-        else if (dispatchText.includes('deferido') || dispatchText.includes('deferimento')) status = 'deferida';
-        else if (dispatchText.includes('indeferido') || dispatchText.includes('indeferimento')) status = 'indeferida';
+        if (dispatchText.includes('certificado de registro') || dispatchText.includes('concessao') || dispatchText.includes('concessão') || dispatchText.includes('registro concedido')) status = 'certificado';
+        else if (dispatchText.includes('deferido') || dispatchText.includes('deferimento')) status = 'deferimento';
+        else if (dispatchText.includes('indeferido') || dispatchText.includes('indeferimento')) status = 'indeferimento';
         else if (dispatchText.includes('oposição') || dispatchText.includes('oposicao')) status = 'oposicao';
-        else if (dispatchText.includes('arquiv')) status = 'arquivada';
+        else if (dispatchText.includes('exigência') || dispatchText.includes('exigencia') || dispatchText.includes('mérito') || dispatchText.includes('merito')) status = 'exigencia_merito';
+        else if (dispatchText.includes('arquiv')) status = 'arquivado';
 
         const pubData = calcAutoFields({
           process_id: processId,
@@ -549,7 +550,7 @@ export default function PublicacaoTab() {
           tipo_publicacao: 'publicacao_rpi' as PubTipo,
           rpi_number: entry.dispatch_code || null,
           data_publicacao_rpi: entry.publication_date || null,
-          data_certificado: status === 'certificada' ? (entry.publication_date || null) : null,
+          data_certificado: status === 'certificado' ? (entry.publication_date || null) : null,
           rpi_entry_id: entry.id,
           brand_name_rpi: entry.brand_name || null,
           process_number_rpi: entry.process_number || null,
@@ -570,9 +571,9 @@ export default function PublicacaoTab() {
       // Process updates (with reverse sync for reactivated publications)
       let updated = 0;
       const stageMap: Record<string, string> = {
-        depositada: 'protocolado', publicada: 'protocolado', oposicao: 'oposicao',
-        deferida: 'deferimento', certificada: 'certificados', indeferida: 'indeferimento',
-        arquivada: 'distrato', renovacao_pendente: 'renovacao',
+        '003': 'protocolado', oposicao: 'oposicao', exigencia_merito: 'protocolado',
+        deferimento: 'deferimento', certificado: 'certificados', indeferimento: 'indeferimento',
+        arquivado: 'distrato', renovacao: 'renovacao',
       };
       for (const { id, data } of toUpdate) {
         const { error } = await supabase.from('publicacoes_marcas').update(data).eq('id', id);
@@ -707,14 +708,14 @@ export default function PublicacaoTab() {
         const processId = (changes.process_id || original.process_id) as string | null;
         if (processId) {
           const stageMap: Record<string, string> = {
-            depositada: 'protocolado',
-            publicada: 'protocolado',
+            '003': 'protocolado',
             oposicao: 'oposicao',
-            deferida: 'deferimento',
-            certificada: 'certificados',
-            indeferida: 'indeferimento',
-            arquivada: 'distrato',
-            renovacao_pendente: 'renovacao',
+            exigencia_merito: 'protocolado',
+            deferimento: 'deferimento',
+            certificado: 'certificados',
+            indeferimento: 'indeferimento',
+            arquivado: 'distrato',
+            renovacao: 'renovacao',
           };
           const newStage = stageMap[computed.status as string];
           if (newStage) {
@@ -834,7 +835,7 @@ export default function PublicacaoTab() {
     const total = publicacoes.length;
     const urgentes = publicacoes.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d >= 0 && d <= 7; }).length;
     const atrasados = publicacoes.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d < 0; }).length;
-    const deferidosMes = publicacoes.filter(p => p.status === 'deferida' && p.data_decisao && isAfter(parseISO(p.data_decisao), startOfMonth)).length;
+    const deferidosMes = publicacoes.filter(p => p.status === 'deferimento' && p.data_decisao && isAfter(parseISO(p.data_decisao), startOfMonth)).length;
     return { total, urgentes, atrasados, deferidosMes };
   }, [publicacoes]);
 
@@ -878,7 +879,7 @@ export default function PublicacaoTab() {
       }
       // Special KPI filter: "deferidos este mês"
       if (activeKpi === 'deferidosMes') {
-        if (pub.status !== 'deferida') return false;
+        if (pub.status !== 'deferimento') return false;
         if (!pub.data_decisao || !isAfter(parseISO(pub.data_decisao), startOfMonth)) return false;
       }
       // Date range filter (#3)
@@ -1249,7 +1250,7 @@ export default function PublicacaoTab() {
       process_id: createProcessId,
       client_id: proc.user_id!,
       admin_id: createAdminId || currentUserQuery.data?.id || null,
-      status: 'depositada',
+      status: '003',
       tipo_publicacao: createTipo,
       data_deposito: createDataDeposito || proc.deposit_date || null,
       data_publicacao_rpi: createDataPubRpi || null,
@@ -1308,7 +1309,7 @@ export default function PublicacaoTab() {
       process_id: entry.matched_process_id,
       client_id: entry.matched_client_id || proc.user_id!,
       admin_id: currentUserQuery.data?.id || null,
-      status: 'publicada',
+      status: '003',
       tipo_publicacao: 'publicacao_rpi',
       data_deposito: proc.deposit_date || null,
       data_publicacao_rpi: entry.publication_date || null,
@@ -1375,7 +1376,7 @@ export default function PublicacaoTab() {
           isActive={activeKpi === 'deferidosMes'}
           onClick={() => {
             if (activeKpi === 'deferidosMes') { setActiveKpi(null); setFilterStatus('todos'); setFilterPrazo('todos'); }
-            else { setActiveKpi('deferidosMes'); setFilterStatus('deferida'); setFilterPrazo('todos'); setViewMode('lista'); }
+            else { setActiveKpi('deferidosMes'); setFilterStatus('deferimento'); setFilterPrazo('todos'); setViewMode('lista'); }
             setCurrentPage(1);
           }}
         />

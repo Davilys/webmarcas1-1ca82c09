@@ -5,13 +5,14 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 const STATUS_LABELS: Record<string, string> = {
-  depositada: 'Depositada',
-  publicada: 'Publicada',
+  '003': '003',
   oposicao: 'Oposição',
-  deferida: 'Deferida',
-  indeferida: 'Indeferida',
-  arquivada: 'Arquivada',
-  renovacao_pendente: 'Renovação Pendente',
+  exigencia_merito: 'Exigência de Mérito',
+  indeferimento: 'Indeferimento',
+  deferimento: 'Deferimento',
+  certificado: 'Certificado',
+  renovacao: 'Renovação',
+  arquivado: 'Arquivado',
 };
 
 interface ExportData {

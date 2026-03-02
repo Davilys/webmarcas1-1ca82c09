@@ -4,17 +4,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CheckSquare, X, Bell, Download, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-type PubStatus = 'depositada' | 'publicada' | 'oposicao' | 'deferida' | 'certificada' | 'indeferida' | 'arquivada' | 'renovacao_pendente';
+type PubStatus = '003' | 'oposicao' | 'exigencia_merito' | 'indeferimento' | 'deferimento' | 'certificado' | 'renovacao' | 'arquivado';
 
 const STATUS_OPTIONS: { value: PubStatus; label: string }[] = [
-  { value: 'depositada', label: 'Depositada' },
-  { value: 'publicada', label: 'Publicada' },
+  { value: '003', label: '003' },
   { value: 'oposicao', label: 'Oposição' },
-  { value: 'deferida', label: 'Deferida' },
-  { value: 'certificada', label: 'Certificada' },
-  { value: 'indeferida', label: 'Indeferida' },
-  { value: 'arquivada', label: 'Arquivada' },
-  { value: 'renovacao_pendente', label: 'Renovação Pendente' },
+  { value: 'exigencia_merito', label: 'Exigência de Mérito' },
+  { value: 'indeferimento', label: 'Indeferimento' },
+  { value: 'deferimento', label: 'Deferimento' },
+  { value: 'certificado', label: 'Certificado' },
+  { value: 'renovacao', label: 'Renovação' },
+  { value: 'arquivado', label: 'Arquivado' },
 ];
 
 interface Props {

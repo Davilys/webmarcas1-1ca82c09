@@ -5,17 +5,17 @@ import { cn } from '@/lib/utils';
 import { differenceInDays, parseISO } from 'date-fns';
 import { Clock, AlertTriangle, User, Flame, GripVertical } from 'lucide-react';
 
-type PubStatus = 'depositada' | 'publicada' | 'oposicao' | 'deferida' | 'certificada' | 'indeferida' | 'arquivada' | 'renovacao_pendente';
+type PubStatus = '003' | 'oposicao' | 'exigencia_merito' | 'indeferimento' | 'deferimento' | 'certificado' | 'renovacao' | 'arquivado';
 
 const STATUS_CONFIG: Record<PubStatus, { label: string; accent: string; icon: string }> = {
-  depositada: { label: 'Depositada', accent: 'from-blue-500 to-blue-600', icon: '📥' },
-  publicada: { label: 'Publicada', accent: 'from-cyan-500 to-teal-600', icon: '📰' },
-  oposicao: { label: 'Oposição', accent: 'from-amber-500 to-orange-600', icon: '⚔️' },
-  deferida: { label: 'Deferida', accent: 'from-emerald-500 to-green-600', icon: '✅' },
-  certificada: { label: 'Certificada', accent: 'from-purple-500 to-purple-600', icon: '🎓' },
-  indeferida: { label: 'Indeferida', accent: 'from-red-500 to-rose-600', icon: '❌' },
-  arquivada: { label: 'Arquivada', accent: 'from-zinc-400 to-zinc-500', icon: '📦' },
-  renovacao_pendente: { label: 'Renovação', accent: 'from-orange-500 to-amber-600', icon: '🔄' },
+  '003': { label: '003', accent: 'from-yellow-500 to-amber-500', icon: '📋' },
+  oposicao: { label: 'Oposição', accent: 'from-orange-500 to-orange-600', icon: '⚔️' },
+  exigencia_merito: { label: 'Exigência de Mérito', accent: 'from-violet-500 to-violet-600', icon: '📝' },
+  indeferimento: { label: 'Indeferimento', accent: 'from-red-500 to-red-600', icon: '❌' },
+  deferimento: { label: 'Deferimento', accent: 'from-emerald-500 to-emerald-600', icon: '✅' },
+  certificado: { label: 'Certificado', accent: 'from-teal-500 to-teal-600', icon: '🎓' },
+  renovacao: { label: 'Renovação', accent: 'from-cyan-500 to-cyan-600', icon: '🔄' },
+  arquivado: { label: 'Arquivado', accent: 'from-gray-500 to-gray-600', icon: '📦' },
 };
 
 interface Publicacao {
@@ -47,7 +47,7 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
 
   const columns = useMemo(() => {
     const cols: Record<PubStatus, Publicacao[]> = {
-      depositada: [], publicada: [], oposicao: [], deferida: [], certificada: [], indeferida: [], arquivada: [], renovacao_pendente: [],
+      '003': [], oposicao: [], exigencia_merito: [], indeferimento: [], deferimento: [], certificado: [], renovacao: [], arquivado: [],
     };
     publicacoes.forEach(p => {
       if (cols[p.status as PubStatus]) cols[p.status as PubStatus].push(p);

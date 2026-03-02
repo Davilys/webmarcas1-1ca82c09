@@ -16,8 +16,8 @@ export function PublicacaoIntelligenceDashboard({ publicacoes }: Props) {
     const now = new Date();
 
     // Taxa de sucesso: deposited → deferred/certified
-    const deposited = publicacoes.filter(p => ['deferida', 'certificada', 'indeferida', 'arquivada'].includes(p.status));
-    const successful = deposited.filter(p => ['deferida', 'certificada'].includes(p.status));
+    const deposited = publicacoes.filter(p => ['deferimento', 'certificado', 'indeferimento', 'arquivado'].includes(p.status));
+    const successful = deposited.filter(p => ['deferimento', 'certificado'].includes(p.status));
     const successRate = deposited.length > 0 ? Math.round((successful.length / deposited.length) * 100) : 0;
 
     // Tempo médio por etapa (deposit → publication)
@@ -29,7 +29,7 @@ export function PublicacaoIntelligenceDashboard({ publicacoes }: Props) {
     // Publicações sem ação (stale > 30 days)
     const staleThreshold = 30;
     const stale = publicacoes.filter(p => {
-      if (['certificada', 'arquivada', 'indeferida'].includes(p.status)) return false;
+      if (['certificado', 'arquivado', 'indeferimento'].includes(p.status)) return false;
       const lastDate = p.updated_at || p.created_at;
       return differenceInDays(now, parseISO(lastDate)) > staleThreshold;
     });

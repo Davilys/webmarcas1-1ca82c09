@@ -24,7 +24,7 @@ export function calcDeadlineFromDispatch(dispatchText: string | null, publicatio
   if (text.includes('exigência') || text.includes('exigencia') || text.includes('cumpra')) return { days: 60, desc: 'Cumprimento de exigência' };
   if (text.includes('recurso')) return { days: 60, desc: 'Prazo para recurso' };
   if (text.includes('certificado de registro') || text.includes('concessao') || text.includes('concessão') || text.includes('registro concedido'))
-    return { days: 3285, desc: 'Prazo para renovação ordinária (9 anos)', status: 'certificada' as PubStatus };
+    return { days: 3285, desc: 'Prazo para renovação ordinária (9 anos)', status: 'certificado' as PubStatus };
   if (text.includes('deferido') || text.includes('deferimento')) return { days: 60, desc: 'Pagamento de taxas (deferimento)' };
   if (text.includes('indeferido') || text.includes('indeferimento')) return { days: 60, desc: 'Prazo para recurso (indeferimento)' };
   return { days: 30, desc: 'Prazo padrão - 30 dias' };
