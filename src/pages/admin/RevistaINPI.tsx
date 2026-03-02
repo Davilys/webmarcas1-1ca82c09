@@ -115,6 +115,18 @@ const PIPELINE_TO_PUB_STATUS: Record<string, string> = {
   distrato: 'arquivado',
 };
 
+// Map publicacao/dispatch status to pipeline stage (reverse)
+const PUB_STATUS_TO_PIPELINE: Record<string, string> = {
+  '003': 'protocolado',
+  oposicao: 'oposicao',
+  exigencia_merito: 'protocolado',
+  indeferimento: 'indeferimento',
+  deferimento: 'deferimento',
+  certificado: 'certificados',
+  renovacao: 'renovacao',
+  arquivado: 'distrato',
+};
+
 function getDispatchBadge(dispatchType: string | null) {
   const type = (dispatchType || '').toLowerCase();
   if (type.includes('deferido') || type.includes('deferimento'))
@@ -255,7 +267,7 @@ export default function RevistaINPI() {
       // [SYNC] Also update brand_processes.pipeline_stage if a process is linked
       if (entry.matched_process_id) {
         const { error: procError } = await supabase.from('brand_processes').update({
-          pipeline_stage: newType,
+          pipeline_stage: PUB_STATUS_TO_PIPELINE[newType] || newType,
           updated_at: new Date().toISOString(),
         }).eq('id', entry.matched_process_id);
         if (procError) console.error('Error syncing pipeline_stage:', procError);
@@ -517,8 +529,9 @@ export default function RevistaINPI() {
       // [SYNC] If dispatch_type is set and process is linked, sync pipeline_stage
       if (assignEntry.dispatch_type && assignEntry.matched_process_id) {
         const dispatchValue = DISPATCH_TYPE_OPTIONS.find(o => o.label === assignEntry.dispatch_type || o.value === assignEntry.dispatch_type)?.value || assignEntry.dispatch_type;
+        const pipelineStage = PUB_STATUS_TO_PIPELINE[dispatchValue] || dispatchValue;
         const { error: procSyncError } = await supabase.from('brand_processes').update({
-          pipeline_stage: dispatchValue,
+          pipeline_stage: pipelineStage,
           updated_at: new Date().toISOString(),
         }).eq('id', assignEntry.matched_process_id);
         if (procSyncError) console.error('Error syncing pipeline_stage on assign:', procSyncError);
