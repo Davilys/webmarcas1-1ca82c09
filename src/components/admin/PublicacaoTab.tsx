@@ -294,6 +294,7 @@ export default function PublicacaoTab() {
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [filterPrazo, setFilterPrazo] = useState<string>('todos');
   const [filterTipo, setFilterTipo] = useState<string>('todos');
+  const [filterRpi, setFilterRpi] = useState<string>('todos');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -807,6 +808,7 @@ export default function PublicacaoTab() {
       if (filterStatus !== 'todos' && pub.status !== filterStatus) return false;
       if (filterAdmin !== 'todos' && pub.admin_id !== filterAdmin) return false;
       if (filterTipo !== 'todos' && pub.tipo_publicacao !== filterTipo) return false;
+      if (filterRpi !== 'todos' && pub.rpi_number !== filterRpi) return false;
       if (filterPrazo !== 'todos') {
         const days = getDaysLeft(pub.proximo_prazo_critico);
         if (days === null) return filterPrazo === 'todos';
@@ -863,7 +865,7 @@ export default function PublicacaoTab() {
     });
 
     return result;
-  }, [publicacoes, search, filterClient, filterStatus, filterPrazo, filterTipo, filterAdmin, filterDateFrom, filterDateTo, processMap, clientMap, sortKey, sortDir, activeKpi]);
+  }, [publicacoes, search, filterClient, filterStatus, filterPrazo, filterTipo, filterRpi, filterAdmin, filterDateFrom, filterDateTo, processMap, clientMap, sortKey, sortDir, activeKpi]);
 
   // Pagination (#10)
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -873,7 +875,7 @@ export default function PublicacaoTab() {
   }, [filtered, currentPage]);
 
   // Reset page when filters change
-  useEffect(() => { setCurrentPage(1); }, [search, filterClient, filterStatus, filterPrazo, filterTipo, filterAdmin, filterDateFrom, filterDateTo]);
+  useEffect(() => { setCurrentPage(1); }, [search, filterClient, filterStatus, filterPrazo, filterTipo, filterRpi, filterAdmin, filterDateFrom, filterDateTo]);
 
   const selected = useMemo(() => publicacoes.find(p => p.id === selectedId) || null, [publicacoes, selectedId]);
 
@@ -1266,9 +1268,20 @@ export default function PublicacaoTab() {
   };
 
   const clearAllFilters = () => {
-    setSearch(''); setFilterClient('todos'); setFilterStatus('todos'); setFilterPrazo('todos'); setFilterTipo('todos'); setFilterAdmin('todos');
+    setSearch(''); setFilterClient('todos'); setFilterStatus('todos'); setFilterPrazo('todos'); setFilterTipo('todos'); setFilterRpi('todos'); setFilterAdmin('todos');
     setFilterDateFrom(''); setFilterDateTo('');
   };
+
+  // Unique RPI numbers for filter
+  const uniqueRpiNumbers = useMemo(() => {
+    const nums = new Set<string>();
+    publicacoes.forEach(p => { if (p.rpi_number) nums.add(p.rpi_number); });
+    return Array.from(nums).sort((a, b) => {
+      const na = parseInt(a), nb = parseInt(b);
+      if (!isNaN(na) && !isNaN(nb)) return nb - na;
+      return b.localeCompare(a);
+    });
+  }, [publicacoes]);
 
   return (
     <>
@@ -1419,6 +1432,18 @@ export default function PublicacaoTab() {
                 </Select>
               </div>
               <div>
+                <Label className="text-xs text-muted-foreground">Revista (RPI)</Label>
+                <Select value={filterRpi} onValueChange={setFilterRpi}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas as revistas</SelectItem>
+                    {uniqueRpiNumbers.map(rpi => (
+                      <SelectItem key={rpi} value={rpi}>RPI {rpi}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label className="text-xs text-muted-foreground">Responsável</Label>
                 <Select value={filterAdmin} onValueChange={setFilterAdmin}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
@@ -1465,7 +1490,7 @@ export default function PublicacaoTab() {
               <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setShowFilters(true)}>
                 <Filter className="w-3.5 h-3.5" />
                 Filtros
-                {(filterClient !== 'todos' || filterStatus !== 'todos' || filterPrazo !== 'todos' || filterTipo !== 'todos' || filterAdmin !== 'todos' || search || filterDateFrom || filterDateTo) && (
+                {(filterClient !== 'todos' || filterStatus !== 'todos' || filterPrazo !== 'todos' || filterTipo !== 'todos' || filterRpi !== 'todos' || filterAdmin !== 'todos' || search || filterDateFrom || filterDateTo) && (
                   <Badge variant="default" className="h-4 w-4 p-0 text-[9px] rounded-full flex items-center justify-center ml-0.5">
                     !
                   </Badge>
