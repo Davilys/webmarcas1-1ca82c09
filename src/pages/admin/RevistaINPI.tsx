@@ -239,13 +239,22 @@ export default function RevistaINPI() {
         if (insertError) throw insertError;
       }
 
+      // [SYNC] Also update brand_processes.pipeline_stage if a process is linked
+      if (entry.matched_process_id) {
+        const { error: procError } = await supabase.from('brand_processes').update({
+          pipeline_stage: newType,
+          updated_at: new Date().toISOString(),
+        }).eq('id', entry.matched_process_id);
+        if (procError) console.error('Error syncing pipeline_stage:', procError);
+      }
+
       // Update local state
       setEntries(prev => prev.map(e => e.id === entry.id ? {
         ...e,
         dispatch_type: DISPATCH_TYPE_OPTIONS.find(o => o.value === newType)?.label || newType,
       } : e));
 
-      toast.success(`Tipo alterado para "${DISPATCH_TYPE_OPTIONS.find(o => o.value === newType)?.label}" e publicação atualizada no Kanban!`);
+      toast.success(`Tipo alterado para "${DISPATCH_TYPE_OPTIONS.find(o => o.value === newType)?.label}" — Publicações e Jurídico sincronizados!`);
     } catch (err) {
       console.error('Error updating dispatch type:', err);
       toast.error('Erro ao atualizar tipo do despacho');
@@ -424,6 +433,20 @@ export default function RevistaINPI() {
       }
       const { error: entryError } = await supabase.from('rpi_entries').update({ update_status: 'updated', updated_at: new Date().toISOString() }).eq('id', selectedEntry.id);
       if (entryError) throw entryError;
+
+      // [SYNC] Also update publicacoes_marcas.status to match the new pipeline stage
+      const { data: linkedPub } = await supabase.from('publicacoes_marcas')
+        .select('id')
+        .eq('rpi_entry_id', selectedEntry.id)
+        .maybeSingle();
+      if (linkedPub) {
+        const { error: pubSyncError } = await supabase.from('publicacoes_marcas').update({
+          status: newStage,
+          updated_at: new Date().toISOString(),
+        }).eq('id', linkedPub.id);
+        if (pubSyncError) console.error('Error syncing publicacao status:', pubSyncError);
+      }
+
       if (selectedEntry.matched_client_id) {
         await supabase.from('notifications').insert({ user_id: selectedEntry.matched_client_id, title: 'Atualização do Processo', message: `Seu processo da marca \"${selectedEntry.brand_name}\" foi atualizado com base na RPI.`, type: 'info', link: '/cliente/processos' });
         const { data: { user } } = await supabase.auth.getUser();
@@ -477,6 +500,16 @@ export default function RevistaINPI() {
       if (entryError) throw entryError;
       // Propagate client_id to publicacoes_marcas (sync with Publicações tab)
       await supabase.from('publicacoes_marcas').update({ client_id: selectedClient.id }).eq('rpi_entry_id', assignEntry.id);
+
+      // [SYNC] If dispatch_type is set and process is linked, sync pipeline_stage
+      if (assignEntry.dispatch_type && assignEntry.matched_process_id) {
+        const dispatchValue = DISPATCH_TYPE_OPTIONS.find(o => o.label === assignEntry.dispatch_type || o.value === assignEntry.dispatch_type)?.value || assignEntry.dispatch_type;
+        const { error: procSyncError } = await supabase.from('brand_processes').update({
+          pipeline_stage: dispatchValue,
+          updated_at: new Date().toISOString(),
+        }).eq('id', assignEntry.matched_process_id);
+        if (procSyncError) console.error('Error syncing pipeline_stage on assign:', procSyncError);
+      }
       await supabase.from('notifications').insert({ user_id: selectedClient.id, title: assignPriority === 'urgent' ? '🚨 URGENTE: Nova Publicação INPI' : 'Nova Publicação INPI', message: `Uma publicação referente ao processo ${assignEntry.process_number} (${assignEntry.brand_name || 'Marca'}) foi vinculada ao seu perfil. Prazo: 60 dias.`, type: assignPriority === 'urgent' ? 'warning' : 'info', link: '/cliente/processos' });
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from('client_activities').insert({ user_id: selectedClient.id, admin_id: user?.id, activity_type: 'rpi_publication', description: `Publicação RPI vinculada: ${assignEntry.brand_name} - ${assignEntry.dispatch_type}. Prioridade: ${assignPriority === 'urgent' ? 'Urgente' : 'Média'}. Prazo: 60 dias.`, metadata: { process_number: assignEntry.process_number, dispatch_code: assignEntry.dispatch_code, dispatch_text: assignEntry.dispatch_text, deadline_date: deadlineDate.toISOString(), priority: assignPriority } });
