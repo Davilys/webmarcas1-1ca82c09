@@ -178,6 +178,10 @@ function calcAutoFields(pub: Partial<Publicacao>, dispatchText?: string | null):
   if (out.data_certificado) {
     out.data_renovacao = format(addYears(parseISO(out.data_certificado), 9), 'yyyy-MM-dd');
     out.descricao_prazo = 'Renovação ordinária - 9 anos (+ 6m ord. + 6m extra)';
+  } else if (out.status === 'certificado' && out.data_publicacao_rpi) {
+    out.data_renovacao = format(addYears(parseISO(out.data_publicacao_rpi), 9), 'yyyy-MM-dd');
+    out.proximo_prazo_critico = out.data_renovacao;
+    out.descricao_prazo = 'Renovação ordinária - 9 anos (+ 6m ord. + 6m extra)';
   }
 
   // Auto-calculate deadline from dispatch_text if not manually set
@@ -456,7 +460,46 @@ export default function PublicacaoTab() {
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
-  // ─── Auto-sync RPI entries → Publicações ────
+  // ─── Auto-archive expired publications ────
+  const autoArchiveRef = useRef(false);
+  useEffect(() => {
+    if (autoArchiveRef.current || isLoading || publicacoes.length === 0) return;
+
+    const expired = publicacoes.filter(p => {
+      if (p.status === 'arquivado' || p.status === 'certificado') return false;
+      let dl = p.proximo_prazo_critico;
+      if (!dl && p.data_publicacao_rpi) {
+        dl = format(addDays(parseISO(p.data_publicacao_rpi), 60), 'yyyy-MM-dd');
+      }
+      if (!dl) return false;
+      return differenceInDays(parseISO(dl), new Date()) < 0;
+    });
+
+    if (expired.length === 0) return;
+    autoArchiveRef.current = true;
+
+    const archiveAll = async () => {
+      for (const pub of expired) {
+        await supabase.from('publicacoes_marcas').update({
+          status: 'arquivado',
+          updated_at: new Date().toISOString(),
+        }).eq('id', pub.id);
+
+        if (pub.process_id) {
+          await supabase.from('brand_processes').update({
+            pipeline_stage: 'distrato',
+            updated_at: new Date().toISOString(),
+          }).eq('id', pub.process_id);
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
+      queryClient.invalidateQueries({ queryKey: ['brand-processes-pub'] });
+      toast.info(`${expired.length} publicação(ões) arquivada(s) automaticamente por prazo vencido.`);
+    };
+    archiveAll();
+  }, [publicacoes, isLoading, queryClient]);
+
+
   useEffect(() => {
     if (hasSyncedRef.current) return;
     if (isLoading || rpiEntries.length === 0) return;
