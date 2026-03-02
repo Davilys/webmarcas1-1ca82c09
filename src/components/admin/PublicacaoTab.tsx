@@ -407,7 +407,19 @@ export default function PublicacaoTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('rpi_entries')
-        .select('id, matched_process_id, matched_client_id, publication_date, dispatch_code, dispatch_text, process_number, brand_name');
+        .select('id, rpi_upload_id, matched_process_id, matched_client_id, publication_date, dispatch_code, dispatch_text, process_number, brand_name');
+      if (error) return [];
+      return data || [];
+    },
+  });
+
+  const { data: rpiUploads = [] } = useQuery({
+    queryKey: ['rpi-uploads-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('rpi_uploads')
+        .select('id, rpi_number, rpi_date')
+        .order('rpi_number', { ascending: false });
       if (error) return [];
       return data || [];
     },
@@ -772,6 +784,22 @@ export default function PublicacaoTab() {
   const processMap = useMemo(() => new Map(processes.map(p => [p.id, p])), [processes]);
   const adminMap = useMemo(() => new Map(admins.map(a => [a.id, a])), [admins]);
 
+  // ─── RPI resolution maps ────
+  const rpiUploadMap = useMemo(() => new Map(rpiUploads.map(u => [u.id, u.rpi_number])), [rpiUploads]);
+  const rpiEntryToUploadId = useMemo(() => new Map(rpiEntries.map(e => [e.id, e.rpi_upload_id])), [rpiEntries]);
+
+  const resolveRpiNumber = useCallback((pub: Publicacao): string | null => {
+    if (pub.rpi_entry_id) {
+      const uploadId = rpiEntryToUploadId.get(pub.rpi_entry_id);
+      if (uploadId) {
+        const realNumber = rpiUploadMap.get(uploadId);
+        if (realNumber) return realNumber;
+      }
+    }
+    if (pub.rpi_number && /^\d+$/.test(pub.rpi_number)) return pub.rpi_number;
+    return null;
+  }, [rpiEntryToUploadId, rpiUploadMap]);
+
   // ─── KPI Stats ────
   const kpiStats = useMemo(() => {
     const now = new Date();
@@ -808,7 +836,11 @@ export default function PublicacaoTab() {
       if (filterStatus !== 'todos' && pub.status !== filterStatus) return false;
       if (filterAdmin !== 'todos' && pub.admin_id !== filterAdmin) return false;
       if (filterTipo !== 'todos' && pub.tipo_publicacao !== filterTipo) return false;
-      if (filterRpi !== 'todos' && pub.rpi_number !== filterRpi) return false;
+      if (filterRpi !== 'todos') {
+        // Resolve real RPI number: via rpi_entry_id → rpi_upload → rpi_number
+        const resolvedRpi = resolveRpiNumber(pub);
+        if (resolvedRpi !== filterRpi) return false;
+      }
       if (filterPrazo !== 'todos') {
         const days = getDaysLeft(pub.proximo_prazo_critico);
         if (days === null) return filterPrazo === 'todos';
@@ -865,7 +897,7 @@ export default function PublicacaoTab() {
     });
 
     return result;
-  }, [publicacoes, search, filterClient, filterStatus, filterPrazo, filterTipo, filterRpi, filterAdmin, filterDateFrom, filterDateTo, processMap, clientMap, sortKey, sortDir, activeKpi]);
+  }, [publicacoes, search, filterClient, filterStatus, filterPrazo, filterTipo, filterRpi, filterAdmin, filterDateFrom, filterDateTo, processMap, clientMap, sortKey, sortDir, activeKpi, resolveRpiNumber]);
 
   // Pagination (#10)
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -1272,16 +1304,17 @@ export default function PublicacaoTab() {
     setFilterDateFrom(''); setFilterDateTo('');
   };
 
-  // Unique RPI numbers for filter
+
+  // Unique RPI numbers for filter - from rpi_uploads (real RPI numbers)
   const uniqueRpiNumbers = useMemo(() => {
     const nums = new Set<string>();
-    publicacoes.forEach(p => { if (p.rpi_number) nums.add(p.rpi_number); });
+    rpiUploads.forEach(u => { if (u.rpi_number) nums.add(u.rpi_number); });
     return Array.from(nums).sort((a, b) => {
       const na = parseInt(a), nb = parseInt(b);
       if (!isNaN(na) && !isNaN(nb)) return nb - na;
       return b.localeCompare(a);
     });
-  }, [publicacoes]);
+  }, [rpiUploads]);
 
   return (
     <>
