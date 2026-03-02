@@ -193,6 +193,31 @@ function DetailRow({ label, value, mono = false }: { label: string; value: strin
   );
 }
 
+// Helper: resolve brand_process id from matched_process_id or by client_id
+async function resolveBrandProcessId(
+  matchedProcessId: string | null | undefined,
+  clientId: string | null | undefined,
+  processNumber?: string | null
+): Promise<string | null> {
+  if (matchedProcessId) return matchedProcessId;
+  if (!clientId) return null;
+  // Try to find by process_number first
+  if (processNumber) {
+    const { data } = await supabase.from('brand_processes')
+      .select('id')
+      .eq('process_number', processNumber)
+      .maybeSingle();
+    if (data) return data.id;
+  }
+  // Fallback: find by user_id (client_id) — pick the first one
+  const { data } = await supabase.from('brand_processes')
+    .select('id')
+    .eq('user_id', clientId)
+    .limit(1)
+    .maybeSingle();
+  return data?.id || null;
+}
+
 // ─── Main Component ──────────────────────────────────────────────────
 export default function RevistaINPI() {
   const [uploads, setUploads] = useState<RpiUpload[]>([]);
@@ -264,19 +289,32 @@ export default function RevistaINPI() {
         if (insertError) throw insertError;
       }
 
-      // [SYNC] Also update brand_processes.pipeline_stage if a process is linked
-      if (entry.matched_process_id) {
+      // [SYNC] Also update brand_processes.pipeline_stage — resolve process by client if needed
+      const resolvedProcessId = await resolveBrandProcessId(entry.matched_process_id, entry.matched_client_id, entry.process_number);
+      if (resolvedProcessId) {
+        const pipelineStage = PUB_STATUS_TO_PIPELINE[newType] || newType;
         const { error: procError } = await supabase.from('brand_processes').update({
-          pipeline_stage: PUB_STATUS_TO_PIPELINE[newType] || newType,
+          pipeline_stage: pipelineStage,
           updated_at: new Date().toISOString(),
-        }).eq('id', entry.matched_process_id);
+        }).eq('id', resolvedProcessId);
         if (procError) console.error('Error syncing pipeline_stage:', procError);
+
+        // Also link the process_id on publicacoes_marcas if not set
+        if (existingPub) {
+          await supabase.from('publicacoes_marcas').update({ process_id: resolvedProcessId }).eq('id', existingPub.id);
+        }
+
+        // Save matched_process_id on rpi_entry for future lookups
+        if (!entry.matched_process_id) {
+          await supabase.from('rpi_entries').update({ matched_process_id: resolvedProcessId }).eq('id', entry.id);
+        }
       }
 
       // Update local state
       setEntries(prev => prev.map(e => e.id === entry.id ? {
         ...e,
         dispatch_type: DISPATCH_TYPE_OPTIONS.find(o => o.value === newType)?.label || newType,
+        matched_process_id: resolvedProcessId || e.matched_process_id,
       } : e));
 
       toast.success(`Tipo alterado para "${DISPATCH_TYPE_OPTIONS.find(o => o.value === newType)?.label}" — Publicações e Jurídico sincronizados!`);
@@ -452,9 +490,16 @@ export default function RevistaINPI() {
     if (!selectedEntry || !newStage) return;
     setUpdating(true);
     try {
-      if (selectedEntry.matched_process_id) {
-        const { error } = await supabase.from('brand_processes').update({ pipeline_stage: newStage, status: 'em_andamento', updated_at: new Date().toISOString() }).eq('id', selectedEntry.matched_process_id);
+      // Resolve the brand_process — by matched_process_id or by client_id
+      const resolvedProcessId = await resolveBrandProcessId(selectedEntry.matched_process_id, selectedEntry.matched_client_id, selectedEntry.process_number);
+      if (resolvedProcessId) {
+        const { error } = await supabase.from('brand_processes').update({ pipeline_stage: newStage, status: 'em_andamento', updated_at: new Date().toISOString() }).eq('id', resolvedProcessId);
         if (error) throw error;
+
+        // Save matched_process_id on rpi_entry for future lookups
+        if (!selectedEntry.matched_process_id) {
+          await supabase.from('rpi_entries').update({ matched_process_id: resolvedProcessId }).eq('id', selectedEntry.id);
+        }
       }
       const { error: entryError } = await supabase.from('rpi_entries').update({ update_status: 'updated', updated_at: new Date().toISOString() }).eq('id', selectedEntry.id);
       if (entryError) throw entryError;
@@ -465,11 +510,12 @@ export default function RevistaINPI() {
         .eq('rpi_entry_id', selectedEntry.id)
         .maybeSingle();
       if (linkedPub) {
-        const { error: pubSyncError } = await supabase.from('publicacoes_marcas').update({
-          status: PIPELINE_TO_PUB_STATUS[newStage] || newStage,
+        const pubStatus = PIPELINE_TO_PUB_STATUS[newStage] || newStage;
+        await supabase.from('publicacoes_marcas').update({
+          status: pubStatus,
+          process_id: resolvedProcessId || undefined,
           updated_at: new Date().toISOString(),
         }).eq('id', linkedPub.id);
-        if (pubSyncError) console.error('Error syncing publicacao status:', pubSyncError);
       }
 
       if (selectedEntry.matched_client_id) {
@@ -526,15 +572,25 @@ export default function RevistaINPI() {
       // Propagate client_id to publicacoes_marcas (sync with Publicações tab)
       await supabase.from('publicacoes_marcas').update({ client_id: selectedClient.id }).eq('rpi_entry_id', assignEntry.id);
 
-      // [SYNC] If dispatch_type is set and process is linked, sync pipeline_stage
-      if (assignEntry.dispatch_type && assignEntry.matched_process_id) {
-        const dispatchValue = DISPATCH_TYPE_OPTIONS.find(o => o.label === assignEntry.dispatch_type || o.value === assignEntry.dispatch_type)?.value || assignEntry.dispatch_type;
-        const pipelineStage = PUB_STATUS_TO_PIPELINE[dispatchValue] || dispatchValue;
-        const { error: procSyncError } = await supabase.from('brand_processes').update({
-          pipeline_stage: pipelineStage,
-          updated_at: new Date().toISOString(),
-        }).eq('id', assignEntry.matched_process_id);
-        if (procSyncError) console.error('Error syncing pipeline_stage on assign:', procSyncError);
+      // [SYNC] If dispatch_type is set, sync pipeline_stage — resolve process by client
+      if (assignEntry.dispatch_type) {
+        const resolvedProcessId = await resolveBrandProcessId(assignEntry.matched_process_id, selectedClient.id, assignEntry.process_number);
+        if (resolvedProcessId) {
+          const dispatchValue = DISPATCH_TYPE_OPTIONS.find(o => o.label === assignEntry.dispatch_type || o.value === assignEntry.dispatch_type)?.value || assignEntry.dispatch_type;
+          const pipelineStage = PUB_STATUS_TO_PIPELINE[dispatchValue] || dispatchValue;
+          await supabase.from('brand_processes').update({
+            pipeline_stage: pipelineStage,
+            updated_at: new Date().toISOString(),
+          }).eq('id', resolvedProcessId);
+
+          // Link process_id on publicacoes_marcas
+          await supabase.from('publicacoes_marcas').update({ process_id: resolvedProcessId }).eq('rpi_entry_id', assignEntry.id);
+
+          // Save matched_process_id on rpi_entry
+          if (!assignEntry.matched_process_id) {
+            await supabase.from('rpi_entries').update({ matched_process_id: resolvedProcessId }).eq('id', assignEntry.id);
+          }
+        }
       }
       await supabase.from('notifications').insert({ user_id: selectedClient.id, title: assignPriority === 'urgent' ? '🚨 URGENTE: Nova Publicação INPI' : 'Nova Publicação INPI', message: `Uma publicação referente ao processo ${assignEntry.process_number} (${assignEntry.brand_name || 'Marca'}) foi vinculada ao seu perfil. Prazo: 60 dias.`, type: assignPriority === 'urgent' ? 'warning' : 'info', link: '/cliente/processos' });
       const { data: { user } } = await supabase.auth.getUser();
