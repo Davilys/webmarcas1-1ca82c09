@@ -851,6 +851,8 @@ export default function PublicacaoTab() {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     let result = publicacoes.filter(pub => {
+      // Somente publicacoes com cliente vinculado aparecem
+      if (!pub.client_id) return false;
       const proc = pub.process_id ? processMap.get(pub.process_id) : null;
       const client = pub.client_id ? clientMap.get(pub.client_id) : null;
       if (search) {
