@@ -367,7 +367,7 @@ export default function PublicacaoTab() {
       while (true) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, full_name, email, cpf_cnpj, phone, company_name, priority, origin, contract_value, created_at, last_contact, assigned_to')
+          .select('id, full_name, email, cpf_cnpj, phone, company_name, priority, origin, contract_value, created_at, last_contact, assigned_to, created_by, client_funnel_type')
           .range(from, from + pageSize - 1);
         if (error) throw error;
         if (!data || data.length === 0) break;
