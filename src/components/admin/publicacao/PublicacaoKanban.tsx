@@ -2,7 +2,7 @@ import { useMemo, useCallback, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays, parseISO, addDays, addYears } from 'date-fns';
 import { Clock, AlertTriangle, User, Flame, GripVertical } from 'lucide-react';
 
 type PubStatus = '003' | 'oposicao' | 'exigencia_merito' | 'indeferimento' | 'deferimento' | 'certificado' | 'renovacao' | 'arquivado';
@@ -104,8 +104,12 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
       {allColumns.map(([status, cfg]) => {
         const items = columns[status];
         const overdueCount = items.filter(p => {
-          if (!p.proximo_prazo_critico) return false;
-          return differenceInDays(parseISO(p.proximo_prazo_critico), new Date()) < 0;
+          let dl = p.proximo_prazo_critico;
+          if (!dl && p.data_publicacao_rpi) {
+            dl = (p.status === 'certificado' ? addYears(parseISO(p.data_publicacao_rpi), 9) : addDays(parseISO(p.data_publicacao_rpi), 60)).toISOString();
+          }
+          if (!dl) return false;
+          return differenceInDays(parseISO(dl), new Date()) < 0;
         }).length;
         const isDragTarget = dragOverStatus === status;
 
@@ -157,7 +161,15 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                   const proc = pub.process_id ? processMap.get(pub.process_id) : null;
                   const client = pub.client_id ? clientMap.get(pub.client_id) : null;
                   const admin = pub.admin_id ? adminMap.get(pub.admin_id) : null;
-                  const days = pub.proximo_prazo_critico ? differenceInDays(parseISO(pub.proximo_prazo_critico), new Date()) : null;
+                  let deadlineDate = pub.proximo_prazo_critico;
+                  if (!deadlineDate && pub.data_publicacao_rpi) {
+                    if (pub.status === 'certificado') {
+                      deadlineDate = addYears(parseISO(pub.data_publicacao_rpi), 9).toISOString();
+                    } else {
+                      deadlineDate = addDays(parseISO(pub.data_publicacao_rpi), 60).toISOString();
+                    }
+                  }
+                  const days = deadlineDate ? differenceInDays(parseISO(deadlineDate), new Date()) : null;
                   const brandName = proc?.brand_name || pub.brand_name_rpi || '—';
                   const processNumber = proc?.process_number || pub.process_number_rpi || null;
                   const rpiNumber = resolveRpiNumber ? resolveRpiNumber(pub) : null;
