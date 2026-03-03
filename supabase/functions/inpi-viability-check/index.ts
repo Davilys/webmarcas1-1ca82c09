@@ -425,7 +425,7 @@ async function generateFinalAnalysis(
   description: string;
   laudo: string;
 }> {
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+  // AI provider resolved dynamically below
   const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
   const collectedData = `
