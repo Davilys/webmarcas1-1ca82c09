@@ -30,6 +30,7 @@ interface ServiceActionPanelProps {
   };
   onClose: () => void;
   onUpdate: () => void;
+  alreadySent?: { sent_at: string; description: string } | null;
 }
 
 const SALARIO_MINIMO_2025 = 1518;
