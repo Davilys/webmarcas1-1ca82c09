@@ -47,6 +47,7 @@ interface ClientDetailSheetProps {
   onUpdate: () => void;
   extraActions?: React.ReactNode;
   initialShowProcessDetails?: boolean;
+  focusProcessId?: string;
 }
 
 interface ClientNote { id: string; content: string; created_at: string; }
@@ -156,8 +157,23 @@ function fmtBytes(b?: number | null) {
   return `${(b/1048576).toFixed(1)}MB`;
 }
 
-export function ClientDetailSheet({ client, open, onOpenChange, onUpdate, extraActions, initialShowProcessDetails }: ClientDetailSheetProps) {
+export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUpdate, extraActions, initialShowProcessDetails, focusProcessId }: ClientDetailSheetProps) {
   const SERVICE_PRICING_OPTIONS = useServicePricingOptions();
+
+  // If focusProcessId is provided and client has brands, override process_id/brand_name/pipeline_stage
+  const client = useMemo(() => {
+    if (!clientProp) return null;
+    if (!focusProcessId || focusProcessId === clientProp.process_id) return clientProp;
+    const targetBrand = clientProp.brands?.find(b => b.id === focusProcessId);
+    if (!targetBrand) return clientProp;
+    return {
+      ...clientProp,
+      process_id: targetBrand.id,
+      brand_name: targetBrand.brand_name,
+      pipeline_stage: targetBrand.pipeline_stage || clientProp.pipeline_stage,
+      process_number: targetBrand.process_number || clientProp.process_number,
+    };
+  }, [clientProp, focusProcessId]);
 
   // Data
   const [notes, setNotes] = useState<ClientNote[]>([]);
