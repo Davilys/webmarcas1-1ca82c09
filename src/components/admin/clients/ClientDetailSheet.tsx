@@ -628,6 +628,15 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
     if (client.email === MASTER_ADMIN_EMAIL) { toast.error('Administrador master não pode ser excluído.'); return; }
     setDeleting(true);
     try {
+      // Check if this user also has an admin role
+      const { data: adminRole } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', client.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      // Always delete client-specific data
       await Promise.all([
         supabase.from('client_notes').delete().eq('user_id', client.id),
         supabase.from('client_activities').delete().eq('user_id', client.id),
@@ -639,11 +648,32 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
         supabase.from('contracts').delete().eq('user_id', client.id),
         supabase.from('brand_processes').delete().eq('user_id', client.id),
         supabase.from('login_history').delete().eq('user_id', client.id),
-        supabase.from('user_roles').delete().eq('user_id', client.id),
       ]);
-      const { error } = await supabase.from('profiles').delete().eq('id', client.id);
-      if (error) throw error;
-      toast.success('Cliente excluído com sucesso');
+
+      if (adminRole) {
+        // User is also admin: only remove 'client' role, keep profile and admin role
+        await supabase.from('user_roles').delete().eq('user_id', client.id).eq('role', 'user');
+        // Clear client-specific fields on profile but keep the profile for admin access
+        await supabase.from('profiles').update({
+          client_funnel_type: null,
+          phone: null,
+          cpf: null,
+          cnpj: null,
+          company_name: null,
+          address: null,
+          city: null,
+          state: null,
+          zip_code: null,
+        }).eq('id', client.id);
+        toast.success('Dados de cliente removidos. Acesso admin preservado.');
+      } else {
+        // Not an admin: full deletion (roles + profile)
+        await supabase.from('user_roles').delete().eq('user_id', client.id);
+        const { error } = await supabase.from('profiles').delete().eq('id', client.id);
+        if (error) throw error;
+        toast.success('Cliente excluído com sucesso');
+      }
+
       setShowDeleteConfirm(false);
       onOpenChange(false);
       onUpdate();
