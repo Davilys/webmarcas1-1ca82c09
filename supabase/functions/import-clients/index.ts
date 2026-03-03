@@ -165,12 +165,12 @@ async function processClient(
   if (authError) {
     if (authError.message?.includes('already been registered')) {
       // User exists in Auth but has no profile – recover the ID
-      const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      const existingAuthUser = listData?.users?.find(u => u.email === email);
-      if (!existingAuthUser) {
-        return { status: 'error', email, message: 'Usuário existe no Auth mas não foi localizado' };
+      // Use direct SQL lookup via RPC (bypasses listUsers pagination limit)
+      const { data: authUserId, error: rpcError } = await supabaseAdmin.rpc('get_auth_user_id_by_email', { lookup_email: email });
+      if (!authUserId) {
+        return { status: 'error', email, message: `Usuário existe no Auth mas não foi localizado via RPC${rpcError ? ': ' + rpcError.message : ''}` };
       }
-      userId = existingAuthUser.id;
+      userId = authUserId;
     } else {
       return { status: 'error', email, message: `Erro auth: ${authError.message}` };
     }

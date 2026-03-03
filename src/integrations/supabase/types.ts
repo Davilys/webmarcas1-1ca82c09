@@ -3003,6 +3003,10 @@ export type Database = {
       add_admin_role: { Args: { target_user_id: string }; Returns: undefined }
       calculate_predictive_score: { Args: { p_classe?: string }; Returns: Json }
       get_annual_evolution: { Args: never; Returns: Json }
+      get_auth_user_id_by_email: {
+        Args: { lookup_email: string }
+        Returns: string
+      }
       get_class_ranking: { Args: never; Returns: Json }
       has_current_user_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
