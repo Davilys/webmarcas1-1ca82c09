@@ -249,7 +249,7 @@ Se for PDF, analise o texto. Se for imagem, faça OCR e analise.`
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'gpt-4.1-mini',
           messages,
           max_tokens: 1000
         }),

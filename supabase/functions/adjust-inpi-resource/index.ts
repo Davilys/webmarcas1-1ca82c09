@@ -95,7 +95,7 @@ Responda APENAS com o texto completo do recurso ajustado, sem explicações adic
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: 'Aplique os ajustes solicitados ao recurso.' }
