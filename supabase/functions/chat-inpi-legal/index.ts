@@ -12,6 +12,19 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// ─── Dynamic AI Provider Resolution ────────────────
+async function getActiveAIConfig(): Promise<{ endpoint: string; apiKey: string; model: string }> {
+  const { data: p } = await supabaseAdmin.from('ai_providers').select('*').eq('is_active', true).single();
+  if (!p) throw new Error('Nenhum provedor de IA ativo configurado');
+  switch (p.provider_type) {
+    case 'lovable': { const k = Deno.env.get('LOVABLE_API_KEY'); if (!k) throw new Error('LOVABLE_API_KEY não configurada'); return { endpoint: 'https://ai.gateway.lovable.dev/v1/chat/completions', apiKey: k, model: p.model }; }
+    case 'openai': { const k = p.api_key || Deno.env.get('OPENAI_API_KEY'); if (!k) throw new Error('OpenAI API key não configurada'); return { endpoint: 'https://api.openai.com/v1/chat/completions', apiKey: k, model: p.model }; }
+    case 'deepseek': { if (!p.api_key) throw new Error('DeepSeek API key não configurada'); return { endpoint: 'https://api.deepseek.com/v1/chat/completions', apiKey: p.api_key, model: p.model }; }
+    case 'gemini': { const k = Deno.env.get('LOVABLE_API_KEY'); if (!k) throw new Error('Gemini requer LOVABLE_API_KEY'); const m = p.model.startsWith('google/') ? p.model : `google/${p.model}`; return { endpoint: 'https://ai.gateway.lovable.dev/v1/chat/completions', apiKey: k, model: m }; }
+    default: throw new Error(`Provider não suportado: ${p.provider_type}`);
+  }
+}
+
 // ─────────────────────────────────────────────
 // BASE SYSTEM PROMPT (sempre injetado)
 // ─────────────────────────────────────────────
@@ -343,10 +356,8 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY não configurada');
-    }
+    // Resolve AI provider from settings
+    const ai = await getActiveAIConfig();
 
     // Busca conhecimento dinâmico do INPI
     const { context: dynamicContext } = await fetchDynamicKnowledge();
@@ -411,16 +422,16 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[chat-inpi-legal] Sending to Lovable Gateway: ${apiMessages.length} messages, model: openai/gpt-5-mini, system prompt: ${SYSTEM_PROMPT.length} chars`);
+    console.log(`[chat-inpi-legal] Sending to ${ai.endpoint}: ${apiMessages.length} messages, model: ${ai.model}, system prompt: ${SYSTEM_PROMPT.length} chars`);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(ai.endpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${ai.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-5-mini',
+        model: ai.model,
         messages: apiMessages,
         stream: true,
         max_tokens: 4096,
@@ -430,7 +441,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable Gateway API error:', response.status, errorText);
+      console.error('AI API error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns instantes.' }), {
@@ -446,7 +457,7 @@ serve(async (req) => {
         });
       }
       
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw new Error(`AI API error: ${response.status}`);
     }
 
     return new Response(response.body, {

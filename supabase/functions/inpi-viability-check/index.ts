@@ -1,7 +1,23 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+// ─── Dynamic AI Provider Resolution ────────────────
+const _aiAdmin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+async function getActiveAIConfig(): Promise<{ endpoint: string; apiKey: string; model: string }> {
+  const { data: p } = await _aiAdmin.from('ai_providers').select('*').eq('is_active', true).single();
+  if (!p) throw new Error('Nenhum provedor de IA ativo configurado');
+  switch (p.provider_type) {
+    case 'lovable': { const k = Deno.env.get('LOVABLE_API_KEY'); if (!k) throw new Error('LOVABLE_API_KEY não configurada'); return { endpoint: 'https://ai.gateway.lovable.dev/v1/chat/completions', apiKey: k, model: p.model }; }
+    case 'openai': { const k = p.api_key || Deno.env.get('OPENAI_API_KEY'); if (!k) throw new Error('OpenAI API key não configurada'); return { endpoint: 'https://api.openai.com/v1/chat/completions', apiKey: k, model: p.model }; }
+    case 'deepseek': { if (!p.api_key) throw new Error('DeepSeek API key não configurada'); return { endpoint: 'https://api.deepseek.com/v1/chat/completions', apiKey: p.api_key, model: p.model }; }
+    case 'gemini': { const k = Deno.env.get('LOVABLE_API_KEY'); if (!k) throw new Error('Gemini requer LOVABLE_API_KEY'); const m = p.model.startsWith('google/') ? p.model : `google/${p.model}`; return { endpoint: 'https://ai.gateway.lovable.dev/v1/chat/completions', apiKey: k, model: m }; }
+    default: throw new Error(`Provider não suportado: ${p.provider_type}`);
+  }
+}
 
 // Lista de marcas de alto renome
 const FAMOUS_BRANDS = [
@@ -79,19 +95,14 @@ function getClassesForBusinessAreaFallback(businessArea: string): { classes: num
 
 // ========== ETAPA 2: Mapeamento NCL via IA ==========
 async function suggestClassesWithAI(businessArea: string): Promise<{ classes: number[], descriptions: string[] }> {
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-  if (!OPENAI_API_KEY) {
-    console.log('[CLASSES] OPENAI_API_KEY não configurada, usando fallback');
-    return getClassesForBusinessAreaFallback(businessArea);
-  }
-
   try {
+    const ai = await getActiveAIConfig();
     console.log(`[CLASSES] Consultando IA para ramo: "${businessArea}"`);
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(ai.endpoint, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${ai.apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: ai.model,
         messages: [
           { role: 'system', content: 'Você é um especialista em propriedade intelectual e classificação NCL do INPI Brasil. Responda sempre em JSON válido, sem markdown.' },
           { role: 'user', content: `Sugira EXATAMENTE 3 classes NCL (1-45) para o ramo "${businessArea}". JSON: {"classes":[n1,n2,n3],"descriptions":["Classe XX – desc1","Classe XX – desc2","Classe XX – desc3"]}` }
@@ -223,19 +234,19 @@ async function searchINPI(brandName: string, mainClass: number): Promise<{
       return { totalResultados: 0, resultados: [], consultadoEm: now };
     }
 
-    // Enviar resultados reais ao GPT-5.2 para estruturar
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
+    // Enviar resultados reais à IA para estruturar
+    let ai: { endpoint: string; apiKey: string; model: string };
+    try { ai = await getActiveAIConfig(); } catch {
       return { totalResultados: allResults.length, resultados: [], consultadoEm: now, error: 'IA indisponível para estruturar resultados' };
     }
 
     const searchData = allResults.map(r => `- ${r.title}\n  URL: ${r.url}\n  ${r.description}`).join('\n\n');
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(ai.endpoint, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${ai.apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: ai.model,
         messages: [
           {
             role: 'system',
@@ -296,16 +307,16 @@ async function searchCNPJ(brandName: string): Promise<{
       return { total: 0, matches: [] };
     }
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) return { total: 0, matches: [] };
+    let ai: { endpoint: string; apiKey: string; model: string };
+    try { ai = await getActiveAIConfig(); } catch { return { total: 0, matches: [] }; }
 
     const searchData = allResults.map(r => `- ${r.title}\n  URL: ${r.url}\n  ${r.description}`).join('\n\n');
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(ai.endpoint, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${ai.apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: ai.model,
         messages: [
           {
             role: 'system',
@@ -414,7 +425,7 @@ async function generateFinalAnalysis(
   description: string;
   laudo: string;
 }> {
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+  // AI provider resolved dynamically below
   const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
   const collectedData = `
@@ -438,18 +449,18 @@ ${inpiData.error ? `- Erro: ${inpiData.error}` : ''}
 ${classDescriptions.join('\n')}
 `;
 
-  if (!OPENAI_API_KEY) {
-    // Fallback sem IA
+  let ai: { endpoint: string; apiKey: string; model: string };
+  try { ai = await getActiveAIConfig(); } catch {
     return buildFallbackAnalysis(brandName, businessArea, classes, classDescriptions, inpiData, cnpjData, internetData, now);
   }
 
   try {
     console.log('[ANALISE] Gerando laudo via IA...');
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(ai.endpoint, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${ai.apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: ai.model,
         messages: [
           {
             role: 'system',
