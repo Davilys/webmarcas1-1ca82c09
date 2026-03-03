@@ -53,7 +53,7 @@ Equipe WebMarcas
 www.webmarcas.net | WhatsApp: (11) 91112-0225`;
 }
 
-export function ServiceActionPanel({ client, stage, onClose, onUpdate }: ServiceActionPanelProps) {
+export function ServiceActionPanel({ client, stage, onClose, onUpdate, alreadySent }: ServiceActionPanelProps) {
   const [message, setMessage] = useState(() => generateTemplate(client, stage, SALARIO_MINIMO_2025));
   const [sendEmail, setSendEmail] = useState(true);
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
