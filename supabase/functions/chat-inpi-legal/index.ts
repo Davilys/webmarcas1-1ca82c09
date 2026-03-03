@@ -408,7 +408,14 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[chat-inpi-legal] Sending to OpenAI: ${apiMessages.length} messages, system prompt: ${SYSTEM_PROMPT.length} chars`);
+    // Detecta se há conteúdo multimodal (imagens) nas mensagens
+    const hasMultimodal = apiMessages.some(
+      (m: any) => Array.isArray(m.content) && m.content.some((c: any) => c.type === 'image_url')
+    );
+    // gpt-4o-mini NÃO suporta visão/imagens — usa gpt-4o quando há imagens
+    const selectedModel = hasMultimodal ? 'gpt-4o' : 'gpt-4o-mini';
+
+    console.log(`[chat-inpi-legal] Sending to OpenAI: ${apiMessages.length} messages, model: ${selectedModel}, system prompt: ${SYSTEM_PROMPT.length} chars`);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -417,7 +424,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: selectedModel,
         messages: apiMessages,
         stream: true,
         max_tokens: 4096,
