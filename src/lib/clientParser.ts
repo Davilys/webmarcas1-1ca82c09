@@ -17,6 +17,7 @@ export interface ParsedClient {
   origin?: string;
   priority?: string;
   contract_value?: number;
+  brand_name?: string;
   // Raw data for mapping
   _raw?: Record<string, unknown>;
   _rowIndex?: number;
@@ -50,6 +51,7 @@ export const SYSTEM_FIELDS = [
   { key: 'origin', label: 'Origem', required: false },
   { key: 'priority', label: 'Prioridade', required: false },
   { key: 'contract_value', label: 'Valor do Contrato', required: false },
+  { key: 'brand_name', label: 'Marca', required: false },
 ];
 
 // Common field name variations for auto-mapping
@@ -69,6 +71,7 @@ const FIELD_ALIASES: Record<string, string[]> = {
   origin: ['origem', 'origin', 'source', 'fonte', 'canal'],
   priority: ['prioridade', 'priority', 'urgencia', 'urgência'],
   contract_value: ['valor', 'value', 'contract_value', 'valor_contrato', 'amount', 'total'],
+  brand_name: ['marca', 'brand', 'brand_name', 'nome_marca', 'nome da marca'],
 };
 
 /**

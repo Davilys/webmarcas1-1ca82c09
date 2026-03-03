@@ -21,6 +21,7 @@ interface ClientToImport {
   origin?: string;
   priority?: string;
   contract_value?: number;
+  brand_name?: string;
 }
 
 interface ProcessResult {
@@ -144,7 +145,7 @@ async function processClient(
     .catch(() => {/* ignore duplicate */});
 
   // 4. Create brand_process → Jurídico > Protocolado (no contract, no invoice)
-  const brandName = client.company_name || client.full_name || email;
+  const brandName = client.brand_name || client.company_name || client.full_name || email;
   await supabaseAdmin
     .from('brand_processes')
     .insert({
