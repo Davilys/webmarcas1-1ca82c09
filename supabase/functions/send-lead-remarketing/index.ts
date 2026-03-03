@@ -108,17 +108,16 @@ async function sendEmailNow(
 
 async function summarizeForWhatsApp(message: string, nome: string, assunto: string): Promise<string> {
   try {
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY não configurada");
+    const ai = await getActiveAIConfig();
 
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetch(ai.endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${ai.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",
+        model: ai.model,
         messages: [
           {
             role: "system",

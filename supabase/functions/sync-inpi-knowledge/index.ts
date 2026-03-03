@@ -271,17 +271,18 @@ async function scrapeJurisprudencia(): Promise<ScrapedItem | null> {
 // ─────────────────────────────────────────────
 
 async function enrichWithAI(rawContent: string, category: string): Promise<string> {
-  if (!OPENAI_API_KEY || rawContent.length < 200) return rawContent;
+  if (rawContent.length < 200) return rawContent;
 
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const ai = await getActiveAIConfig();
+    const res = await fetch(ai.endpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${ai.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: ai.model,
         max_tokens: 1500,
         temperature: 0.1,
         messages: [
