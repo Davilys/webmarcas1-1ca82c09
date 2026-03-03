@@ -94,6 +94,7 @@ const PIPELINE_STAGES = [
   { value: 'protocolado', label: 'Protocolado' },
   { value: '003', label: '003 - Exigência' },
   { value: 'oposicao', label: 'Oposição' },
+  { value: 'exigencia_merito', label: 'Exigência de Mérito' },
   { value: 'indeferimento', label: 'Indeferimento' },
   { value: 'notificacao_extrajudicial', label: 'Notificação Extrajudicial' },
   { value: 'deferimento', label: 'Deferimento' },
