@@ -1,71 +1,57 @@
 
+## Problema
 
-## Prazos Automáticos nos Cards do Kanban + Auto-Arquivamento + Prazo de 9 anos para Certificado
+Quando um cliente tem mais de uma marca/processo, ao clicar em qualquer card no Kanban de Publicações, o ficheiro do cliente sempre abre mostrando o **primeiro processo** encontrado (`userProcesses[0]`). Isso significa que todas as publicações do mesmo cliente abrem exatamente a mesma informação, independente de qual marca foi clicada.
 
-### O que será feito
+## Solução
 
-**1. Fallback de prazo em TODOS os cards**
+Passar o `process_id` da publicação clicada para o `ClientDetailSheet`, para que o ficheiro foque na marca/processo correto.
 
-Atualmente, se `proximo_prazo_critico` estiver vazio, o card não mostra dias restantes. Será adicionado um cálculo de fallback:
-- Status `certificado`: prazo = `data_publicacao_rpi + 9 anos` (3285 dias) para renovação
-- Outros status: prazo = `data_publicacao_rpi + 60 dias`
+### Alterações
 
-**2. Auto-arquivamento client-side**
+#### 1. `ClientDetailSheet.tsx` — Aceitar `focusProcessId`
 
-Ao carregar os dados, publicações com prazo expirado (dias < 0) e que NÃO estão em `arquivado` nem `certificado` serão automaticamente movidas para `arquivado`, com sincronização bidirecional para `brand_processes.pipeline_stage = 'distrato'`.
-
-**3. Prazo de 9 anos para Certificado**
-
-Quando o status é `certificado`, o prazo crítico passa a ser calculado como 9 anos (data da publicação + 9 anos), representando o prazo de renovação. Os cards mostrarão os dias restantes até essa data.
-
-### Alterações Técnicas
-
-#### Ficheiro 1: `src/components/admin/publicacao/PublicacaoKanban.tsx`
-
-Alterar o cálculo de `days` (linha 160) para incluir fallback:
+Adicionar uma nova prop opcional `focusProcessId?: string` ao componente. Quando fornecida:
+- O `mainProcess` usado no cabeçalho (nome da marca, pipeline_stage) será o processo correspondente ao `focusProcessId`, e não o primeiro da lista
+- As queries de publicações, eventos e documentos usarão esse `process_id` específico
+- A aba "Serviços" selecionará o serviço correspondente a esse processo
 
 ```typescript
-// Antes:
-const days = pub.proximo_prazo_critico ? differenceInDays(...) : null;
-
-// Depois:
-let deadlineDate = pub.proximo_prazo_critico;
-if (!deadlineDate && pub.data_publicacao_rpi) {
-  if (pub.status === 'certificado') {
-    deadlineDate = addYears(parseISO(pub.data_publicacao_rpi), 9).toISOString();
-  } else {
-    deadlineDate = addDays(parseISO(pub.data_publicacao_rpi), 60).toISOString();
-  }
+interface ClientDetailSheetProps {
+  client: ClientWithProcess | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUpdate: () => void;
+  extraActions?: React.ReactNode;
+  initialShowProcessDetails?: boolean;
+  focusProcessId?: string; // NOVO
 }
-const days = deadlineDate ? differenceInDays(parseISO(deadlineDate), new Date()) : null;
 ```
 
-Adicionar imports de `addDays` e `addYears` do date-fns.
+Na lógica interna, onde hoje se usa `client.process_id`, será feito:
+```typescript
+const activeProcessId = focusProcessId || client.process_id;
+```
 
-Atualizar a interface `Publicacao` local para incluir `data_publicacao_rpi`.
+#### 2. `PublicacaoTab.tsx` — Passar `process_id` da publicação clicada
 
-#### Ficheiro 2: `src/components/admin/PublicacaoTab.tsx`
+Na função `fetchClientForSheet`, em vez de usar `mainProcess = userProcesses[0]`, definir o `process_id` como o da publicação clicada (via `sheetPub.process_id`).
 
-**A. Auto-archive via useEffect**
+Além disso, passar `focusProcessId={sheetPub?.process_id}` ao `ClientDetailSheet`:
 
-Adicionar um `useEffect` que, após o fetch das publicações, verifica publicações com prazo vencido e status diferente de `arquivado`/`certificado`. Para cada uma:
-- Atualiza `publicacoes_marcas.status = 'arquivado'`
-- Atualiza `brand_processes.pipeline_stage = 'distrato'` (se `process_id` existe)
-- Invalida as queries para refrescar o Kanban
-
-**B. Garantir que o calcAutoFields trata certificado com 9 anos**
-
-A lógica já existe parcialmente (linhas 178-180 usam `data_certificado`), mas será reforçada: se o status é `certificado` e não tem `data_certificado` preenchido, usar `data_publicacao_rpi` como base para calcular `proximo_prazo_critico = data_publicacao_rpi + 9 anos`.
-
-**C. Fallback no cálculo de dias na lista (view lista)**
-
-Aplicar o mesmo fallback (60 dias ou 9 anos) quando `proximo_prazo_critico` é null nos cards da lista, para consistência.
+```typescript
+<ClientDetailSheet
+  client={fetchedClientForSheet}
+  open={showClientSheet}
+  focusProcessId={sheetPub?.process_id || undefined}
+  ...
+/>
+```
 
 ### Resultado
 
-- Todos os cards do Kanban e da lista mostram "Xd restantes" ou "Xd atrasado"
-- Cards em `certificado` mostram o prazo de 9 anos para renovação
-- Publicações com prazo vencido (exceto certificado) são automaticamente arquivadas
-- O arquivamento sincroniza com o Kanban Jurídico (brand_processes)
-- Ambas as abas (Publicações e Clientes Jurídico) refletem a mesma informação
-
+- Clicar no card "MINI CHICLE TATTOO" abre o ficheiro com foco nessa marca
+- Clicar no card "Outra Marca" do mesmo cliente abre o ficheiro com foco na outra marca
+- Aba Serviços mostra a fase do pipeline do processo correto
+- Publicações e eventos mostram os dados do processo correto
+- Funciona para clientes com 1 ou N marcas
