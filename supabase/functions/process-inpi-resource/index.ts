@@ -557,14 +557,14 @@ serve(async (req) => {
 
     console.log('Calling AI with prompt for:', resourceType, ', agent:', agentName || 'default');
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch(ai.endpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${ai.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-5-mini',
+        model: ai.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent }

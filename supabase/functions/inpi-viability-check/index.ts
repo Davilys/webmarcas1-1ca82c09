@@ -449,18 +449,18 @@ ${inpiData.error ? `- Erro: ${inpiData.error}` : ''}
 ${classDescriptions.join('\n')}
 `;
 
-  if (!OPENAI_API_KEY) {
-    // Fallback sem IA
+  let ai: { endpoint: string; apiKey: string; model: string };
+  try { ai = await getActiveAIConfig(); } catch {
     return buildFallbackAnalysis(brandName, businessArea, classes, classDescriptions, inpiData, cnpjData, internetData, now);
   }
 
   try {
     console.log('[ANALISE] Gerando laudo via IA...');
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(ai.endpoint, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${ai.apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: ai.model,
         messages: [
           {
             role: 'system',
