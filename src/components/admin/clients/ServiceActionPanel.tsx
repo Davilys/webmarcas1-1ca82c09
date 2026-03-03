@@ -8,9 +8,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { X, Mail, MessageCircle, Upload, Loader2, Send, FileText, DollarSign, CreditCard, Paperclip } from 'lucide-react';
+import { X, Mail, MessageCircle, Upload, Loader2, Send, FileText, DollarSign, CreditCard, Paperclip, AlertCircle } from 'lucide-react';
 
 interface ServiceActionPanelProps {
   client: {
@@ -29,6 +30,7 @@ interface ServiceActionPanelProps {
   };
   onClose: () => void;
   onUpdate: () => void;
+  alreadySent?: { sent_at: string; description: string } | null;
 }
 
 const SALARIO_MINIMO_2025 = 1518;
@@ -51,7 +53,7 @@ Equipe WebMarcas
 www.webmarcas.net | WhatsApp: (11) 91112-0225`;
 }
 
-export function ServiceActionPanel({ client, stage, onClose, onUpdate }: ServiceActionPanelProps) {
+export function ServiceActionPanel({ client, stage, onClose, onUpdate, alreadySent }: ServiceActionPanelProps) {
   const [message, setMessage] = useState(() => generateTemplate(client, stage, SALARIO_MINIMO_2025));
   const [sendEmail, setSendEmail] = useState(true);
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
@@ -219,6 +221,16 @@ export function ServiceActionPanel({ client, stage, onClose, onUpdate }: Service
           </button>
         </div>
 
+        {/* Already sent warning */}
+        {alreadySent && (
+          <Alert className="border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-700">
+            <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+            <AlertDescription className="text-yellow-700 dark:text-yellow-300 text-xs">
+              Esta notificação já foi enviada em <strong>{new Date(alreadySent.sent_at).toLocaleDateString('pt-BR')}</strong>. Deseja enviar novamente?
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Message */}
         <div className="space-y-2">
           <Label className="text-xs font-semibold flex items-center gap-1.5">
@@ -358,6 +370,8 @@ export function ServiceActionPanel({ client, stage, onClose, onUpdate }: Service
         >
           {sending ? (
             <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enviando...</>
+          ) : alreadySent ? (
+            <><Send className="h-4 w-4 mr-2" /> Reenviar Notificação + Cobrança</>
           ) : (
             <><Send className="h-4 w-4 mr-2" /> Enviar Notificação + Cobrança</>
           )}

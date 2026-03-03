@@ -292,6 +292,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
   const [selectedServiceType, setSelectedServiceType] = useState('pedido_registro');
   const [dynamicServiceStages, setDynamicServiceStages] = useState<any[] | null>(null);
   const [expandedStageAction, setExpandedStageAction] = useState<string | null>(null);
+  const [sentStagesMap, setSentStagesMap] = useState<Record<string, { sent_at: string; description: string }>>({});
 
   const [editData, setEditData] = useState({ priority: '', origin: '', contract_value: 0, pipeline_stage: '' });
   const [editFormData, setEditFormData] = useState({
@@ -338,6 +339,28 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
         }
       });
   }, [client?.id, client?.client_funnel_type, open]);
+
+  // Load sent notification history for service stages
+  useEffect(() => {
+    if (!client?.id || !open) return;
+    supabase
+      .from('client_activities')
+      .select('created_at, metadata, description')
+      .eq('user_id', client.id)
+      .eq('activity_type', 'notificacao_cobranca')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (!data) return;
+        const map: Record<string, { sent_at: string; description: string }> = {};
+        data.forEach((a: any) => {
+          const stageId = a.metadata?.stage_id;
+          if (stageId && !map[stageId]) {
+            map[stageId] = { sent_at: a.created_at, description: a.description || '' };
+          }
+        });
+        setSentStagesMap(map);
+      });
+  }, [client?.id, open]);
 
   // Auto-open process details when prop is set
   useEffect(() => {
@@ -2128,18 +2151,19 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                         <div className="space-y-2">
                           {activeStages.map((stage, idx) => {
                             const isSelected = (editData.pipeline_stage || selectedServiceType) === stage.id;
+                            const sentInfo = sentStagesMap[stage.id];
                             return (
                               <motion.button
                                 key={stage.id}
                                 whileTap={{ scale: 0.98 }}
                                 className={cn(
                                   'w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all',
-                                  isSelected ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-primary/20 hover:bg-muted/30'
+                                  sentInfo && !isSelected ? 'border-green-300 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20' : '',
+                                  isSelected ? 'border-primary/40 bg-primary/5' : !sentInfo ? 'border-border hover:border-primary/20 hover:bg-muted/30' : ''
                                 )}
                                 onClick={async () => {
                                   setSelectedServiceType(stage.id);
                                   setEditData(prev => ({ ...prev, pipeline_stage: stage.id }));
-                                  // Toggle action panel
                                   setExpandedStageAction(prev => prev === stage.id ? null : stage.id);
                                   if (client.process_id) {
                                     await supabase.from('brand_processes').update({ pipeline_stage: stage.id }).eq('id', client.process_id);
@@ -2150,13 +2174,21 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                               >
                                 <div className={cn(
                                   'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
-                                  isSelected ? 'bg-primary/20' : 'bg-muted/50'
+                                  sentInfo ? 'bg-green-100 dark:bg-green-900/30' : isSelected ? 'bg-primary/20' : 'bg-muted/50'
                                 )}>
-                                  <span className={cn('text-xs font-bold', isSelected ? 'text-primary' : 'text-muted-foreground')}>{idx + 1}</span>
+                                  {sentInfo ? (
+                                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                  ) : (
+                                    <span className={cn('text-xs font-bold', isSelected ? 'text-primary' : 'text-muted-foreground')}>{idx + 1}</span>
+                                  )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className={cn('text-sm font-medium', isSelected && 'text-primary')}>{stage.label}</p>
-                                  {stage.description && <p className="text-xs text-muted-foreground">{stage.description}</p>}
+                                  {sentInfo ? (
+                                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">✓ Enviado em {new Date(sentInfo.sent_at).toLocaleDateString('pt-BR')}</p>
+                                  ) : stage.description ? (
+                                    <p className="text-xs text-muted-foreground">{stage.description}</p>
+                                  ) : null}
                                 </div>
                                 {isSelected && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
                               </motion.button>
@@ -2183,7 +2215,28 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                 }}
                                 stage={actionStage}
                                 onClose={() => setExpandedStageAction(null)}
-                                onUpdate={onUpdate}
+                                onUpdate={() => {
+                                  // Refresh sent history
+                                  supabase
+                                    .from('client_activities')
+                                    .select('created_at, metadata, description')
+                                    .eq('user_id', client.id)
+                                    .eq('activity_type', 'notificacao_cobranca')
+                                    .order('created_at', { ascending: false })
+                                    .then(({ data }) => {
+                                      if (!data) return;
+                                      const map: Record<string, { sent_at: string; description: string }> = {};
+                                      data.forEach((a: any) => {
+                                        const stageId = a.metadata?.stage_id;
+                                        if (stageId && !map[stageId]) {
+                                          map[stageId] = { sent_at: a.created_at, description: a.description || '' };
+                                        }
+                                      });
+                                      setSentStagesMap(map);
+                                    });
+                                  onUpdate();
+                                }}
+                                alreadySent={sentStagesMap[expandedStageAction] || null}
                               />
                             );
                           })()}
