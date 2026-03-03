@@ -411,16 +411,16 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[chat-inpi-legal] Sending to OpenAI: ${apiMessages.length} messages, model: gpt-4o-mini, system prompt: ${SYSTEM_PROMPT.length} chars`);
+    console.log(`[chat-inpi-legal] Sending to Lovable Gateway: ${apiMessages.length} messages, model: openai/gpt-5-mini, system prompt: ${SYSTEM_PROMPT.length} chars`);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'openai/gpt-5-mini',
         messages: apiMessages,
         stream: true,
         max_tokens: 4096,
