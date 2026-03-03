@@ -1,56 +1,58 @@
 
 
-## Melhorias na Importação de Clientes
+## Importacao Inteligente: Sempre Atualizar + Funil Juridico/Protocolado
 
-### O que será feito
+### O que muda
 
-**1. Novos campos de mapeamento no sistema**
+1. **Sempre atualizar clientes existentes** - o toggle "Atualizar clientes existentes" sera removido; todo cliente encontrado no banco sera atualizado automaticamente
+2. **Identificacao multi-criterio** - busca por Email, CPF, CNPJ ou Nome (nessa ordem de prioridade)
+3. **Clientes novos vao direto para Juridico > Protocolado** (ja funciona assim, sera mantido)
+4. **Clientes existentes sao atualizados** sem criar duplicatas, mesmo que o email seja diferente
+5. **Merge inteligente** - campos vazios no arquivo nao apagam dados existentes
 
-Adicionar 3 novos campos ao mapeamento de importação:
-- **Bairro** (neighborhood) — salva na coluna `neighborhood` da tabela profiles
-- **Número** (address_number) — concatenado ao campo `address` (ex: "Rua X, 123")
-- **Complemento** (address_complement) — concatenado ao campo `address` (ex: "Rua X, 123, Apto 4")
+### Alteracoes Tecnicas
 
-**2. Auto-detecção CPF vs CNPJ**
+#### 1. Edge Function `import-clients/index.ts`
 
-Quando o campo mapeado for "CPF/CNPJ", o sistema analisará a quantidade de dígitos:
-- 11 dígitos = CPF, salva no campo `cpf` da tabela profiles
-- 14 dígitos = CNPJ, salva no campo `cnpj` da tabela profiles
-- O campo legado `cpf_cnpj` continua preenchido para retrocompatibilidade
+Substituir a busca simples por email por uma busca em cascata:
 
-**3. Novos aliases de auto-detecção de colunas**
+```text
+1. Email (eq)
+2. CPF (eq, somente digitos)
+3. CNPJ (eq, somente digitos)
+4. full_name (ilike, case-insensitive)
+```
 
-- "Bairro" e "neighborhood" mapeiam automaticamente para o campo Bairro
-- "Número", "numero", "nro" mapeiam para Número
-- "Complemento", "compl" mapeiam para Complemento
-- "CPF ou CNPJ" e variações já existentes continuam funcionando
+Se encontrar por qualquer criterio: atualiza o perfil existente (merge - so campos preenchidos sobrescrevem).
+Se nao encontrar: cria novo usuario Auth + perfil + processo juridico/protocolado (logica atual mantida).
 
-### Alterações Técnicas
+Remover o parametro `updateExisting` - agora sempre atualiza.
 
-#### Ficheiro 1: `src/lib/clientParser.ts`
+No update, usar logica de merge:
+```typescript
+full_name: client.full_name || existingProfile.full_name,
+phone: client.phone || existingProfile.phone,
+// etc - so sobrescreve se o valor novo nao for vazio
+```
 
-- Adicionar `neighborhood`, `address_number` e `address_complement` ao `ParsedClient` interface
-- Adicionar 3 novos campos ao array `SYSTEM_FIELDS`
-- Adicionar aliases no `FIELD_ALIASES` para auto-detecção (bairro, numero, complemento)
-- No `applyFieldMapping`, manter a lógica existente (os novos campos são strings simples)
+#### 2. Frontend `ClientImportExportDialog.tsx`
 
-#### Ficheiro 2: `src/components/admin/clients/ClientImportExportDialog.tsx`
+- Remover o state `updateExisting` e o toggle Switch do preview
+- Forcar `updateExisting: true` no payload enviado ao edge function
+- Ampliar detecao de duplicatas no preview: buscar `email, cpf, cnpj, full_name` dos profiles para mostrar badge "Sera atualizado" corretamente
+- Selecionar todos os registros validos (incluindo duplicatas) por padrao
 
-No `handleMappingConfirm` (ou num passo antes de enviar ao edge function), ao preparar os clientes para importação:
-- Concatenar `address` + `address_number` + `address_complement` num único campo `address` (ex: "Rua X, 123, Apto 4")
-- Detectar se `cpf_cnpj` tem 11 ou 14 dígitos e preencher `cpf` ou `cnpj` separadamente
-- Passar `neighborhood` diretamente
+#### 3. `ImportPreviewTable.tsx`
 
-#### Ficheiro 3: `supabase/functions/import-clients/index.ts`
-
-- Adicionar `neighborhood`, `cpf` e `cnpj` ao `ClientToImport` interface
-- No `processClient`, salvar `neighborhood`, `cpf` e `cnpj` no upsert/update do profile
-- Manter `cpf_cnpj` para retrocompatibilidade
+- Atualizar para aceitar listas de CPFs, CNPJs e nomes existentes alem de emails
+- Verificar duplicatas por qualquer um dos 4 criterios
+- Remover a prop `updateExisting` (agora sempre true)
 
 ### Resultado
 
-- O mapeamento agora oferece Bairro, Número e Complemento como opções
-- Colunas "Bairro", "Número", "Complemento" do arquivo são auto-detectadas
-- CPF e CNPJ são separados automaticamente com base na quantidade de dígitos
-- O ficheiro do cliente mostra CPF e CNPJ em campos distintos
-- Endereço completo é montado corretamente (rua + número + complemento)
+- Importar arquivo nunca da erro por duplicata
+- Clientes existentes sao identificados por email, CPF, CNPJ ou nome
+- Dados sao atualizados automaticamente (merge inteligente)
+- Novos clientes entram no funil Juridico > Protocolado
+- Preview mostra quais serao atualizados vs criados
+
