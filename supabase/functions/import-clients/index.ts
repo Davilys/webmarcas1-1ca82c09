@@ -30,47 +30,125 @@ interface ProcessResult {
   message?: string;
 }
 
-// ── Process a single client (extracted helper for parallel execution) ──────
+// ── Find existing profile by cascading criteria ──────────────────────────
+async function findExistingProfile(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  client: ClientToImport,
+): Promise<{ id: string } | null> {
+  const email = client.email?.toLowerCase().trim();
+
+  // 1. By email
+  if (email) {
+    const { data } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  // 2. By CPF (digits only)
+  const cpfDigits = (client.cpf || client.cpf_cnpj || '').replace(/\D/g, '');
+  if (cpfDigits.length === 11) {
+    const { data } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('cpf', cpfDigits)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  // 3. By CNPJ (digits only)
+  const cnpjDigits = (client.cnpj || client.cpf_cnpj || '').replace(/\D/g, '');
+  if (cnpjDigits.length === 14) {
+    const { data } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('cnpj', cnpjDigits)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  // 4. By full_name (case-insensitive)
+  if (client.full_name && client.full_name.trim().length >= 3) {
+    const { data } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .ilike('full_name', client.full_name.trim())
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  return null;
+}
+
+// ── Build merge update: only non-empty values overwrite ──────────────────
+function buildMergeUpdate(client: ClientToImport) {
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (client.full_name) update.full_name = client.full_name;
+  if (client.phone) update.phone = client.phone;
+  if (client.company_name) update.company_name = client.company_name;
+  if (client.cpf_cnpj) update.cpf_cnpj = client.cpf_cnpj;
+  if (client.cpf) update.cpf = client.cpf;
+  if (client.cnpj) update.cnpj = client.cnpj;
+  if (client.address) update.address = client.address;
+  if (client.neighborhood) update.neighborhood = client.neighborhood;
+  if (client.city) update.city = client.city;
+  if (client.state) update.state = client.state;
+  if (client.zip_code) update.zip_code = client.zip_code;
+  return update;
+}
+
+// ── Process a single client ──────────────────────────────────────────────
 async function processClient(
   supabaseAdmin: ReturnType<typeof createClient>,
   client: ClientToImport,
   callerUserId: string,
-  updateExisting: boolean,
 ): Promise<ProcessResult> {
   const email = client.email?.toLowerCase().trim();
   if (!email) return { status: 'skipped', email: '', message: 'Email vazio' };
 
-  // ── Deduplication: check by email ────────────────────────────────────────
-  const { data: existingProfile } = await supabaseAdmin
-    .from('profiles')
-    .select('id, email')
-    .eq('email', email)
-    .maybeSingle();
+  // ── Find existing profile by email / cpf / cnpj / name ─────────────────
+  const existingProfile = await findExistingProfile(supabaseAdmin, client);
 
   if (existingProfile) {
-    if (updateExisting) {
-      const { error } = await supabaseAdmin
-        .from('profiles')
-        .update({
-          full_name: client.full_name || undefined,
-          phone: client.phone || undefined,
-          company_name: client.company_name || undefined,
-          cpf_cnpj: client.cpf_cnpj || undefined,
-          cpf: client.cpf || undefined,
-          cnpj: client.cnpj || undefined,
-          address: client.address || undefined,
-          neighborhood: client.neighborhood || undefined,
-          city: client.city || undefined,
-          state: client.state || undefined,
-          zip_code: client.zip_code || undefined,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingProfile.id);
+    // Always update
+    const mergeData = buildMergeUpdate(client);
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update(mergeData)
+      .eq('id', existingProfile.id);
 
-      if (error) return { status: 'error', email, message: `Erro ao atualizar: ${error.message}` };
-      return { status: 'updated', email };
-    }
-    return { status: 'skipped', email };
+    if (error) return { status: 'error', email, message: `Erro ao atualizar: ${error.message}` };
+
+    // Ensure brand_process exists in Jurídico > Protocolado
+    const brandName = client.brand_name || client.company_name || client.full_name || email;
+    await supabaseAdmin
+      .from('brand_processes')
+      .upsert({
+        user_id: existingProfile.id,
+        brand_name: brandName,
+        status: 'em_andamento',
+        pipeline_stage: 'protocolado',
+      }, { onConflict: 'user_id,brand_name', ignoreDuplicates: true })
+      .then(() => {/* ok */})
+      .catch(() => {
+        // Fallback: insert ignoring conflicts
+        supabaseAdmin.from('brand_processes').insert({
+          user_id: existingProfile.id,
+          brand_name: brandName,
+          status: 'em_andamento',
+          pipeline_stage: 'protocolado',
+        });
+      });
+
+    // Update client_funnel_type to juridico
+    await supabaseAdmin
+      .from('profiles')
+      .update({ client_funnel_type: 'juridico' })
+      .eq('id', existingProfile.id);
+
+    return { status: 'updated', email };
   }
 
   // ── New client ────────────────────────────────────────────────────────────
@@ -113,7 +191,6 @@ async function processClient(
     });
 
   if (profileError) {
-    // Trigger may have already inserted — try update as fallback
     await supabaseAdmin
       .from('profiles')
       .update({
@@ -144,7 +221,7 @@ async function processClient(
     .then(() => {/* ok */})
     .catch(() => {/* ignore duplicate */});
 
-  // 4. Create brand_process → Jurídico > Protocolado (no contract, no invoice)
+  // 4. Create brand_process → Jurídico > Protocolado
   const brandName = client.brand_name || client.company_name || client.full_name || email;
   await supabaseAdmin
     .from('brand_processes')
@@ -172,13 +249,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Service role — bypasses RLS, can create Auth users
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    // Verify caller is an admin
     const supabaseAuth = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -209,7 +284,6 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const clients: ClientToImport[] = body.clients;
-    const updateExisting: boolean = body.updateExisting ?? false;
 
     if (!clients || !Array.isArray(clients)) {
       return new Response(JSON.stringify({ error: 'Invalid payload: clients array required' }), {
@@ -218,8 +292,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Parallel batch processing: 5 clients at a time ────────────────────
-    // This avoids sequential bottleneck while respecting Auth API rate limits.
     const BATCH_SIZE = 5;
     let imported = 0;
     let updated = 0;
@@ -231,7 +303,7 @@ Deno.serve(async (req) => {
       const batch = clients.slice(i, i + BATCH_SIZE);
 
       const results = await Promise.allSettled(
-        batch.map(client => processClient(supabaseAdmin, client, callerUser.id, updateExisting))
+        batch.map(client => processClient(supabaseAdmin, client, callerUser.id))
       );
 
       for (const result of results) {

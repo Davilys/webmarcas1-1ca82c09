@@ -14,7 +14,9 @@ interface ImportPreviewTableProps {
   selectedRows: number[];
   onSelectionChange: (selectedRows: number[]) => void;
   existingEmails?: string[];
-  updateExisting?: boolean;
+  existingCpfs?: string[];
+  existingCnpjs?: string[];
+  existingNames?: string[];
 }
 
 export function ImportPreviewTable({
@@ -23,7 +25,9 @@ export function ImportPreviewTable({
   selectedRows,
   onSelectionChange,
   existingEmails = [],
-  updateExisting = false,
+  existingCpfs = [],
+  existingCnpjs = [],
+  existingNames = [],
 }: ImportPreviewTableProps) {
   const [showOnlyErrors, setShowOnlyErrors] = useState(false);
 
@@ -32,9 +36,16 @@ export function ImportPreviewTable({
     return validationErrors.filter(e => e.rowIndex === rowIndex);
   };
 
-  // Check if email already exists
-  const isEmailDuplicate = (email?: string) => {
-    return email && existingEmails.includes(email.toLowerCase().trim());
+  // Check if client already exists by any criterion
+  const isExistingClient = (client: ParsedClient) => {
+    const email = client.email?.toLowerCase().trim();
+    if (email && existingEmails.includes(email)) return true;
+    const cpfDigits = (client.cpf_cnpj || '').replace(/\D/g, '');
+    if (cpfDigits.length === 11 && existingCpfs.includes(cpfDigits)) return true;
+    if (cpfDigits.length === 14 && existingCnpjs.includes(cpfDigits)) return true;
+    const name = client.full_name?.toLowerCase().trim();
+    if (name && name.length >= 3 && existingNames.includes(name)) return true;
+    return false;
   };
 
   // Toggle row selection
@@ -55,25 +66,22 @@ export function ImportPreviewTable({
     }
   };
 
-  // Select only valid rows
+  // Select only valid rows (all are valid now since duplicates are updated)
   const selectValidOnly = () => {
     const validRows = clients
-      .map((client, index) => ({ client, index }))
-      .filter(({ client, index }) => {
+      .map((_, index) => index)
+      .filter((index) => {
         const rowErrors = getRowErrors(index);
-        const isDuplicate = isEmailDuplicate(client.email);
-        return rowErrors.length === 0 && (updateExisting || !isDuplicate);
-      })
-      .map(({ index }) => index);
+        return rowErrors.length === 0;
+      });
     onSelectionChange(validRows);
   };
 
   // Filter clients if showing only errors
   const displayClients = showOnlyErrors
-    ? clients.filter((_, index) => {
+    ? clients.filter((client, index) => {
         const rowErrors = getRowErrors(index);
-        const isDuplicate = isEmailDuplicate(clients[index].email);
-        return rowErrors.length > 0 || isDuplicate;
+        return rowErrors.length > 0;
       })
     : clients;
 
@@ -82,11 +90,9 @@ export function ImportPreviewTable({
     ['full_name', 'email', 'phone', 'company_name', 'cpf_cnpj'].includes(f.key)
   );
 
-  // Stats
-  const totalWithErrors = clients.filter((client, index) => {
-    const rowErrors = getRowErrors(index);
-    const isDuplicate = isEmailDuplicate(client.email);
-    return rowErrors.length > 0 || (isDuplicate && !updateExisting);
+  // Stats — only validation errors count, duplicates are fine
+  const totalWithErrors = clients.filter((_, index) => {
+    return getRowErrors(index).length > 0;
   }).length;
 
   return (
@@ -155,8 +161,8 @@ export function ImportPreviewTable({
                 : displayIndex;
               
               const rowErrors = getRowErrors(originalIndex);
-              const isDuplicate = isEmailDuplicate(client.email);
-              const hasErrors = rowErrors.length > 0 || (isDuplicate && !updateExisting);
+              const isDuplicate = isExistingClient(client);
+              const hasErrors = rowErrors.length > 0;
               const isSelected = selectedRows.includes(originalIndex);
 
               return (
@@ -164,7 +170,8 @@ export function ImportPreviewTable({
                   key={originalIndex}
                   className={cn(
                     hasErrors && "bg-destructive/5",
-                    isSelected && !hasErrors && "bg-primary/5"
+                    isDuplicate && !hasErrors && "bg-blue-50 dark:bg-blue-950/20",
+                    isSelected && !hasErrors && !isDuplicate && "bg-primary/5"
                   )}
                 >
                   <TableCell>
@@ -185,7 +192,7 @@ export function ImportPreviewTable({
                   {displayColumns.map(col => {
                     const value = (client as Record<string, unknown>)[col.key];
                     const fieldError = rowErrors.find(e => e.field === col.key);
-                    const isEmailField = col.key === 'email';
+                    const isFirstCol = col.key === displayColumns[0]?.key;
                     
                     return (
                       <TableCell key={col.key}>
@@ -199,16 +206,10 @@ export function ImportPreviewTable({
                           {fieldError && (
                             <p className="text-xs text-destructive">{fieldError.message}</p>
                           )}
-                          {isEmailField && isDuplicate && !fieldError && (
-                            updateExisting ? (
-                              <Badge variant="outline" className="text-xs border-blue-500 text-blue-600">
-                                Será atualizado
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
-                                Já existe
-                              </Badge>
-                            )
+                          {isFirstCol && isDuplicate && !fieldError && (
+                            <Badge variant="outline" className="text-xs border-blue-500 text-blue-600">
+                              Será atualizado
+                            </Badge>
                           )}
                         </div>
                       </TableCell>

@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -55,8 +54,10 @@ export function ClientImportExportDialog({
   const [mappedClients, setMappedClients] = useState<ParsedClient[]>([]);
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [existingEmails, setExistingEmails] = useState<string[]>([]);
+  const [existingCpfs, setExistingCpfs] = useState<string[]>([]);
+  const [existingCnpjs, setExistingCnpjs] = useState<string[]>([]);
+  const [existingNames, setExistingNames] = useState<string[]>([]);
   const [isParsing, setIsParsing] = useState(false);
-  const [updateExisting, setUpdateExisting] = useState(false);
 
   // Export state
   const [exportFormat, setExportFormat] = useState<ExportFormat>('xlsx');
@@ -83,12 +84,15 @@ export function ClientImportExportDialog({
       const suggested = suggestFieldMapping(result.headers);
       setFieldMapping(suggested);
       
-      // Fetch existing emails for duplicate detection
+      // Fetch existing identifiers for duplicate detection
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('email');
+        .select('email, cpf, cnpj, full_name');
       
-      setExistingEmails(profiles?.map(p => p.email.toLowerCase()) || []);
+      setExistingEmails(profiles?.filter(p => p.email).map(p => p.email.toLowerCase()) || []);
+      setExistingCpfs(profiles?.filter(p => p.cpf).map(p => p.cpf) || []);
+      setExistingCnpjs(profiles?.filter(p => p.cnpj).map(p => p.cnpj) || []);
+      setExistingNames(profiles?.filter(p => p.full_name).map(p => p.full_name.toLowerCase().trim()) || []);
       
       // Move to mapping step
       setImportStep('mapping');
@@ -107,19 +111,17 @@ export function ClientImportExportDialog({
     }
   };
 
-  // Recalculate selected rows based on updateExisting
-  const recalculateSelection = useCallback((mapped: ParsedClient[], shouldUpdateExisting: boolean) => {
+  // Recalculate selected rows — always include duplicates (they'll be updated)
+  const recalculateSelection = useCallback((mapped: ParsedClient[]) => {
     const errors = validateClients(mapped);
     const validRows = mapped
-      .map((client, index) => ({ client, index }))
-      .filter(({ client, index }) => {
+      .map((_, index) => index)
+      .filter((index) => {
         const rowErrors = errors.filter(e => e.rowIndex === index);
-        const isDuplicate = existingEmails.includes((client.email || '').toLowerCase().trim());
-        return rowErrors.length === 0 && (shouldUpdateExisting || !isDuplicate);
-      })
-      .map(({ index }) => index);
+        return rowErrors.length === 0;
+      });
     setSelectedRows(validRows);
-  }, [existingEmails]);
+  }, []);
 
   // Handle mapping confirmation
   const handleMappingConfirm = () => {
@@ -138,7 +140,7 @@ export function ClientImportExportDialog({
     // Apply mapping and validate
     const mapped = applyFieldMapping(parseResult.data, fieldMapping);
     setMappedClients(mapped);
-    recalculateSelection(mapped, updateExisting);
+    recalculateSelection(mapped);
     setImportStep('preview');
   };
 
@@ -163,7 +165,7 @@ export function ClientImportExportDialog({
     for (let idx = 0; idx < chunks.length; idx++) {
       try {
         const { data, error } = await supabase.functions.invoke('import-clients', {
-          body: { clients: chunks[idx], updateExisting: updateExistingFlag },
+          body: { clients: chunks[idx] },
         });
 
         if (error) {
@@ -282,7 +284,7 @@ export function ClientImportExportDialog({
     });
 
     // Fire-and-forget — result arrives as a new notification
-    runImportInBackground(clientsToImport, allSelected.length, updateExisting);
+    runImportInBackground(clientsToImport, allSelected.length, true);
   };
 
   // Handle export
@@ -299,11 +301,11 @@ export function ClientImportExportDialog({
       setIsExporting(false);
     }
   };
-  // Reprocess selection when updateExisting toggle changes
+  // Reprocess selection when preview changes
   React.useEffect(() => {
     if (importStep !== 'preview' || mappedClients.length === 0) return;
-    recalculateSelection(mappedClients, updateExisting);
-  }, [updateExisting, importStep, mappedClients, recalculateSelection]);
+    recalculateSelection(mappedClients);
+  }, [importStep, mappedClients, recalculateSelection]);
 
   const validationErrors = mappedClients.length > 0 ? validateClients(mappedClients) : [];
 
@@ -378,19 +380,7 @@ export function ClientImportExportDialog({
 
               {importStep === 'preview' && (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium">Revisar dados</h3>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        id="update-existing"
-                        checked={updateExisting}
-                        onCheckedChange={setUpdateExisting}
-                      />
-                      <Label htmlFor="update-existing" className="text-sm">
-                        Atualizar clientes existentes
-                      </Label>
-                    </div>
-                  </div>
+                  <h3 className="font-medium">Revisar dados</h3>
                   
                   <ImportPreviewTable
                     clients={mappedClients}
@@ -398,7 +388,9 @@ export function ClientImportExportDialog({
                     selectedRows={selectedRows}
                     onSelectionChange={setSelectedRows}
                     existingEmails={existingEmails}
-                    updateExisting={updateExisting}
+                    existingCpfs={existingCpfs}
+                    existingCnpjs={existingCnpjs}
+                    existingNames={existingNames}
                   />
                 </div>
               )}
