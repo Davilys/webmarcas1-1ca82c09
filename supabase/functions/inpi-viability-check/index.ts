@@ -296,16 +296,16 @@ async function searchCNPJ(brandName: string): Promise<{
       return { total: 0, matches: [] };
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) return { total: 0, matches: [] };
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) return { total: 0, matches: [] };
 
     const searchData = allResults.map(r => `- ${r.title}\n  URL: ${r.url}\n  ${r.description}`).join('\n\n');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'openai/gpt-5.2',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -319,7 +319,7 @@ Extraia APENAS dados reais dos resultados. Se não houver dados de CNPJ nos resu
           }
         ],
         temperature: 0.1,
-        max_completion_tokens: 600,
+        max_tokens: 600,
       }),
     });
 
