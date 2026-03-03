@@ -35,22 +35,22 @@ export default function Login() {
         return;
       }
 
-      // Check if user is admin
       if (data.user) {
-        const { data: roleData } = await supabase
+        const { data: userRole } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', data.user.id)
-          .eq('role', 'admin')
+          .eq('role', 'user')
           .maybeSingle();
 
-        toast.success('Login realizado com sucesso!');
-        
-        if (roleData) {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/cliente/dashboard');
+        if (!userRole) {
+          await supabase.auth.signOut();
+          toast.error('Esta área é exclusiva para clientes. Administradores devem acessar pelo painel admin.');
+          return;
         }
+
+        toast.success('Login realizado com sucesso!');
+        navigate('/cliente/dashboard');
       }
     } catch (error) {
       toast.error('Erro ao fazer login');
