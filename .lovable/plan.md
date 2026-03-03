@@ -1,44 +1,70 @@
 
 
-## Limpeza: Separar Clientes de Leads
+## Correcao: Separacao de contas Admin e Cliente
 
-### Diagnostico
+### Problemas identificados
 
-- A importacao de clientes **NAO** esta criando leads. O edge function `import-clients` so insere em `profiles` e `brand_processes` - confirmado por analise do codigo.
-- O problema real: existem **1.744 registros na tabela `leads`** cujo email tambem existe na tabela `profiles` (clientes). Esses leads foram criados pelo formulario do site ("Formulario Site") antes de virarem clientes.
-- **Sonia Aparecida Morais** (sam.moraes0@gmail.com) esta corretamente no Kanban de clientes (Juridico > Protocolado) - a correcao anterior funcionou. Porem ela tambem aparece na aba Leads (2 registros duplicados).
+1. **Excluir cliente remove acesso Admin**: Em `ClientDetailSheet.tsx` (linha 642), ao excluir um cliente, o codigo deleta TODAS as `user_roles` do usuario, incluindo a role `admin`. Isso faz o admin perder acesso ao CRM.
 
-### Solucao em 2 partes
+2. **Criar Admin cria conta de cliente**: O edge function `create-admin-user` cria um usuario no `auth.users`, e o trigger `handle_new_user` automaticamente cria um perfil na tabela `profiles`. Isso faz o admin aparecer na area de clientes.
 
-#### 1. Limpeza imediata: Excluir leads que ja sao clientes
+3. **Excluir Admin exclui tudo**: Se o perfil do admin for excluido como cliente, ele perde acesso ao CRM tambem (porque perfil e conta auth sao compartilhados).
 
-Executar um DELETE na tabela `leads` para remover todos os registros cujo email ja existe na tabela `profiles`:
+### Solucao
 
-```sql
-DELETE FROM leads 
-WHERE email IN (SELECT email FROM profiles WHERE email IS NOT NULL)
-```
+#### 1. Corrigir exclusao de cliente para preservar role admin
 
-Isso remove os **1.744 leads duplicados** de uma vez.
-
-#### 2. Prevencao futura: Limpar leads automaticamente na importacao
-
-Alterar o edge function `import-clients/index.ts` para, apos importar/atualizar um cliente com sucesso, verificar se existe um lead com o mesmo email e exclui-lo automaticamente. Assim, toda vez que um lead vira cliente (via importacao), ele e removido da tabela de leads.
-
-Adicionar ao final da funcao `processClient`:
+No `ClientDetailSheet.tsx`, ao excluir um cliente, verificar se o usuario tem role `admin` antes de deletar. Se tiver, manter a role admin e apenas remover dados de cliente (processos, contratos, etc.) sem deletar o perfil.
 
 ```text
-// Apos importar/atualizar com sucesso:
-await supabaseAdmin
-  .from('leads')
-  .delete()
-  .eq('email', email);
+Antes:
+  supabase.from('user_roles').delete().eq('user_id', client.id)
+  supabase.from('profiles').delete().eq('id', client.id)
+
+Depois:
+  // Verificar se e admin
+  const { data: adminRole } = await supabase
+    .from('user_roles').select('id').eq('user_id', client.id).eq('role', 'admin').maybeSingle();
+  
+  // Se e admin: deletar apenas role 'client' (se existir), manter perfil e admin role
+  // Se NAO e admin: deletar tudo (roles, perfil)
+  if (adminRole) {
+    // Apenas remover role client, manter perfil e admin role
+    supabase.from('user_roles').delete().eq('user_id', client.id).eq('role', 'client');
+    // Limpar dados de cliente no perfil (client_funnel_type = null, etc.)
+  } else {
+    // Remover tudo incluindo perfil
+    supabase.from('user_roles').delete().eq('user_id', client.id);
+    supabase.from('profiles').delete().eq('id', client.id);
+  }
 ```
 
-### Resultado
+#### 2. Corrigir criacao de Admin para nao criar perfil de cliente
 
-- 1.744 leads duplicados serao removidos imediatamente
-- Importacoes futuras de clientes limpam automaticamente leads com o mesmo email
-- Aba Clientes e aba Leads ficam completamente separadas
-- Nenhum dado de cliente sera perdido (so leads duplicados sao excluidos)
+No `create-admin-user` edge function, apos criar o usuario (que gera perfil via trigger), marcar o perfil como admin-only para que nao apareca na listagem de clientes.
+
+O perfil ja e criado pelo trigger `handle_new_user` e nao podemos evitar isso. A solucao e garantir que a query de clientes no Kanban filtre admins-only (usuarios que tem role admin mas nao tem `brand_processes`).
+
+Na pratica, como o Kanban de clientes ja filtra por `brand_processes` (processo de marca), admins sem processos ja nao aparecem. Preciso verificar se a listagem de clientes tambem filtra corretamente.
+
+#### 3. Corrigir exclusao de Admin para nao afetar perfil
+
+A exclusao de admin (`removeAdminMutation` no SecuritySettings.tsx) ja esta correta -- so remove role e permissions, nao toca no perfil. Nenhuma alteracao necessaria aqui.
+
+### Alteracoes tecnicas
+
+**Ficheiro: `src/components/admin/clients/ClientDetailSheet.tsx`**
+- Modificar `handleDeleteClient` para verificar se o usuario tem role `admin`
+- Se tiver role admin: deletar dados de cliente (processos, contratos, faturas, etc.) mas MANTER o perfil e a role admin
+- Se nao tiver role admin: comportamento atual (deletar tudo)
+
+**Ficheiro: `supabase/functions/create-admin-user/index.ts`**
+- Nenhuma alteracao necessaria no edge function. O trigger `handle_new_user` cria o perfil automaticamente, mas admins sem `brand_processes` nao aparecem no Kanban de clientes.
+
+### Resultado esperado
+
+- Excluir um cliente que tambem e admin: remove dados de cliente, mas admin continua com acesso ao CRM
+- Excluir um admin: remove acesso admin, mas se tiver conta de cliente, continua com acesso a area do cliente
+- Criar um admin: cria apenas acesso admin, sem processos de marca (nao aparece no Kanban de clientes)
+- Unico com conta dupla (admin + cliente): Administrador Master (davillys@gmail.com)
 
