@@ -148,6 +148,9 @@ async function processClient(
       .update({ client_funnel_type: 'juridico' })
       .eq('id', existingProfile.id);
 
+    // Remove from leads table if exists (client ≠ lead)
+    await supabaseAdmin.from('leads').delete().eq('email', email);
+
     return { status: 'updated', email };
   }
 
@@ -245,6 +248,9 @@ async function processClient(
       status: 'em_andamento',
       pipeline_stage: 'protocolado',
     });
+
+  // Remove from leads table if exists (client ≠ lead)
+  await supabaseAdmin.from('leads').delete().eq('email', email);
 
   return { status: 'imported', email };
 }
