@@ -180,13 +180,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get('OPENAI_API_KEY');
-    
-    if (!apiKey) {
+    let ai: { endpoint: string; apiKey: string; model: string };
+    try { ai = await getActiveAIConfig(); } catch (e) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'OPENAI_API_KEY não configurada' 
+          error: 'Nenhum provedor de IA ativo configurado' 
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
