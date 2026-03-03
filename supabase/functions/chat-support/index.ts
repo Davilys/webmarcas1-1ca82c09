@@ -157,11 +157,7 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY não configurada");
-    }
+    const ai = await getActiveAIConfig();
 
     const systemMessage = userName 
       ? `${SYSTEM_PROMPT}\n\nO nome do cliente é ${userName}. Use o nome dele para tornar a conversa mais pessoal e acolhedora.`
