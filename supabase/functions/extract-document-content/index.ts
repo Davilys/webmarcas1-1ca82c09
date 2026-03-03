@@ -105,8 +105,8 @@ async function improveWithAI({
   fileName: string;
   imageDataUrl?: string;
 }): Promise<{ content: string; variables: string[] }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
 
   const systemPrompt = `Você é um assistente especializado em transformar documentos em MODELOS de contrato.
 
