@@ -2093,6 +2093,7 @@ export default function PublicacaoTab() {
           onOpenChange={(open) => { setShowClientSheet(open); if (!open) { setShowProcessDetailFromSheet(false); setSheetPubId(null); setFetchedClientForSheet(null); setClientAssignSearch(''); setShowClientAssignDropdown(false); } }}
           onUpdate={() => queryClient.invalidateQueries({ queryKey: ['profiles-pub'] })}
           initialShowProcessDetails={showProcessDetailFromSheet}
+          focusProcessId={sheetPub?.process_id || undefined}
           extraActions={
             sheetPub ? (
               <div className="relative w-full mt-2" ref={clientAssignRef}>
