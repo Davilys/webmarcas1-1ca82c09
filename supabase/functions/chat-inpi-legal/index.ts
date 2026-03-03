@@ -422,16 +422,16 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[chat-inpi-legal] Sending to Lovable Gateway: ${apiMessages.length} messages, model: openai/gpt-5-mini, system prompt: ${SYSTEM_PROMPT.length} chars`);
+    console.log(`[chat-inpi-legal] Sending to ${ai.endpoint}: ${apiMessages.length} messages, model: ${ai.model}, system prompt: ${SYSTEM_PROMPT.length} chars`);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(ai.endpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${ai.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-5-mini',
+        model: ai.model,
         messages: apiMessages,
         stream: true,
         max_tokens: 4096,
@@ -441,7 +441,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable Gateway API error:', response.status, errorText);
+      console.error('AI API error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns instantes.' }), {
@@ -457,7 +457,7 @@ serve(async (req) => {
         });
       }
       
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw new Error(`AI API error: ${response.status}`);
     }
 
     return new Response(response.body, {
