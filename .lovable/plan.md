@@ -1,70 +1,34 @@
 
 
-## Correcao: Separacao de contas Admin e Cliente
+## Plano: Migrar todas as funções para GPT-4.1-mini (exceto Recursos INPI e Consultora Jurídica → GPT-5-mini)
 
-### Problemas identificados
+### Resumo
 
-1. **Excluir cliente remove acesso Admin**: Em `ClientDetailSheet.tsx` (linha 642), ao excluir um cliente, o codigo deleta TODAS as `user_roles` do usuario, incluindo a role `admin`. Isso faz o admin perder acesso ao CRM.
+O modelo `gpt-4o-mini` será substituído por `gpt-4.1-mini` em 12 funções. As 2 funções jurídicas INPI (`process-inpi-resource` e `chat-inpi-legal` / Fernanda) usarão `openai/gpt-5-mini` via Lovable Gateway.
 
-2. **Criar Admin cria conta de cliente**: O edge function `create-admin-user` cria um usuario no `auth.users`, e o trigger `handle_new_user` automaticamente cria um perfil na tabela `profiles`. Isso faz o admin aparecer na area de clientes.
+### Alterações
 
-3. **Excluir Admin exclui tudo**: Se o perfil do admin for excluido como cliente, ele perde acesso ao CRM tambem (porque perfil e conta auth sao compartilhados).
+| # | Função | Modelo Atual | Novo Modelo | API |
+|---|--------|-------------|-------------|-----|
+| 1 | `email-ai-assistant` | gpt-4o-mini | **gpt-4.1-mini** | OpenAI direta |
+| 2 | `process-rpi` | gpt-4o-mini | **gpt-4.1-mini** | OpenAI direta |
+| 3 | `adjust-inpi-resource` | gpt-4o-mini | **gpt-4.1-mini** | OpenAI direta |
+| 4 | `sync-inpi-knowledge` | gpt-4o-mini | **gpt-4.1-mini** | OpenAI direta |
+| 5 | `chat-support` | gpt-4o-mini | **gpt-4.1-mini** | OpenAI direta |
+| 6 | `inpi-viability-check` | gpt-4o-mini (4x) | **gpt-4.1-mini** | OpenAI direta |
+| 7 | `extract-document-content` | gpt-4o-mini | **gpt-4.1-mini** | OpenAI direta |
+| 8 | `process-inpi-document` | gpt-4o-mini | **gpt-4.1-mini** | OpenAI direta |
+| 9 | `send-multichannel-notification` | gpt-4o-mini | **gpt-4.1-mini** | OpenAI direta |
+| 10 | `process-remarketing-queue` | gpt-4o-mini | **gpt-4.1-mini** | OpenAI direta |
+| 11 | `send-lead-remarketing` | gpt-4o-mini | **gpt-4.1-mini** | OpenAI direta |
+| 12 | `send-client-remarketing` | gpt-4o-mini | **gpt-4.1-mini** | OpenAI direta |
+| 13 | `process-inpi-resource` | openai/gpt-5-mini | **openai/gpt-5-mini** ✅ (já correto) | Lovable Gateway |
+| 14 | `chat-inpi-legal` | gpt-4o-mini | **openai/gpt-5-mini** | Migrar para Lovable Gateway |
 
-### Solucao
+### Detalhes técnicos
 
-#### 1. Corrigir exclusao de cliente para preservar role admin
-
-No `ClientDetailSheet.tsx`, ao excluir um cliente, verificar se o usuario tem role `admin` antes de deletar. Se tiver, manter a role admin e apenas remover dados de cliente (processos, contratos, etc.) sem deletar o perfil.
-
-```text
-Antes:
-  supabase.from('user_roles').delete().eq('user_id', client.id)
-  supabase.from('profiles').delete().eq('id', client.id)
-
-Depois:
-  // Verificar se e admin
-  const { data: adminRole } = await supabase
-    .from('user_roles').select('id').eq('user_id', client.id).eq('role', 'admin').maybeSingle();
-  
-  // Se e admin: deletar apenas role 'client' (se existir), manter perfil e admin role
-  // Se NAO e admin: deletar tudo (roles, perfil)
-  if (adminRole) {
-    // Apenas remover role client, manter perfil e admin role
-    supabase.from('user_roles').delete().eq('user_id', client.id).eq('role', 'client');
-    // Limpar dados de cliente no perfil (client_funnel_type = null, etc.)
-  } else {
-    // Remover tudo incluindo perfil
-    supabase.from('user_roles').delete().eq('user_id', client.id);
-    supabase.from('profiles').delete().eq('id', client.id);
-  }
-```
-
-#### 2. Corrigir criacao de Admin para nao criar perfil de cliente
-
-No `create-admin-user` edge function, apos criar o usuario (que gera perfil via trigger), marcar o perfil como admin-only para que nao apareca na listagem de clientes.
-
-O perfil ja e criado pelo trigger `handle_new_user` e nao podemos evitar isso. A solucao e garantir que a query de clientes no Kanban filtre admins-only (usuarios que tem role admin mas nao tem `brand_processes`).
-
-Na pratica, como o Kanban de clientes ja filtra por `brand_processes` (processo de marca), admins sem processos ja nao aparecem. Preciso verificar se a listagem de clientes tambem filtra corretamente.
-
-#### 3. Corrigir exclusao de Admin para nao afetar perfil
-
-A exclusao de admin (`removeAdminMutation` no SecuritySettings.tsx) ja esta correta -- so remove role e permissions, nao toca no perfil. Nenhuma alteracao necessaria aqui.
-
-### Alteracoes tecnicas
-
-**Ficheiro: `src/components/admin/clients/ClientDetailSheet.tsx`**
-- Modificar `handleDeleteClient` para verificar se o usuario tem role `admin`
-- Se tiver role admin: deletar dados de cliente (processos, contratos, faturas, etc.) mas MANTER o perfil e a role admin
-- Se nao tiver role admin: comportamento atual (deletar tudo)
-
-**Ficheiro: `supabase/functions/create-admin-user/index.ts`**
-- Nenhuma alteracao necessaria no edge function. O trigger `handle_new_user` cria o perfil automaticamente, mas admins sem `brand_processes` nao aparecem no Kanban de clientes.
-
-### Resultado esperado
-
-- Excluir um cliente que tambem e admin: remove dados de cliente, mas admin continua com acesso ao CRM
-- Excluir um admin: remove acesso admin, mas se tiver conta de cliente, continua com acesso a area do cliente
-- Criar um admin: cria apenas acesso admin, sem processos de marca (nao aparece no Kanban de clientes)
-- Unico com conta dupla (admin + cliente): Administrador Master (davillys@gmail.com)
+- **12 funções**: Trocar apenas a string do modelo de `gpt-4o-mini` para `gpt-4.1-mini`. Endpoint e chave permanecem iguais (OpenAI direta).
+- **`chat-inpi-legal`**: Além de trocar o modelo, migrar o endpoint de `api.openai.com` para `ai.gateway.lovable.dev` e a chave de `OPENAI_API_KEY` para `LOVABLE_API_KEY` (mesmo padrão do `process-inpi-resource`).
+- **`process-inpi-resource`**: Já está correto com `openai/gpt-5-mini` via Lovable Gateway. Nenhuma alteração necessária.
+- **`ai-engine`**: Usa modelo dinâmico da tabela `ai_providers` — sem alteração no código.
 
