@@ -95,19 +95,14 @@ function getClassesForBusinessAreaFallback(businessArea: string): { classes: num
 
 // ========== ETAPA 2: Mapeamento NCL via IA ==========
 async function suggestClassesWithAI(businessArea: string): Promise<{ classes: number[], descriptions: string[] }> {
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-  if (!OPENAI_API_KEY) {
-    console.log('[CLASSES] OPENAI_API_KEY não configurada, usando fallback');
-    return getClassesForBusinessAreaFallback(businessArea);
-  }
-
   try {
+    const ai = await getActiveAIConfig();
     console.log(`[CLASSES] Consultando IA para ramo: "${businessArea}"`);
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(ai.endpoint, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${ai.apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: ai.model,
         messages: [
           { role: 'system', content: 'Você é um especialista em propriedade intelectual e classificação NCL do INPI Brasil. Responda sempre em JSON válido, sem markdown.' },
           { role: 'user', content: `Sugira EXATAMENTE 3 classes NCL (1-45) para o ramo "${businessArea}". JSON: {"classes":[n1,n2,n3],"descriptions":["Classe XX – desc1","Classe XX – desc2","Classe XX – desc3"]}` }
