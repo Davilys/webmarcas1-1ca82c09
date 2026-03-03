@@ -333,25 +333,6 @@ function AdminSidebar() {
       <SidebarFooter className="border-t border-border/50 p-2">
         <SidebarMenu className="space-y-1">
           <SidebarMenuItem>
-            <SidebarMenuButton 
-              asChild 
-              tooltip={isCollapsed ? "Área do Cliente" : undefined}
-              className="h-auto py-2.5 px-3 hover:bg-accent/60 transition-all duration-200"
-            >
-              <Link to="/cliente/dashboard" className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/30 transition-transform duration-200 hover:scale-110">
-                  <Users className="w-5 h-5 text-blue-500" />
-                </div>
-                {!isCollapsed && (
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">Área do Cliente</p>
-                    <p className="text-xs text-muted-foreground">Acessar portal</p>
-                  </div>
-                )}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleLogout}
               tooltip={isCollapsed ? "Sair do sistema" : undefined}
