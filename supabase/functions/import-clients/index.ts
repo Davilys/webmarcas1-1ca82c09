@@ -152,7 +152,9 @@ async function processClient(
   }
 
   // ── New client ────────────────────────────────────────────────────────────
-  // 1. Create Auth user
+  // 1. Create Auth user (or recover existing orphaned auth user)
+  let userId: string;
+
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password: '123Mudar@',
@@ -160,11 +162,23 @@ async function processClient(
     user_metadata: { full_name: client.full_name || email },
   });
 
-  if (authError || !authData?.user) {
-    return { status: 'error', email, message: `Erro auth: ${authError?.message}` };
+  if (authError) {
+    if (authError.message?.includes('already been registered')) {
+      // User exists in Auth but has no profile – recover the ID
+      const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const existingAuthUser = listData?.users?.find(u => u.email === email);
+      if (!existingAuthUser) {
+        return { status: 'error', email, message: 'Usuário existe no Auth mas não foi localizado' };
+      }
+      userId = existingAuthUser.id;
+    } else {
+      return { status: 'error', email, message: `Erro auth: ${authError.message}` };
+    }
+  } else if (!authData?.user) {
+    return { status: 'error', email, message: 'Erro auth: usuário não retornado' };
+  } else {
+    userId = authData.user.id;
   }
-
-  const userId = authData.user.id;
 
   // 2. Upsert profile (trigger handle_new_user may have already created it)
   const { error: profileError } = await supabaseAdmin
