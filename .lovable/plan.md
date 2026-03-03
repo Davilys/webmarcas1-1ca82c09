@@ -1,57 +1,70 @@
 
 
-## Relatório: Modelos de IA por Função
+## Correcao: Separacao de contas Admin e Cliente
 
-| # | Função (Edge Function) | Modelo Atual | API | Uso |
-|---|------------------------|-------------|-----|-----|
-| 1 | `email-ai-assistant` | **gpt-4o-mini** | OpenAI direta | Assistente de e-mail |
-| 2 | `process-rpi` | **gpt-4o-mini** | OpenAI direta | Processamento da Revista INPI |
-| 3 | `adjust-inpi-resource` | **gpt-4o-mini** | OpenAI direta | Ajuste de recurso INPI |
-| 4 | `sync-inpi-knowledge` | **gpt-4o-mini** | OpenAI direta | Sincronização base INPI |
-| 5 | `chat-support` | **gpt-4o** ⚠️ | OpenAI direta | Chat de suporte (Fernanda) |
-| 6 | `chat-inpi-legal` | **gpt-4o** ⚠️ | OpenAI direta | Chat jurídico INPI (Fernanda) |
-| 7 | `process-inpi-resource` | **gpt-4o** ⚠️ | OpenAI direta | Geração de recursos INPI |
-| 8 | `inpi-viability-check` | **openai/gpt-5.2** ⚠️ | Lovable Gateway | Viabilidade de marca |
-| 9 | `extract-document-content` | **google/gemini-3-flash-preview** ⚠️ | Lovable Gateway | Extração de documentos |
-| 10 | `process-inpi-document` | **google/gemini-2.5-flash** ⚠️ | Lovable Gateway | Processamento docs INPI |
-| 11 | `send-multichannel-notification` | **google/gemini-2.5-flash-lite** ⚠️ | Lovable Gateway | Notificações multicanal |
-| 12 | `process-remarketing-queue` | **google/gemini-2.5-flash-lite** ⚠️ | Lovable Gateway | Fila de remarketing |
-| 13 | `send-lead-remarketing` | **google/gemini-2.5-flash-lite** ⚠️ | Lovable Gateway | Remarketing de leads |
-| 14 | `send-client-remarketing` | **google/gemini-2.5-flash-lite** ⚠️ | Lovable Gateway | Remarketing de clientes |
-| 15 | `ai-engine` | **dinâmico** (tabela ai_providers) | Múltiplas | Motor central configurável |
+### Problemas identificados
 
-⚠️ = precisa ser alterado
+1. **Excluir cliente remove acesso Admin**: Em `ClientDetailSheet.tsx` (linha 642), ao excluir um cliente, o codigo deleta TODAS as `user_roles` do usuario, incluindo a role `admin`. Isso faz o admin perder acesso ao CRM.
 
----
+2. **Criar Admin cria conta de cliente**: O edge function `create-admin-user` cria um usuario no `auth.users`, e o trigger `handle_new_user` automaticamente cria um perfil na tabela `profiles`. Isso faz o admin aparecer na area de clientes.
 
-## Plano de Alterações
+3. **Excluir Admin exclui tudo**: Se o perfil do admin for excluido como cliente, ele perde acesso ao CRM tambem (porque perfil e conta auth sao compartilhados).
 
-**Regra solicitada:**
-- **Tudo** → `gpt-4o-mini` (via OpenAI direta)
-- **Exceção**: `process-inpi-resource` (Recursos INPI) → `openai/gpt-5-mini` (via Lovable Gateway)
+### Solucao
 
-### Alterações necessárias (10 arquivos):
+#### 1. Corrigir exclusao de cliente para preservar role admin
 
-| Arquivo | De | Para |
-|---------|-----|------|
-| `chat-support/index.ts` | `gpt-4o` | `gpt-4o-mini` |
-| `chat-inpi-legal/index.ts` | `gpt-4o` | `gpt-4o-mini` |
-| `process-inpi-resource/index.ts` | `gpt-4o` | `openai/gpt-5-mini` + migrar para Lovable Gateway |
-| `inpi-viability-check/index.ts` | `openai/gpt-5.2` | `gpt-4o-mini` + migrar para OpenAI direta |
-| `extract-document-content/index.ts` | `google/gemini-3-flash-preview` | `gpt-4o-mini` + migrar para OpenAI direta |
-| `process-inpi-document/index.ts` | `google/gemini-2.5-flash` | `gpt-4o-mini` + migrar para OpenAI direta |
-| `send-multichannel-notification/index.ts` | `google/gemini-2.5-flash-lite` | `gpt-4o-mini` + migrar para OpenAI direta |
-| `process-remarketing-queue/index.ts` | `google/gemini-2.5-flash-lite` | `gpt-4o-mini` + migrar para OpenAI direta |
-| `send-lead-remarketing/index.ts` | `google/gemini-2.5-flash-lite` | `gpt-4o-mini` + migrar para OpenAI direta |
-| `send-client-remarketing/index.ts` | `google/gemini-2.5-flash-lite` | `gpt-4o-mini` + migrar para OpenAI direta |
+No `ClientDetailSheet.tsx`, ao excluir um cliente, verificar se o usuario tem role `admin` antes de deletar. Se tiver, manter a role admin e apenas remover dados de cliente (processos, contratos, etc.) sem deletar o perfil.
 
-### Sem alteração (já corretos):
-- `email-ai-assistant` ✅
-- `process-rpi` ✅
-- `adjust-inpi-resource` ✅
-- `sync-inpi-knowledge` ✅
+```text
+Antes:
+  supabase.from('user_roles').delete().eq('user_id', client.id)
+  supabase.from('profiles').delete().eq('id', client.id)
 
-### Detalhes técnicos
+Depois:
+  // Verificar se e admin
+  const { data: adminRole } = await supabase
+    .from('user_roles').select('id').eq('user_id', client.id).eq('role', 'admin').maybeSingle();
+  
+  // Se e admin: deletar apenas role 'client' (se existir), manter perfil e admin role
+  // Se NAO e admin: deletar tudo (roles, perfil)
+  if (adminRole) {
+    // Apenas remover role client, manter perfil e admin role
+    supabase.from('user_roles').delete().eq('user_id', client.id).eq('role', 'client');
+    // Limpar dados de cliente no perfil (client_funnel_type = null, etc.)
+  } else {
+    // Remover tudo incluindo perfil
+    supabase.from('user_roles').delete().eq('user_id', client.id);
+    supabase.from('profiles').delete().eq('id', client.id);
+  }
+```
 
-Para as funções que hoje usam o **Lovable Gateway**, será necessário trocar o endpoint de `ai.gateway.lovable.dev` para `api.openai.com` e usar `OPENAI_API_KEY` em vez de `LOVABLE_API_KEY`. A exceção é `process-inpi-resource` que fará o caminho inverso: migrará para o Lovable Gateway com modelo `openai/gpt-5-mini`.
+#### 2. Corrigir criacao de Admin para nao criar perfil de cliente
+
+No `create-admin-user` edge function, apos criar o usuario (que gera perfil via trigger), marcar o perfil como admin-only para que nao apareca na listagem de clientes.
+
+O perfil ja e criado pelo trigger `handle_new_user` e nao podemos evitar isso. A solucao e garantir que a query de clientes no Kanban filtre admins-only (usuarios que tem role admin mas nao tem `brand_processes`).
+
+Na pratica, como o Kanban de clientes ja filtra por `brand_processes` (processo de marca), admins sem processos ja nao aparecem. Preciso verificar se a listagem de clientes tambem filtra corretamente.
+
+#### 3. Corrigir exclusao de Admin para nao afetar perfil
+
+A exclusao de admin (`removeAdminMutation` no SecuritySettings.tsx) ja esta correta -- so remove role e permissions, nao toca no perfil. Nenhuma alteracao necessaria aqui.
+
+### Alteracoes tecnicas
+
+**Ficheiro: `src/components/admin/clients/ClientDetailSheet.tsx`**
+- Modificar `handleDeleteClient` para verificar se o usuario tem role `admin`
+- Se tiver role admin: deletar dados de cliente (processos, contratos, faturas, etc.) mas MANTER o perfil e a role admin
+- Se nao tiver role admin: comportamento atual (deletar tudo)
+
+**Ficheiro: `supabase/functions/create-admin-user/index.ts`**
+- Nenhuma alteracao necessaria no edge function. O trigger `handle_new_user` cria o perfil automaticamente, mas admins sem `brand_processes` nao aparecem no Kanban de clientes.
+
+### Resultado esperado
+
+- Excluir um cliente que tambem e admin: remove dados de cliente, mas admin continua com acesso ao CRM
+- Excluir um admin: remove acesso admin, mas se tiver conta de cliente, continua com acesso a area do cliente
+- Criar um admin: cria apenas acesso admin, sem processos de marca (nao aparece no Kanban de clientes)
+- Unico com conta dupla (admin + cliente): Administrador Master (davillys@gmail.com)
 
