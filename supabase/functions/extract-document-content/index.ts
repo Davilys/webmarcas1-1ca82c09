@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { encode as encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import * as pdfjsLib from "https://esm.sh/pdfjs-dist@4.10.38/legacy/build/pdf.mjs";
 
@@ -7,6 +8,20 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// ─── Dynamic AI Provider Resolution ────────────────
+const _aiAdmin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+async function getActiveAIConfig(): Promise<{ endpoint: string; apiKey: string; model: string }> {
+  const { data: p } = await _aiAdmin.from('ai_providers').select('*').eq('is_active', true).single();
+  if (!p) throw new Error('Nenhum provedor de IA ativo configurado');
+  switch (p.provider_type) {
+    case 'lovable': { const k = Deno.env.get('LOVABLE_API_KEY'); if (!k) throw new Error('LOVABLE_API_KEY não configurada'); return { endpoint: 'https://ai.gateway.lovable.dev/v1/chat/completions', apiKey: k, model: p.model }; }
+    case 'openai': { const k = p.api_key || Deno.env.get('OPENAI_API_KEY'); if (!k) throw new Error('OpenAI API key não configurada'); return { endpoint: 'https://api.openai.com/v1/chat/completions', apiKey: k, model: p.model }; }
+    case 'deepseek': { if (!p.api_key) throw new Error('DeepSeek API key não configurada'); return { endpoint: 'https://api.deepseek.com/v1/chat/completions', apiKey: p.api_key, model: p.model }; }
+    case 'gemini': { const k = Deno.env.get('LOVABLE_API_KEY'); if (!k) throw new Error('Gemini requer LOVABLE_API_KEY'); const m = p.model.startsWith('google/') ? p.model : `google/${p.model}`; return { endpoint: 'https://ai.gateway.lovable.dev/v1/chat/completions', apiKey: k, model: m }; }
+    default: throw new Error(`Provider não suportado: ${p.provider_type}`);
+  }
+}
 
 async function extractPdfText(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
