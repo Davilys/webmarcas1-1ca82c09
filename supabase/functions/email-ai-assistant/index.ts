@@ -6,6 +6,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ─── Dynamic AI Provider Resolution ────────────────
+const _aiAdmin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+async function getActiveAIConfig(): Promise<{ endpoint: string; apiKey: string; model: string }> {
+  const { data: p } = await _aiAdmin.from('ai_providers').select('*').eq('is_active', true).single();
+  if (!p) throw new Error('Nenhum provedor de IA ativo configurado');
+  switch (p.provider_type) {
+    case 'lovable': { const k = Deno.env.get('LOVABLE_API_KEY'); if (!k) throw new Error('LOVABLE_API_KEY não configurada'); return { endpoint: 'https://ai.gateway.lovable.dev/v1/chat/completions', apiKey: k, model: p.model }; }
+    case 'openai': { const k = p.api_key || Deno.env.get('OPENAI_API_KEY'); if (!k) throw new Error('OpenAI API key não configurada'); return { endpoint: 'https://api.openai.com/v1/chat/completions', apiKey: k, model: p.model }; }
+    case 'deepseek': { if (!p.api_key) throw new Error('DeepSeek API key não configurada'); return { endpoint: 'https://api.deepseek.com/v1/chat/completions', apiKey: p.api_key, model: p.model }; }
+    case 'gemini': { const k = Deno.env.get('LOVABLE_API_KEY'); if (!k) throw new Error('Gemini requer LOVABLE_API_KEY'); const m = p.model.startsWith('google/') ? p.model : `google/${p.model}`; return { endpoint: 'https://ai.gateway.lovable.dev/v1/chat/completions', apiKey: k, model: m }; }
+    default: throw new Error(`Provider não suportado: ${p.provider_type}`);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -41,12 +55,7 @@ serve(async (req) => {
       });
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "OPENAI_API_KEY não configurada" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const ai = await getActiveAIConfig();
 
     const baseSystemPrompt = systemPrompt || `Você é uma assistente de IA especializada em comunicação profissional da WebMarcas, escritório de propriedade intelectual e registro de marcas no INPI (Brasil).
 
@@ -75,14 +84,14 @@ REGRAS DE QUALIDADE OBRIGATÓRIAS:
 
     console.log(`email-ai-assistant: action=${action}, messages=${messages.length}`);
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(ai.endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${ai.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",
+        model: ai.model,
         messages: allMessages,
         stream: false,
         max_tokens: 800,
