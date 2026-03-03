@@ -91,29 +91,35 @@ const TAG_OPTIONS = [
 ];
 
 const PIPELINE_STAGES = [
+  { value: 'protocolado', label: 'Protocolado' },
   { value: '003', label: '003' },
   { value: 'oposicao', label: 'Oposição' },
   { value: 'exigencia_merito', label: 'Exigência de Mérito' },
   { value: 'indeferimento', label: 'Indeferimento' },
+  { value: 'notificacao_extrajudicial', label: 'Notificação Extrajudicial' },
   { value: 'deferimento', label: 'Deferimento' },
   { value: 'certificado', label: 'Certificado' },
   { value: 'renovacao', label: 'Renovação' },
   { value: 'arquivado', label: 'Arquivado' },
+  { value: 'distrato', label: 'Distrato' },
 ];
 
-// Map pipeline stages to publicacao status (same naming now)
+// Map pipeline stages to publicacao status
 const PIPELINE_TO_PUB_STATUS: Record<string, string> = {
+  protocolado: '003',
   '003': '003',
   oposicao: 'oposicao',
   exigencia_merito: 'exigencia_merito',
   indeferimento: 'indeferimento',
+  notificacao_extrajudicial: '003',
   deferimento: 'deferimento',
   certificado: 'certificado',
   renovacao: 'renovacao',
   arquivado: 'arquivado',
+  distrato: 'arquivado',
 };
 
-// Map publicacao/dispatch status to pipeline stage (reverse — same keys)
+// Map publicacao/dispatch status to pipeline stage (reverse)
 const PUB_STATUS_TO_PIPELINE: Record<string, string> = {
   '003': '003',
   oposicao: 'oposicao',
