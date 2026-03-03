@@ -1,58 +1,89 @@
 
 
-## Importacao Inteligente: Sempre Atualizar + Funil Juridico/Protocolado
+## Correcao: Clientes importados nao aparecem no Kanban
 
-### O que muda
+### Problema identificado
 
-1. **Sempre atualizar clientes existentes** - o toggle "Atualizar clientes existentes" sera removido; todo cliente encontrado no banco sera atualizado automaticamente
-2. **Identificacao multi-criterio** - busca por Email, CPF, CNPJ ou Nome (nessa ordem de prioridade)
-3. **Clientes novos vao direto para Juridico > Protocolado** (ja funciona assim, sera mantido)
-4. **Clientes existentes sao atualizados** sem criar duplicatas, mesmo que o email seja diferente
-5. **Merge inteligente** - campos vazios no arquivo nao apagam dados existentes
+A cliente **Sonia Aparecida Morais** (sam.moraes0@gmail.com) existe na tabela `auth.users` (id: `931c2303-978c-4d67-b44c-5420fac12382`) mas **NAO existe na tabela `profiles`**. Isso acontece com pelo menos 3 clientes do arquivo (sam.moraes0, romeiropeterson, felipeferaf).
+
+**Fluxo do erro:**
+1. O edge function busca o perfil em `profiles` por email/cpf/cnpj/nome → nao encontra
+2. Tenta criar um novo usuario em `auth.users` → falha com "A user with this email address has already been registered"
+3. Retorna erro e **nao cria o perfil nem o processo** → cliente nunca aparece no Kanban
+
+**Causa raiz:** Usuarios que existem no Auth mas nao tem perfil (possivelmente criados anteriormente com erro no trigger `handle_new_user`, ou perfil deletado manualmente).
+
+### Solucao
+
+Alterar o edge function `import-clients/index.ts` para tratar o caso em que `createUser` falha com "already been registered":
+
+1. Quando o `createUser` falhar com essa mensagem, buscar o usuario existente via `auth.admin.listUsers` filtrando por email
+2. Usar o ID do usuario Auth existente para criar/atualizar o perfil normalmente
+3. Continuar o fluxo normal (upsert profile, assign role, create brand_process)
 
 ### Alteracoes Tecnicas
 
-#### 1. Edge Function `import-clients/index.ts`
+#### Ficheiro: `supabase/functions/import-clients/index.ts`
 
-Substituir a busca simples por email por uma busca em cascata:
+Na funcao `processClient`, na secao "New client" (linha ~156), apos o `createUser` falhar:
 
 ```text
-1. Email (eq)
-2. CPF (eq, somente digitos)
-3. CNPJ (eq, somente digitos)
-4. full_name (ilike, case-insensitive)
+Antes:
+  if (authError) → return error
+
+Depois:
+  if (authError && mensagem contém "already been registered") →
+    buscar usuario existente via admin.listUsers({ filter: email })
+    usar o ID encontrado como userId
+    continuar o fluxo normal (upsert profile + role + brand_process)
+  else if (authError) →
+    return error (outros erros reais)
 ```
 
-Se encontrar por qualquer criterio: atualiza o perfil existente (merge - so campos preenchidos sobrescrevem).
-Se nao encontrar: cria novo usuario Auth + perfil + processo juridico/protocolado (logica atual mantida).
-
-Remover o parametro `updateExisting` - agora sempre atualiza.
-
-No update, usar logica de merge:
+Logica especifica:
 ```typescript
-full_name: client.full_name || existingProfile.full_name,
-phone: client.phone || existingProfile.phone,
-// etc - so sobrescreve se o valor novo nao for vazio
+if (authError) {
+  if (authError.message?.includes('already been registered')) {
+    // Buscar usuario existente no Auth
+    const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
+    const existingAuthUser = listData?.users?.find(u => u.email === email);
+    if (!existingAuthUser) {
+      return { status: 'error', email, message: 'Usuario existe no Auth mas nao foi encontrado' };
+    }
+    userId = existingAuthUser.id;
+    // Continuar com upsert profile...
+  } else {
+    return { status: 'error', email, message: `Erro auth: ${authError.message}` };
+  }
+}
 ```
 
-#### 2. Frontend `ClientImportExportDialog.tsx`
+**Nota:** Em vez de `listUsers()` (que lista TODOS), usar a API correta: `supabaseAdmin.auth.admin.getUserByEmail(email)` se disponivel, ou buscar diretamente na tabela `auth.users` via SQL. A forma mais eficiente sera buscar o ID do auth.users via query direta:
 
-- Remover o state `updateExisting` e o toggle Switch do preview
-- Forcar `updateExisting: true` no payload enviado ao edge function
-- Ampliar detecao de duplicatas no preview: buscar `email, cpf, cnpj, full_name` dos profiles para mostrar badge "Sera atualizado" corretamente
-- Selecionar todos os registros validos (incluindo duplicatas) por padrao
+```typescript
+const { data: authUser } = await supabaseAdmin
+  .from('auth.users')  // ou rpc
+  ...
+```
 
-#### 3. `ImportPreviewTable.tsx`
+Como o Supabase JS client nao permite query em `auth.users` diretamente, a melhor abordagem e usar `listUsers` com filtro por pagina ou simplesmente fazer o `getUserById` apos extrair o email. Na pratica, a forma mais limpa e:
 
-- Atualizar para aceitar listas de CPFs, CNPJs e nomes existentes alem de emails
-- Verificar duplicatas por qualquer um dos 4 criterios
-- Remover a prop `updateExisting` (agora sempre true)
+```typescript
+// Tentar getUserByEmail (disponivel no admin API)
+const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ 
+  page: 1, 
+  perPage: 1 
+});
+// Filtrar... ou melhor, usar getUserByEmail diretamente
+```
 
-### Resultado
+A implementacao final usara o metodo mais eficiente disponivel na versao do SDK.
 
-- Importar arquivo nunca da erro por duplicata
-- Clientes existentes sao identificados por email, CPF, CNPJ ou nome
-- Dados sao atualizados automaticamente (merge inteligente)
-- Novos clientes entram no funil Juridico > Protocolado
-- Preview mostra quais serao atualizados vs criados
+### Resultado esperado
+
+- Clientes que ja existem no Auth mas nao tem perfil serao importados corretamente
+- O perfil sera criado com todos os dados do arquivo
+- O processo `brand_process` sera criado no funil Juridico > Protocolado
+- O cliente aparecera no Kanban na coluna "Protocolado"
+- Nenhum erro "already been registered" sera exibido
 
