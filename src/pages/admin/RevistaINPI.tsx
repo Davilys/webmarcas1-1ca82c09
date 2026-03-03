@@ -494,6 +494,55 @@ export default function RevistaINPI() {
     if (!selectedEntry || !newStage) return;
     setUpdating(true);
     try {
+      // [AUTO-SAVE] If user was editing process data and ALL fields are filled, save automatically
+      const isEditingThisEntry = editingEntryId === selectedEntry.id;
+      if (isEditingThisEntry) {
+        const allFieldsFilled = editForm.brand_name.trim() && editForm.process_number.trim() && editForm.ncl_classes.trim() && editForm.holder_name.trim();
+        if (allFieldsFilled) {
+          const nclArray = editForm.ncl_classes.split(',').map(s => s.trim()).filter(Boolean);
+          await supabase.from('rpi_entries').update({
+            brand_name: editForm.brand_name || null,
+            process_number: editForm.process_number,
+            ncl_classes: nclArray.length > 0 ? nclArray : null,
+            holder_name: editForm.holder_name || null,
+            updated_at: new Date().toISOString(),
+          }).eq('id', selectedEntry.id);
+
+          // Sync to publicacoes_marcas
+          const { data: linkedPubEdit } = await supabase.from('publicacoes_marcas')
+            .select('id').eq('rpi_entry_id', selectedEntry.id).maybeSingle();
+          if (linkedPubEdit) {
+            await supabase.from('publicacoes_marcas').update({
+              brand_name_rpi: editForm.brand_name || null,
+              process_number_rpi: editForm.process_number || null,
+              updated_at: new Date().toISOString(),
+            }).eq('id', linkedPubEdit.id);
+          }
+
+          // Sync to brand_processes if linked
+          if (editForm.process_number && selectedEntry.matched_client_id) {
+            const { data: bp } = await supabase.from('brand_processes')
+              .select('id').eq('user_id', selectedEntry.matched_client_id)
+              .order('created_at', { ascending: false }).limit(1).maybeSingle();
+            if (bp) {
+              await supabase.from('brand_processes').update({
+                brand_name: editForm.brand_name,
+                process_number: editForm.process_number,
+                ncl_classes: nclArray.map(Number).filter(n => !isNaN(n)),
+                updated_at: new Date().toISOString(),
+              }).eq('id', bp.id);
+            }
+          }
+
+          // Update selectedEntry reference for the rest of the function
+          selectedEntry.brand_name = editForm.brand_name;
+          selectedEntry.process_number = editForm.process_number;
+
+          setEditingEntryId(null);
+          toast.success('Dados do processo salvos automaticamente!');
+        }
+      }
+
       // Resolve the brand_process — by matched_process_id or by client_id
       const resolvedProcessId = await resolveBrandProcessId(selectedEntry.matched_process_id, selectedEntry.matched_client_id, selectedEntry.process_number);
       if (resolvedProcessId) {
