@@ -133,16 +133,23 @@ const PUB_STATUS_TO_PIPELINE: Record<string, string> = {
 
 function getDispatchBadge(dispatchType: string | null) {
   const type = (dispatchType || '').toLowerCase();
-  if (type.includes('deferido') || type.includes('deferimento'))
-    return <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400">✓ Deferimento</Badge>;
+  // IMPORTANT: Check "indeferimento" BEFORE "deferimento" to avoid false match
   if (type.includes('indeferido') || type.includes('indeferimento'))
     return <Badge className="bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400">✗ Indeferimento</Badge>;
+  if (type.includes('deferido') || type.includes('deferimento'))
+    return <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400">✓ Deferimento</Badge>;
   if (type.includes('exigência') || type.includes('exigencia'))
     return <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400">⚡ Exigência</Badge>;
   if (type.includes('oposição') || type.includes('oposicao'))
     return <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/20 dark:text-orange-400">⚔ Oposição</Badge>;
   if (type.includes('certificado'))
     return <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400">📜 Certificado</Badge>;
+  if (type.includes('renovação') || type.includes('renovacao'))
+    return <Badge className="bg-purple-500/10 text-purple-600 border-purple-500/20 dark:text-purple-400">🔄 Renovação</Badge>;
+  if (type.includes('arquivado'))
+    return <Badge className="bg-gray-500/10 text-gray-600 border-gray-500/20 dark:text-gray-400">📁 Arquivado</Badge>;
+  if (type.includes('003'))
+    return <Badge className="bg-cyan-500/10 text-cyan-600 border-cyan-500/20 dark:text-cyan-400">003</Badge>;
   return <Badge variant="outline">{dispatchType || 'Outro'}</Badge>;
 }
 
