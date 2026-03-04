@@ -98,23 +98,23 @@ export function ServiceActionPanel({ client, stage, onClose, onUpdate, alreadySe
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // 1. Upload document if exists
-      let docUrl: string | null = null;
-      if (file) {
-        const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      // 1. Upload documents if any
+      const docUrls: { url: string; filename: string }[] = [];
+      for (const f of files) {
+        const sanitizedName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         const filePath = `${client.id}/${Date.now()}_${sanitizedName}`;
-        const { error: uploadErr } = await supabase.storage.from('documents').upload(filePath, file);
-        if (uploadErr) throw new Error('Erro ao fazer upload do documento');
+        const { error: uploadErr } = await supabase.storage.from('documents').upload(filePath, f);
+        if (uploadErr) throw new Error(`Erro ao fazer upload: ${f.name}`);
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(filePath);
-        docUrl = urlData.publicUrl;
+        const docUrl = urlData.publicUrl;
+        docUrls.push({ url: docUrl, filename: f.name });
 
-        // Save doc reference
         await supabase.from('documents').insert({
           user_id: client.id,
-          name: file.name,
+          name: f.name,
           file_url: docUrl,
-          file_size: file.size,
-          mime_type: file.type,
+          file_size: f.size,
+          mime_type: f.type,
           document_type: 'notificacao',
           uploaded_by: user?.id,
           process_id: client.process_id || null,
