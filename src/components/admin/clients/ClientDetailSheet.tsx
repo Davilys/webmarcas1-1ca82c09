@@ -2411,15 +2411,18 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
 
                 {/* ─── ATTACHMENTS TAB ───────────────────────────────────── */}
                 <TabsContent value="attachments" className="mt-0 space-y-4">
-                  <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => handleFileUpload(e.target.files)} />
+                  <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { handleFileUpload(e.target.files); if (e.target) e.target.value = ''; }} />
 
                   {/* Drop zone */}
                   <div
+                    role="button"
+                    tabIndex={0}
                     className={cn(
-                      'border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer',
+                      'border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer select-none',
                       dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/20'
                     )}
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); fileInputRef.current?.click(); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click(); } }}
                     onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                     onDragLeave={() => setDragOver(false)}
                     onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFileUpload(e.dataTransfer.files); }}
@@ -2436,6 +2439,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                         </div>
                         <p className="font-medium text-sm">Arraste arquivos ou clique para selecionar</p>
                         <p className="text-xs text-muted-foreground">PDF, imagens, docs — qualquer formato</p>
+                        <p className="text-[10px] text-muted-foreground/70 mt-1">📌 Arquivos enviados aqui ficam disponíveis na área do cliente</p>
                       </div>
                     )}
                   </div>
@@ -2443,9 +2447,17 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                   {loading ? (
                     <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                   ) : documents.length === 0 ? (
-                    <EmptyState icon={Paperclip} title="Nenhum arquivo" description="Faça upload de documentos relacionados a este cliente" />
+                    <div className="cursor-pointer" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
+                      <EmptyState icon={Paperclip} title="Nenhum arquivo" description="Clique aqui ou na área acima para enviar documentos ao cliente" />
+                    </div>
                   ) : (
                     <div className="space-y-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-muted-foreground">{documents.length} arquivo(s)</p>
+                        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
+                          <Plus className="h-3 w-3" /> Adicionar
+                        </Button>
+                      </div>
                       <AnimatePresence>
                         {documents.map(doc => (
                           <motion.div
