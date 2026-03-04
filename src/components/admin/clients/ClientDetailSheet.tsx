@@ -1330,6 +1330,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                         contrato: 'bg-blue-500',
                         financeiro: 'bg-emerald-500',
                         processo: 'bg-purple-500',
+                        notificacao: 'bg-orange-500',
                       };
 
                       return (
