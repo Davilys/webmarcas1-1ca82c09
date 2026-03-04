@@ -1368,29 +1368,67 @@ export default function PublicacaoTab() {
   };
 
   // ─── Auto-populate from RPI ────
-  const handleAutoPopulateFromRPI = (entry: any) => {
+  const resolveStatusFromDispatch = useCallback((dispatchText: string | null): PubStatus => {
+    if (!dispatchText) return '003';
+    const text = dispatchText.toLowerCase();
+    if (text.includes('certificado de registro') || text.includes('concessao') || text.includes('concessão') || text.includes('registro concedido')) return 'certificado';
+    if (text.includes('indeferido') || text.includes('indeferimento')) return 'indeferimento';
+    if (text.includes('deferido') || text.includes('deferimento')) return 'deferimento';
+    if (text.includes('oposição') || text.includes('oposicao')) return 'oposicao';
+    if (text.includes('exigência') || text.includes('exigencia') || text.includes('mérito') || text.includes('merito')) return 'exigencia_merito';
+    if (text.includes('arquiv')) return 'arquivado';
+    return '003';
+  }, []);
+
+  const handleAutoPopulateFromRPI = useCallback((entry: any) => {
     if (linkedProcessIds.has(entry.matched_process_id)) {
       toast.error('Este processo já possui uma publicação vinculada');
       return;
     }
     const proc = processMap.get(entry.matched_process_id);
     if (!proc) return;
+    const status = resolveStatusFromDispatch(entry.dispatch_text);
     createMutation.mutate({
       process_id: entry.matched_process_id,
       client_id: entry.matched_client_id || proc.user_id!,
       admin_id: currentUserQuery.data?.id || null,
-      status: '003',
+      status,
       tipo_publicacao: 'publicacao_rpi',
       data_deposito: proc.deposit_date || null,
       data_publicacao_rpi: entry.publication_date || null,
+      data_certificado: status === 'certificado' ? (entry.publication_date || null) : null,
       rpi_number: entry.dispatch_code || null,
+      rpi_entry_id: entry.id,
+      brand_name_rpi: entry.brand_name || null,
+      process_number_rpi: entry.process_number || null,
       descricao_prazo: entry.dispatch_text || null,
     });
-  };
+  }, [linkedProcessIds, processMap, resolveStatusFromDispatch, createMutation, currentUserQuery.data]);
 
   const availableRpiEntries = useMemo(() => {
     return rpiEntries.filter(e => e.matched_process_id && !linkedProcessIds.has(e.matched_process_id));
   }, [rpiEntries, linkedProcessIds]);
+
+  // ─── Auto-import available RPI entries ────
+  const autoImportingRef = useRef(false);
+  useEffect(() => {
+    if (availableRpiEntries.length === 0 || autoImportingRef.current || isLoading) return;
+    autoImportingRef.current = true;
+    
+    // Auto-import each pending entry
+    let imported = 0;
+    for (const entry of availableRpiEntries) {
+      const proc = processMap.get(entry.matched_process_id);
+      if (!proc) continue;
+      handleAutoPopulateFromRPI(entry);
+      imported++;
+    }
+    if (imported > 0) {
+      console.log(`Auto-imported ${imported} RPI entries to Publicações`);
+    }
+    // Reset after a delay to allow for new entries
+    setTimeout(() => { autoImportingRef.current = false; }, 5000);
+  }, [availableRpiEntries, isLoading, processMap, handleAutoPopulateFromRPI]);
 
   // Kanban status change handler
   const handleKanbanStatusChange = (id: string, newStatus: PubStatus, pub: any) => {
