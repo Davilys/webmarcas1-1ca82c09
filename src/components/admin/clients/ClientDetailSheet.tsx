@@ -222,6 +222,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
   const [processContracts, setProcessContracts] = useState<any[]>([]);
   const [processInvoices, setProcessInvoices] = useState<any[]>([]);
   const [processEvents, setProcessEvents] = useState<any[]>([]);
+  const [processActivities, setProcessActivities] = useState<any[]>([]);
 
   // Publication action states
   const [editingPubData, setEditingPubData] = useState<any>(null);
@@ -795,13 +796,18 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
             ? supabase.from('invoices').select('id, description, amount, status, due_date, payment_date, payment_method, created_at').eq('user_id', client.id).order('created_at', { ascending: false })
             : Promise.resolve({ data: [] as any[] });
 
-          const [pubsRes, contractsRes, invoicesRes2, eventsRes] = await Promise.all([
-            pubsQuery, contractsQuery, invoicesQuery2, eventsQuery,
+          const activitiesQuery = !isOrphanProc
+            ? supabase.from('client_activities').select('created_at, activity_type, description, metadata').eq('user_id', client.id).eq('activity_type', 'notificacao_cobranca').order('created_at', { ascending: false })
+            : Promise.resolve({ data: [] as any[] });
+
+          const [pubsRes, contractsRes, invoicesRes2, eventsRes, activitiesRes] = await Promise.all([
+            pubsQuery, contractsQuery, invoicesQuery2, eventsQuery, activitiesQuery,
           ]);
           setProcessPublicacoes(pubsRes.data || []);
           setProcessContracts(contractsRes.data || []);
           setProcessInvoices(invoicesRes2.data || []);
           setProcessEvents(eventsRes.data || []);
+          setProcessActivities(activitiesRes.data || []);
           // Also fetch logs for first publication if exists
           if (pubsRes.data && pubsRes.data.length > 0) {
             const { data: logs } = await supabase.from('publicacao_logs').select('*').eq('publicacao_id', pubsRes.data[0].id).order('created_at', { ascending: false });
@@ -1282,6 +1288,37 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                         }
                       });
 
+                      // Notification + billing activities (from ServiceActionPanel)
+                      processActivities.forEach((act: any) => {
+                        const meta = act.metadata || {};
+                        const channels: string[] = [];
+                        if (meta.channels?.email) channels.push('Email');
+                        if (meta.channels?.whatsapp) channels.push('WhatsApp');
+                        const channelStr = channels.length > 0 ? ` via ${channels.join(' + ')}` : '';
+                        
+                        // Notification sent event
+                        lifecycleEvents.push({
+                          date: act.created_at,
+                          label: 'Notificação Enviada',
+                          description: `${meta.stage_label || act.description || 'Serviço'}${channelStr}`,
+                          icon: Send, status: 'completed', category: 'notificacao',
+                        });
+
+                        // Attached documents
+                        const docUrls = meta.document_urls || [];
+                        if (docUrls.length > 0) {
+                          docUrls.forEach((url: string, idx: number) => {
+                            const filename = decodeURIComponent(url.split('/').pop() || 'Documento').replace(/^\d+_/, '');
+                            lifecycleEvents.push({
+                              date: act.created_at,
+                              label: 'Anexo Enviado',
+                              description: filename,
+                              icon: Paperclip, status: 'completed', category: 'notificacao',
+                            });
+                          });
+                        }
+                      });
+
                       // Sort by date ascending
                       lifecycleEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
@@ -1293,6 +1330,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                         contrato: 'bg-blue-500',
                         financeiro: 'bg-emerald-500',
                         processo: 'bg-purple-500',
+                        notificacao: 'bg-orange-500',
                       };
 
                       return (
