@@ -1298,6 +1298,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                       });
 
                       // Notification + billing activities (from ServiceActionPanel)
+                      const notificationDocUrls = new Set<string>();
                       processActivities.forEach((act: any) => {
                         const meta = act.metadata || {};
                         const channels: string[] = [];
@@ -1316,7 +1317,8 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                         // Attached documents
                         const docUrls = meta.document_urls || [];
                         if (docUrls.length > 0) {
-                          docUrls.forEach((url: string, idx: number) => {
+                          docUrls.forEach((url: string) => {
+                            notificationDocUrls.add(url);
                             const filename = decodeURIComponent(url.split('/').pop() || 'Documento').replace(/^\d+_/, '');
                             lifecycleEvents.push({
                               date: act.created_at,
@@ -1326,6 +1328,17 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                             });
                           });
                         }
+                      });
+
+                      // Documents from Anexos tab (deduplicated)
+                      documents.forEach((doc: any) => {
+                        if (notificationDocUrls.has(doc.file_url)) return;
+                        lifecycleEvents.push({
+                          date: doc.created_at,
+                          label: 'Anexo Enviado',
+                          description: doc.name || 'Documento',
+                          icon: Paperclip, status: 'completed', category: 'notificacao',
+                        });
                       });
 
                       // Sort by date ascending
