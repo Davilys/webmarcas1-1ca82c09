@@ -883,11 +883,10 @@ export default function PublicacaoTab() {
   const kpiStats = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const linked = publicacoes.filter(p => !!p.client_id);
-    const total = linked.length;
-    const urgentes = linked.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d >= 0 && d <= 7; }).length;
-    const atrasados = linked.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d < 0; }).length;
-    const deferidosMes = linked.filter(p => p.status === 'deferimento' && p.data_decisao && isAfter(parseISO(p.data_decisao), startOfMonth)).length;
+    const total = publicacoes.length;
+    const urgentes = publicacoes.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d >= 0 && d <= 7; }).length;
+    const atrasados = publicacoes.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d < 0; }).length;
+    const deferidosMes = publicacoes.filter(p => p.status === 'deferimento' && p.data_decisao && isAfter(parseISO(p.data_decisao), startOfMonth)).length;
     return { total, urgentes, atrasados, deferidosMes };
   }, [publicacoes]);
 
