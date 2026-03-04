@@ -73,8 +73,15 @@ export function ServiceActionPanel({ client, stage, onClose, onUpdate, alreadySe
   const dueDateStr = dueDate.toISOString().split('T')[0];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) setFile(f);
+    const newFiles = Array.from(e.target.files || []);
+    if (newFiles.length > 0) {
+      setFiles(prev => [...prev, ...newFiles]);
+    }
+    e.target.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSend = async () => {
