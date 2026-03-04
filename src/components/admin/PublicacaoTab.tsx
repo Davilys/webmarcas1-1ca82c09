@@ -883,18 +883,17 @@ export default function PublicacaoTab() {
   const kpiStats = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const linked = publicacoes.filter(p => !!p.client_id);
-    const total = linked.length;
-    const urgentes = linked.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d >= 0 && d <= 7; }).length;
-    const atrasados = linked.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d < 0; }).length;
-    const deferidosMes = linked.filter(p => p.status === 'deferimento' && p.data_decisao && isAfter(parseISO(p.data_decisao), startOfMonth)).length;
+    const total = publicacoes.length;
+    const urgentes = publicacoes.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d >= 0 && d <= 7; }).length;
+    const atrasados = publicacoes.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d < 0; }).length;
+    const deferidosMes = publicacoes.filter(p => p.status === 'deferimento' && p.data_decisao && isAfter(parseISO(p.data_decisao), startOfMonth)).length;
     return { total, urgentes, atrasados, deferidosMes };
   }, [publicacoes]);
 
   // ─── Status counts ────
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    publicacoes.filter(p => !!p.client_id).forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
+    publicacoes.forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
     return counts;
   }, [publicacoes]);
 
@@ -903,8 +902,6 @@ export default function PublicacaoTab() {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     let result = publicacoes.filter(pub => {
-      // Somente publicacoes com cliente vinculado aparecem
-      if (!pub.client_id) return false;
       const proc = pub.process_id ? processMap.get(pub.process_id) : null;
       const client = pub.client_id ? clientMap.get(pub.client_id) : null;
       if (search) {
