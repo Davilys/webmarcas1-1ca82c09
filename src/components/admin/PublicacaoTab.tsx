@@ -499,6 +499,14 @@ export default function PublicacaoTab() {
     archiveAll();
   }, [publicacoes, isLoading, queryClient]);
 
+  // Reset sync flag when rpiEntries change (new matches made in Revista INPI)
+  const prevRpiCountRef = useRef(rpiEntries.length);
+  useEffect(() => {
+    if (rpiEntries.length !== prevRpiCountRef.current) {
+      hasSyncedRef.current = false;
+      prevRpiCountRef.current = rpiEntries.length;
+    }
+  }, [rpiEntries.length]);
 
   useEffect(() => {
     if (hasSyncedRef.current) return;
