@@ -2455,7 +2455,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
 
                 {/* ─── ATTACHMENTS TAB ───────────────────────────────────── */}
                 <TabsContent value="attachments" className="mt-0 space-y-4">
-                  <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { handleFileUpload(e.target.files); if (e.target) e.target.value = ''; }} />
+                  <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => { const filesCopy = e.target.files ? new DataTransfer() : null; if (e.target.files) { Array.from(e.target.files).forEach(f => filesCopy!.items.add(f)); } handleFileUpload(filesCopy?.files ?? null).finally(() => { if (e.target) e.target.value = ''; }); }} />
 
                   {/* Drop zone */}
                   <div
