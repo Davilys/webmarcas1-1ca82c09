@@ -581,11 +581,14 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
 
   // ─── File Upload ──────────────────────────────────────────────────────────
   const handleFileUpload = async (files: FileList | null) => {
-    if (!files || !client) return;
+    console.log('[FileUpload] Called with files:', files?.length, 'client:', client?.id);
+    if (!files || files.length === 0) { toast.error('Nenhum arquivo selecionado'); return; }
+    if (!client) { toast.error('Cliente não carregado'); return; }
     setUploading(true);
     let uploaded = 0;
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { toast.error('Usuário não autenticado'); setUploading(false); return; }
       for (const file of Array.from(files)) {
         const ext = file.name.split('.').pop() || 'bin';
         const sanitized = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 80);
@@ -595,10 +598,10 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
         if (uploadError) { console.error('[FileUpload] Storage error:', uploadError); toast.error(`Erro upload: ${uploadError.message}`); continue; }
         const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(fileName);
         console.log('[FileUpload] Public URL:', publicUrl);
-        const { error: dbError } = await supabase.from('documents').insert({ user_id: client.id, name: file.name, file_url: publicUrl, document_type: 'anexo', uploaded_by: user?.id || 'admin', file_size: file.size, mime_type: file.type });
-        if (dbError) { console.error('[FileUpload] DB insert error:', dbError); toast.error(`Erro ao salvar: ${dbError.message}`); } else { uploaded++; }
+        const { error: dbError } = await supabase.from('documents').insert({ user_id: client.id, name: file.name, file_url: publicUrl, document_type: 'anexo', uploaded_by: user.id, file_size: file.size, mime_type: file.type });
+        if (dbError) { console.error('[FileUpload] DB insert error:', dbError); toast.error(`Erro ao salvar registro: ${dbError.message}`); } else { uploaded++; }
       }
-      if (uploaded > 0) { toast.success(`${uploaded} arquivo(s) enviado(s)`); await fetchClientData(); }
+      if (uploaded > 0) { toast.success(`${uploaded} arquivo(s) enviado(s)`); await fetchClientData(); } else { toast.warning('Nenhum arquivo foi enviado com sucesso'); }
     } catch (err: any) { console.error('[FileUpload] Unexpected error:', err); toast.error(`Erro inesperado: ${err.message}`); }
     finally { setUploading(false); }
   };
