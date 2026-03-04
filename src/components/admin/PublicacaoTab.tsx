@@ -893,7 +893,7 @@ export default function PublicacaoTab() {
   // ─── Status counts ────
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    publicacoes.filter(p => !!p.client_id).forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
+    publicacoes.forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
     return counts;
   }, [publicacoes]);
 
