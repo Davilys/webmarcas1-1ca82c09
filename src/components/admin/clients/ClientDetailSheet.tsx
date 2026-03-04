@@ -796,13 +796,18 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
             ? supabase.from('invoices').select('id, description, amount, status, due_date, payment_date, payment_method, created_at').eq('user_id', client.id).order('created_at', { ascending: false })
             : Promise.resolve({ data: [] as any[] });
 
-          const [pubsRes, contractsRes, invoicesRes2, eventsRes] = await Promise.all([
-            pubsQuery, contractsQuery, invoicesQuery2, eventsQuery,
+          const activitiesQuery = !isOrphanProc
+            ? supabase.from('client_activities').select('created_at, activity_type, description, metadata').eq('user_id', client.id).eq('activity_type', 'notificacao_cobranca').order('created_at', { ascending: false })
+            : Promise.resolve({ data: [] as any[] });
+
+          const [pubsRes, contractsRes, invoicesRes2, eventsRes, activitiesRes] = await Promise.all([
+            pubsQuery, contractsQuery, invoicesQuery2, eventsQuery, activitiesQuery,
           ]);
           setProcessPublicacoes(pubsRes.data || []);
           setProcessContracts(contractsRes.data || []);
           setProcessInvoices(invoicesRes2.data || []);
           setProcessEvents(eventsRes.data || []);
+          setProcessActivities(activitiesRes.data || []);
           // Also fetch logs for first publication if exists
           if (pubsRes.data && pubsRes.data.length > 0) {
             const { data: logs } = await supabase.from('publicacao_logs').select('*').eq('publicacao_id', pubsRes.data[0].id).order('created_at', { ascending: false });
