@@ -1,70 +1,31 @@
 
 
-## Correcao: Separacao de contas Admin e Cliente
+## Diagnóstico: Cliente "CARLOS EDUARDO AFONSO" não aparece no Kanban Jurídico
 
-### Problemas identificados
+### Causa raiz identificada (dados no banco)
 
-1. **Excluir cliente remove acesso Admin**: Em `ClientDetailSheet.tsx` (linha 642), ao excluir um cliente, o codigo deleta TODAS as `user_roles` do usuario, incluindo a role `admin`. Isso faz o admin perder acesso ao CRM.
+O cliente possui:
+- `client_funnel_type: juridico` 
+- Processo com `pipeline_stage: pagamento_ok`
 
-2. **Criar Admin cria conta de cliente**: O edge function `create-admin-user` cria um usuario no `auth.users`, e o trigger `handle_new_user` automaticamente cria um perfil na tabela `profiles`. Isso faz o admin aparecer na area de clientes.
+O problema: **`pagamento_ok` é uma etapa do funil Comercial**, não do Jurídico. Quando o Kanban Jurídico renderiza, ele só mostra colunas do funil jurídico (protocolado, 003, oposição, etc.). Como `pagamento_ok` não existe nessas colunas, o card fica "perdido" — não aparece em nenhuma coluna.
 
-3. **Excluir Admin exclui tudo**: Se o perfil do admin for excluido como cliente, ele perde acesso ao CRM tambem (porque perfil e conta auth sao compartilhados).
+Adicionalmente, o filtro de data está em "Mês = Março 2026", mas o cliente foi criado em Fevereiro 2026, o que também o exclui.
 
-### Solucao
+### Solução
 
-#### 1. Corrigir exclusao de cliente para preservar role admin
+**Arquivo: `src/components/admin/clients/ClientKanbanBoard.tsx`**
 
-No `ClientDetailSheet.tsx`, ao excluir um cliente, verificar se o usuario tem role `admin` antes de deletar. Se tiver, manter a role admin e apenas remover dados de cliente (processos, contratos, etc.) sem deletar o perfil.
+1. **Coluna "fallback" para stages órfãos**: Na função `getClientsForStage`, quando o `pipeline_stage` de um cliente não corresponde a nenhuma coluna do funil ativo, colocar o card automaticamente na **primeira coluna** do funil (ex: "Protocolado" no jurídico). Isso garante que nenhum cliente fique invisível.
 
-```text
-Antes:
-  supabase.from('user_roles').delete().eq('user_id', client.id)
-  supabase.from('profiles').delete().eq('id', client.id)
+2. **Implementação**: Modificar `getClientsForStage` para que, na coluna `defaultStage` (primeira coluna), também inclua clientes cujo `pipeline_stage` não existe em nenhuma das colunas configuradas.
 
-Depois:
-  // Verificar se e admin
-  const { data: adminRole } = await supabase
-    .from('user_roles').select('id').eq('user_id', client.id).eq('role', 'admin').maybeSingle();
-  
-  // Se e admin: deletar apenas role 'client' (se existir), manter perfil e admin role
-  // Se NAO e admin: deletar tudo (roles, perfil)
-  if (adminRole) {
-    // Apenas remover role client, manter perfil e admin role
-    supabase.from('user_roles').delete().eq('user_id', client.id).eq('role', 'client');
-    // Limpar dados de cliente no perfil (client_funnel_type = null, etc.)
-  } else {
-    // Remover tudo incluindo perfil
-    supabase.from('user_roles').delete().eq('user_id', client.id);
-    supabase.from('profiles').delete().eq('id', client.id);
-  }
-```
+**Arquivo: `src/pages/admin/Clientes.tsx`**
 
-#### 2. Corrigir criacao de Admin para nao criar perfil de cliente
+3. **Filtro de data "Mês" não deve esconder clientes**: O filtro de mês filtra por `created_at`, o que exclui clientes antigos. Para o Kanban, o filtro de data deve ser **opcional/desabilitado por padrão** (`dateFilter` default = `'all'`), ou o filtro deve funcionar como "atividade no mês" em vez de "criado no mês". A correção mais simples: garantir que o filtro default seja `'all'` e não `'month'`.
 
-No `create-admin-user` edge function, apos criar o usuario (que gera perfil via trigger), marcar o perfil como admin-only para que nao apareca na listagem de clientes.
+### Mudanças técnicas
 
-O perfil ja e criado pelo trigger `handle_new_user` e nao podemos evitar isso. A solucao e garantir que a query de clientes no Kanban filtre admins-only (usuarios que tem role admin mas nao tem `brand_processes`).
-
-Na pratica, como o Kanban de clientes ja filtra por `brand_processes` (processo de marca), admins sem processos ja nao aparecem. Preciso verificar se a listagem de clientes tambem filtra corretamente.
-
-#### 3. Corrigir exclusao de Admin para nao afetar perfil
-
-A exclusao de admin (`removeAdminMutation` no SecuritySettings.tsx) ja esta correta -- so remove role e permissions, nao toca no perfil. Nenhuma alteracao necessaria aqui.
-
-### Alteracoes tecnicas
-
-**Ficheiro: `src/components/admin/clients/ClientDetailSheet.tsx`**
-- Modificar `handleDeleteClient` para verificar se o usuario tem role `admin`
-- Se tiver role admin: deletar dados de cliente (processos, contratos, faturas, etc.) mas MANTER o perfil e a role admin
-- Se nao tiver role admin: comportamento atual (deletar tudo)
-
-**Ficheiro: `supabase/functions/create-admin-user/index.ts`**
-- Nenhuma alteracao necessaria no edge function. O trigger `handle_new_user` cria o perfil automaticamente, mas admins sem `brand_processes` nao aparecem no Kanban de clientes.
-
-### Resultado esperado
-
-- Excluir um cliente que tambem e admin: remove dados de cliente, mas admin continua com acesso ao CRM
-- Excluir um admin: remove acesso admin, mas se tiver conta de cliente, continua com acesso a area do cliente
-- Criar um admin: cria apenas acesso admin, sem processos de marca (nao aparece no Kanban de clientes)
-- Unico com conta dupla (admin + cliente): Administrador Master (davillys@gmail.com)
+- Em `getClientsForStage`: verificar se `pipeline_stage` do cliente está entre os IDs das colunas ativas; se não estiver, agrupar na primeira coluna
+- Verificar o estado inicial de `dateFilter` — se está sendo inicializado como `'month'` em vez de `'all'`
 
