@@ -189,7 +189,7 @@ export function ServiceActionPanel({ client, stage, onClose, onUpdate, alreadySe
           payment_method: paymentType === 'avista' ? 'pix' : paymentMethod,
           channels: { email: sendEmail, whatsapp: sendWhatsApp },
           invoice_id: invoiceData?.invoice_id,
-          document_url: docUrl,
+          document_urls: docUrls.map(d => d.url),
         } as any,
       });
 
