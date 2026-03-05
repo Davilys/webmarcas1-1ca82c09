@@ -280,8 +280,8 @@ export default function OptimizationAgent() {
             <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5" />
             <p className="text-xs text-muted-foreground">
               O agente gera <strong>sugestões de otimização</strong> baseadas em dados reais. 
-              Nenhuma alteração é feita automaticamente nas plataformas de anúncios. 
-              Execute as ações manualmente no Meta Ads Manager ou Google Ads.
+              Nenhuma alteração é feita automaticamente na plataforma de anúncios. 
+              Execute as ações manualmente no Meta Ads Manager.
             </p>
           </div>
         </CardContent>

@@ -360,8 +360,30 @@ function LeadFormDialog({ open, onOpenChange, editingLead, onSave }: {
         if (error) throw error;
         toast.success('Lead atualizado!');
       } else {
-        const { error } = await supabase.from('leads').insert(payload);
+        const { data: newLead, error } = await supabase.from('leads').insert(payload).select('id').single();
         if (error) throw error;
+        
+        // Persist UTM params to marketing_attribution
+        if (newLead) {
+          try {
+            const storedUtm = localStorage.getItem('webmarcas_utm_params');
+            if (storedUtm) {
+              const utm = JSON.parse(storedUtm);
+              await supabase.from('marketing_attribution').insert({
+                lead_id: newLead.id,
+                utm_source: utm.utm_source || null,
+                utm_medium: utm.utm_medium || null,
+                utm_campaign: utm.utm_campaign || null,
+                utm_content: utm.utm_content || null,
+                utm_term: utm.utm_term || null,
+                fbclid: utm.fbclid || null,
+                landing_page: utm.landing_page || null,
+                referrer: utm.referrer || null,
+              });
+            }
+          } catch { /* UTM save is non-blocking */ }
+        }
+        
         toast.success('Lead criado!');
       }
       onOpenChange(false);

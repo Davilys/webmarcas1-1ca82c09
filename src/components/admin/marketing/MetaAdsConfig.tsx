@@ -161,10 +161,15 @@ export default function MetaAdsConfig() {
           <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
             <li>Acesse o <strong>Meta Business Suite</strong> e copie o ID da conta de anúncios</li>
             <li>Acesse o <strong>Meta Events Manager</strong> e copie o ID do Pixel</li>
-            <li>Gere um <strong>Access Token</strong> de longa duração no Meta Business Settings</li>
-            <li>O Access Token deve ser configurado nas <strong>variáveis de ambiente</strong> do backend (META_ACCESS_TOKEN)</li>
+            <li>Gere um <strong>Access Token</strong> de longa duração: Meta Business Settings → System Users → Gerar Token</li>
+            <li>Configure o Access Token como <strong>META_ACCESS_TOKEN</strong> e o Pixel como <strong>META_PIXEL_ID</strong> nas configurações de segredos do backend (Lovable Cloud → Secrets)</li>
             <li>Após configurar, clique em <strong>Sincronizar Campanhas</strong> para importar dados</li>
           </ol>
+          <div className="mt-3 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              <strong>⚠️ Importante:</strong> O Access Token NÃO é salvo aqui por segurança. Ele deve ser configurado como secret no backend. Sem ele, a sincronização e envio de eventos de conversão não funcionarão.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
