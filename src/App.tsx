@@ -53,6 +53,7 @@ import AdminPublicacoes from "./pages/admin/Publicacoes";
 import AdminEmails from "./pages/admin/Emails";
 import AdminChatAoVivo from "./pages/admin/ChatAoVivo";
 import AdminPremiacao from "./pages/admin/Premiacao";
+import AdminMarketingIntelligence from "./pages/admin/MarketingIntelligence";
 
 
 // Initialize query client
@@ -113,6 +114,7 @@ const App = () => (
               <Route path="/admin/emails" element={<AdminEmails />} />
               <Route path="/admin/chat-ao-vivo" element={<AdminChatAoVivo />} />
               <Route path="/admin/premiacao" element={<AdminPremiacao />} />
+              <Route path="/admin/marketing" element={<AdminMarketingIntelligence />} />
               
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

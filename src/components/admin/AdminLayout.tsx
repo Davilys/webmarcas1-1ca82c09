@@ -28,6 +28,7 @@ import {
   Moon,
   Sun,
   ArrowLeft,
+  BarChart3,
 } from 'lucide-react';
 import logo from '@/assets/webmarcas-logo.png';
 import logoIcon from '@/assets/webmarcas-icon.png';
@@ -191,6 +192,15 @@ const menuItems: MenuItem[] = [
     iconColor: 'text-amber-500',
     iconBg: 'bg-amber-100 dark:bg-amber-900/30',
     permissionKey: 'awards'
+  },
+  { 
+    icon: BarChart3, 
+    label: 'Marketing Intelligence', 
+    subtitle: 'Campanhas e ROI',
+    href: '/admin/marketing',
+    iconColor: 'text-fuchsia-500',
+    iconBg: 'bg-fuchsia-100 dark:bg-fuchsia-900/30',
+    permissionKey: 'marketing_intelligence'
   },
   { 
     icon: Settings, 
