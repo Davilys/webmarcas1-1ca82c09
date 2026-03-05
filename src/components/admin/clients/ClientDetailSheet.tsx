@@ -1085,6 +1085,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                     {processPublicacoes.length > 0 && (() => {
                       const latestPub = processPublicacoes[0];
                       const STATUS_HEADER: Record<string, { label: string; bg: string }> = {
+                        depositada: { label: 'Depositada', bg: 'bg-blue-400/30' },
                         '003': { label: '003', bg: 'bg-yellow-400/30' },
                         oposicao: { label: 'Oposição', bg: 'bg-orange-400/30' },
                         exigencia_merito: { label: 'Exig. Mérito', bg: 'bg-violet-400/30' },
