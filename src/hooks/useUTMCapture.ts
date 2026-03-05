@@ -9,7 +9,10 @@ export interface UTMParams {
   utm_content?: string;
   utm_term?: string;
   fbclid?: string;
+  gclid?: string;
   captured_at?: string;
+  landing_page?: string;
+  referrer?: string;
 }
 
 export function captureUTMParams(): UTMParams | null {
@@ -19,17 +22,29 @@ export function captureUTMParams(): UTMParams | null {
   const utm: UTMParams = {};
   let hasAny = false;
 
-  const keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid'] as const;
+  const keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid'] as const;
   for (const key of keys) {
     const val = params.get(key);
     if (val) {
-      utm[key] = val;
+      (utm as any)[key] = val;
       hasAny = true;
     }
   }
 
+  // Auto-detect platform from click IDs
+  if (utm.fbclid && !utm.utm_source) {
+    utm.utm_source = 'facebook';
+    hasAny = true;
+  }
+  if (utm.gclid && !utm.utm_source) {
+    utm.utm_source = 'google';
+    hasAny = true;
+  }
+
   if (hasAny) {
     utm.captured_at = new Date().toISOString();
+    utm.landing_page = window.location.pathname;
+    utm.referrer = document.referrer || undefined;
     localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(utm));
     return utm;
   }
@@ -49,10 +64,23 @@ export function clearStoredUTMParams(): void {
   localStorage.removeItem(UTM_STORAGE_KEY);
 }
 
+export function detectPlatform(params: UTMParams | null): string {
+  if (!params) return 'Direto';
+  if (params.fbclid || params.utm_source?.toLowerCase().includes('facebook') || params.utm_source?.toLowerCase().includes('instagram') || params.utm_source?.toLowerCase().includes('meta')) return 'Meta Ads';
+  if (params.gclid || params.utm_source?.toLowerCase().includes('google')) return 'Google Ads';
+  if (params.utm_source) return params.utm_source;
+  if (params.referrer) {
+    if (params.referrer.includes('google')) return 'Google Orgânico';
+    if (params.referrer.includes('facebook') || params.referrer.includes('instagram')) return 'Social Orgânico';
+    return 'Referral';
+  }
+  return 'Direto';
+}
+
 export function useUTMCapture() {
   useEffect(() => {
     captureUTMParams();
   }, []);
 
-  return { getStoredUTMParams, clearStoredUTMParams };
+  return { getStoredUTMParams, clearStoredUTMParams, detectPlatform };
 }
