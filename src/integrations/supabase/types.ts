@@ -2068,16 +2068,169 @@ export type Database = {
           },
         ]
       }
+      marketing_ad_performance: {
+        Row: {
+          ad_id: string | null
+          campaign_id: string | null
+          clicks: number | null
+          conversions: number | null
+          cpc: number | null
+          cpm: number | null
+          created_at: string | null
+          ctr: number | null
+          date: string
+          id: string
+          impressions: number | null
+          leads_count: number | null
+          platform: string
+          revenue: number | null
+          spend: number | null
+        }
+        Insert: {
+          ad_id?: string | null
+          campaign_id?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date: string
+          id?: string
+          impressions?: number | null
+          leads_count?: number | null
+          platform?: string
+          revenue?: number | null
+          spend?: number | null
+        }
+        Update: {
+          ad_id?: string | null
+          campaign_id?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date?: string
+          id?: string
+          impressions?: number | null
+          leads_count?: number | null
+          platform?: string
+          revenue?: number | null
+          spend?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_ad_performance_ad_id_fkey"
+            columns: ["ad_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_ads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_ad_performance_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_ads: {
+        Row: {
+          ad_name: string | null
+          adset_name: string | null
+          campaign_id: string | null
+          clicks: number | null
+          conversions: number | null
+          cpc: number | null
+          cpl: number | null
+          cpm: number | null
+          created_at: string | null
+          ctr: number | null
+          id: string
+          impressions: number | null
+          leads_count: number | null
+          meta_ad_id: string | null
+          meta_adset_id: string | null
+          platform: string
+          revenue: number | null
+          spend: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ad_name?: string | null
+          adset_name?: string | null
+          campaign_id?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          cpl?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          id?: string
+          impressions?: number | null
+          leads_count?: number | null
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          platform?: string
+          revenue?: number | null
+          spend?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ad_name?: string | null
+          adset_name?: string | null
+          campaign_id?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          cpl?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          id?: string
+          impressions?: number | null
+          leads_count?: number | null
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          platform?: string
+          revenue?: number | null
+          spend?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_ads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_attribution: {
         Row: {
+          attribution_model: string | null
           client_id: string | null
+          contract_id: string | null
+          converted_at: string | null
           created_at: string
           fbclid: string | null
+          gclid: string | null
           id: string
+          invoice_id: string | null
+          landing_page: string | null
           lead_id: string | null
           meta_ad_id: string | null
           meta_adset_id: string | null
           meta_campaign_id: string | null
+          referrer: string | null
           revenue: number | null
           utm_campaign: string | null
           utm_content: string | null
@@ -2086,14 +2239,21 @@ export type Database = {
           utm_term: string | null
         }
         Insert: {
+          attribution_model?: string | null
           client_id?: string | null
+          contract_id?: string | null
+          converted_at?: string | null
           created_at?: string
           fbclid?: string | null
+          gclid?: string | null
           id?: string
+          invoice_id?: string | null
+          landing_page?: string | null
           lead_id?: string | null
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_campaign_id?: string | null
+          referrer?: string | null
           revenue?: number | null
           utm_campaign?: string | null
           utm_content?: string | null
@@ -2102,14 +2262,21 @@ export type Database = {
           utm_term?: string | null
         }
         Update: {
+          attribution_model?: string | null
           client_id?: string | null
+          contract_id?: string | null
+          converted_at?: string | null
           created_at?: string
           fbclid?: string | null
+          gclid?: string | null
           id?: string
+          invoice_id?: string | null
+          landing_page?: string | null
           lead_id?: string | null
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_campaign_id?: string | null
+          referrer?: string | null
           revenue?: number | null
           utm_campaign?: string | null
           utm_content?: string | null
@@ -2134,18 +2301,72 @@ export type Database = {
           },
         ]
       }
+      marketing_budget_alerts: {
+        Row: {
+          alert_type: string
+          campaign_id: string | null
+          created_at: string | null
+          current_value: number | null
+          id: string
+          is_triggered: boolean | null
+          resolved_at: string | null
+          threshold_value: number
+          triggered_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          alert_type: string
+          campaign_id?: string | null
+          created_at?: string | null
+          current_value?: number | null
+          id?: string
+          is_triggered?: boolean | null
+          resolved_at?: string | null
+          threshold_value: number
+          triggered_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          alert_type?: string
+          campaign_id?: string | null
+          created_at?: string | null
+          current_value?: number | null
+          id?: string
+          is_triggered?: boolean | null
+          resolved_at?: string | null
+          threshold_value?: number
+          triggered_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_budget_alerts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_campaigns: {
         Row: {
           ad_name: string | null
           adset_name: string | null
           campaign_name: string
           clicks: number | null
+          conversions: number | null
+          cpc: number | null
           cpl: number | null
+          cpm: number | null
           created_at: string
+          ctr: number | null
+          daily_budget: number | null
           id: string
           impressions: number | null
           leads_count: number | null
           meta_campaign_id: string | null
+          monthly_budget_limit: number | null
+          platform: string | null
           revenue: number | null
           roi: number | null
           spend: number | null
@@ -2158,12 +2379,19 @@ export type Database = {
           adset_name?: string | null
           campaign_name: string
           clicks?: number | null
+          conversions?: number | null
+          cpc?: number | null
           cpl?: number | null
+          cpm?: number | null
           created_at?: string
+          ctr?: number | null
+          daily_budget?: number | null
           id?: string
           impressions?: number | null
           leads_count?: number | null
           meta_campaign_id?: string | null
+          monthly_budget_limit?: number | null
+          platform?: string | null
           revenue?: number | null
           roi?: number | null
           spend?: number | null
@@ -2176,12 +2404,19 @@ export type Database = {
           adset_name?: string | null
           campaign_name?: string
           clicks?: number | null
+          conversions?: number | null
+          cpc?: number | null
           cpl?: number | null
+          cpm?: number | null
           created_at?: string
+          ctr?: number | null
+          daily_budget?: number | null
           id?: string
           impressions?: number | null
           leads_count?: number | null
           meta_campaign_id?: string | null
+          monthly_budget_limit?: number | null
+          platform?: string | null
           revenue?: number | null
           roi?: number | null
           spend?: number | null
@@ -2193,33 +2428,126 @@ export type Database = {
       }
       marketing_config: {
         Row: {
+          budget_alert_enabled: boolean | null
           created_at: string
+          google_ads_connected: boolean | null
+          google_ads_customer_id: string | null
           id: string
           is_connected: boolean
           last_sync: string | null
           meta_business_id: string | null
           meta_pixel_id: string | null
+          sync_interval_minutes: number | null
           updated_at: string
         }
         Insert: {
+          budget_alert_enabled?: boolean | null
           created_at?: string
+          google_ads_connected?: boolean | null
+          google_ads_customer_id?: string | null
           id?: string
           is_connected?: boolean
           last_sync?: string | null
           meta_business_id?: string | null
           meta_pixel_id?: string | null
+          sync_interval_minutes?: number | null
           updated_at?: string
         }
         Update: {
+          budget_alert_enabled?: boolean | null
           created_at?: string
+          google_ads_connected?: boolean | null
+          google_ads_customer_id?: string | null
           id?: string
           is_connected?: boolean
           last_sync?: string | null
           meta_business_id?: string | null
           meta_pixel_id?: string | null
+          sync_interval_minutes?: number | null
           updated_at?: string
         }
         Relationships: []
+      }
+      marketing_conversions: {
+        Row: {
+          ad_id: string | null
+          attribution_model: string | null
+          campaign_id: string | null
+          client_id: string | null
+          contract_id: string | null
+          created_at: string | null
+          event_name: string
+          event_value: number | null
+          fbclid: string | null
+          gclid: string | null
+          id: string
+          invoice_id: string | null
+          lead_id: string | null
+          platform: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          ad_id?: string | null
+          attribution_model?: string | null
+          campaign_id?: string | null
+          client_id?: string | null
+          contract_id?: string | null
+          created_at?: string | null
+          event_name: string
+          event_value?: number | null
+          fbclid?: string | null
+          gclid?: string | null
+          id?: string
+          invoice_id?: string | null
+          lead_id?: string | null
+          platform?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          ad_id?: string | null
+          attribution_model?: string | null
+          campaign_id?: string | null
+          client_id?: string | null
+          contract_id?: string | null
+          created_at?: string | null
+          event_name?: string
+          event_value?: number | null
+          fbclid?: string | null
+          gclid?: string | null
+          id?: string
+          invoice_id?: string | null
+          lead_id?: string | null
+          platform?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_conversions_ad_id_fkey"
+            columns: ["ad_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_ads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_conversions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meeting_participants: {
         Row: {
