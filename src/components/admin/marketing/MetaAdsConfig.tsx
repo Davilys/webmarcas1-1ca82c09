@@ -94,10 +94,10 @@ export default function MetaAdsConfig() {
                 Conecte sua conta do Meta Business para sincronizar campanhas e enviar eventos de conversão
               </CardDescription>
             </div>
-            <Badge variant={config?.is_connected ? 'default' : 'secondary'} className="gap-1">
+            <div className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${config?.is_connected ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
               {config?.is_connected ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
               {config?.is_connected ? 'Conectado' : 'Desconectado'}
-            </Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
