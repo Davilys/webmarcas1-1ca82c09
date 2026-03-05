@@ -2865,6 +2865,18 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                               notes: editingBrandData.notes || null,
                                             }).eq('id', brand.id);
                                             if (error) throw error;
+
+                                            // Sync status to linked publicacoes_marcas (moves card in Publicação Kanban)
+                                            const pubStatusMap: Record<string, string> = {
+                                              '003': '003', oposicao: 'oposicao', exigencia_merito: 'exigencia_merito',
+                                              indeferimento: 'indeferimento', deferimento: 'deferimento',
+                                              certificado: 'certificado', renovacao: 'renovacao', arquivado: 'arquivado',
+                                            };
+                                            const mappedPubStatus = pubStatusMap[editingBrandData.status];
+                                            if (mappedPubStatus) {
+                                              await supabase.from('publicacoes_marcas').update({ status: mappedPubStatus }).eq('process_id', brand.id);
+                                            }
+
                                             toast.success('Marca atualizada com sucesso!');
                                             setExpandedBrandId(null);
                                             fetchClientData();
