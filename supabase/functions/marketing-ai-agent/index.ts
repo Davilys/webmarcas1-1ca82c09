@@ -107,11 +107,16 @@ Retorne um JSON com:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "openai/gpt-5-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
+        temperature: 0.4,
+        max_tokens: 1200,
+        top_p: 1,
+        frequency_penalty: 0,
+        presence_penalty: 0,
         stream: false,
       }),
     });
