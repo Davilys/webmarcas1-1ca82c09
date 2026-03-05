@@ -749,8 +749,15 @@ export default function AdminClientes() {
         )}
 
         {/* Client Detail Sheet - lazy loaded */}
-        {detailOpen && (
-          <Suspense fallback={null}>
+        {detailOpen && selectedClient && (
+          <Suspense fallback={
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-card rounded-xl p-6 shadow-lg flex items-center gap-3">
+                <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Carregando ficheiro...</span>
+              </div>
+            </div>
+          }>
             <ClientDetailSheet
               client={selectedClient}
               open={detailOpen}
