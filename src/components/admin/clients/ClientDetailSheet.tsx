@@ -2792,10 +2792,16 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                             <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                                             <SelectContent>
                                               <SelectItem value="em_andamento">Em andamento</SelectItem>
+                                              <SelectItem value="003">003</SelectItem>
+                                              <SelectItem value="oposicao">Oposição</SelectItem>
+                                              <SelectItem value="exigencia_merito">Exigência de Mérito</SelectItem>
                                               <SelectItem value="deferido">Deferido</SelectItem>
+                                              <SelectItem value="deferimento">Deferimento</SelectItem>
                                               <SelectItem value="indeferido">Indeferido</SelectItem>
-                                              <SelectItem value="arquivado">Arquivado</SelectItem>
+                                              <SelectItem value="indeferimento">Indeferimento</SelectItem>
                                               <SelectItem value="certificado">Certificado</SelectItem>
+                                              <SelectItem value="renovacao">Renovação</SelectItem>
+                                              <SelectItem value="arquivado">Arquivado</SelectItem>
                                             </SelectContent>
                                           </Select>
                                         </div>
