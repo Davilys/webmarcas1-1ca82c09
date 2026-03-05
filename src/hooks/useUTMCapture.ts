@@ -35,10 +35,6 @@ export function captureUTMParams(): UTMParams | null {
     utm.utm_source = 'facebook';
     hasAny = true;
   }
-  if (utm.gclid && !utm.utm_source) {
-    utm.utm_source = 'google';
-    hasAny = true;
-  }
 
   if (hasAny) {
     utm.captured_at = new Date().toISOString();
