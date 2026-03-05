@@ -2068,6 +2068,159 @@ export type Database = {
           },
         ]
       }
+      marketing_attribution: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          fbclid: string | null
+          id: string
+          lead_id: string | null
+          meta_ad_id: string | null
+          meta_adset_id: string | null
+          meta_campaign_id: string | null
+          revenue: number | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          fbclid?: string | null
+          id?: string
+          lead_id?: string | null
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_campaign_id?: string | null
+          revenue?: number | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          fbclid?: string | null
+          id?: string
+          lead_id?: string | null
+          meta_ad_id?: string | null
+          meta_adset_id?: string | null
+          meta_campaign_id?: string | null
+          revenue?: number | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_attribution_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_attribution_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_campaigns: {
+        Row: {
+          ad_name: string | null
+          adset_name: string | null
+          campaign_name: string
+          clicks: number | null
+          cpl: number | null
+          created_at: string
+          id: string
+          impressions: number | null
+          leads_count: number | null
+          meta_campaign_id: string | null
+          revenue: number | null
+          roi: number | null
+          spend: number | null
+          status: string | null
+          synced_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          ad_name?: string | null
+          adset_name?: string | null
+          campaign_name: string
+          clicks?: number | null
+          cpl?: number | null
+          created_at?: string
+          id?: string
+          impressions?: number | null
+          leads_count?: number | null
+          meta_campaign_id?: string | null
+          revenue?: number | null
+          roi?: number | null
+          spend?: number | null
+          status?: string | null
+          synced_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ad_name?: string | null
+          adset_name?: string | null
+          campaign_name?: string
+          clicks?: number | null
+          cpl?: number | null
+          created_at?: string
+          id?: string
+          impressions?: number | null
+          leads_count?: number | null
+          meta_campaign_id?: string | null
+          revenue?: number | null
+          roi?: number | null
+          spend?: number | null
+          status?: string | null
+          synced_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      marketing_config: {
+        Row: {
+          created_at: string
+          id: string
+          is_connected: boolean
+          last_sync: string | null
+          meta_business_id: string | null
+          meta_pixel_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_connected?: boolean
+          last_sync?: string | null
+          meta_business_id?: string | null
+          meta_pixel_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_connected?: boolean
+          last_sync?: string | null
+          meta_business_id?: string | null
+          meta_pixel_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       meeting_participants: {
         Row: {
           id: string
