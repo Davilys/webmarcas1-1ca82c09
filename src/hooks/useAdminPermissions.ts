@@ -18,6 +18,7 @@ export const CRM_SECTIONS = [
   { key: 'perfex_integration', label: 'Integração Perfex', description: 'Sincronização CRM' },
   { key: 'awards', label: 'Premiação', description: 'Metas e bonificações' },
   { key: 'publications', label: 'Publicação', description: 'Prazos e publicações de marcas' },
+  { key: 'marketing_intelligence', label: 'Marketing Intelligence', description: 'Campanhas e ROI' },
   { key: 'settings', label: 'Configurações', description: 'Preferências do sistema' },
 ] as const;
 
