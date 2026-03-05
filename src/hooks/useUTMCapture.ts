@@ -21,7 +21,7 @@ export function captureUTMParams(): UTMParams | null {
   const utm: UTMParams = {};
   let hasAny = false;
 
-  const keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid'] as const;
+  const keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid'] as const;
   for (const key of keys) {
     const val = params.get(key);
     if (val) {
