@@ -1017,7 +1017,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
   const activeStages = dynamicServiceStages || fallbackStages;
   const currentStage = activeStages.find(s => s.id === (editData.pipeline_stage || client.pipeline_stage || 'protocolado'));
   const priCfg = PRIORITY_CONFIG[client.priority || 'medium'] || PRIORITY_CONFIG.medium;
-  const initials = (client.full_name || 'C').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+  const initials = (client.full_name || 'C').trim().split(/\s+/).filter(Boolean).map(n => n[0] || '').slice(0, 2).join('').toUpperCase() || 'C';
   const isSigned = invoices.length > 0 || documents.length > 0;
   const contractValue = editData.contract_value || client.contract_value || 0;
 
