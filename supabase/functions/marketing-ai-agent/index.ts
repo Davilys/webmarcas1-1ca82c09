@@ -27,7 +27,7 @@ serve(async (req) => {
 Gere anúncios persuasivos e profissionais em português brasileiro.
 Responda APENAS com o JSON no formato solicitado, sem texto adicional.`;
 
-      userPrompt = `Gere um anúncio para ${platform === 'google' ? 'Google Ads' : 'Meta Ads (Facebook/Instagram)'}.
+      userPrompt = `Gere um anúncio para Meta Ads (Facebook/Instagram).
 
 Campanha: ${campaign_name || 'Registro de Marcas'}
 Público-alvo: ${target_audience || 'Empreendedores e donos de empresas'}
@@ -35,8 +35,8 @@ Objetivo: ${objective || 'Gerar leads para consulta de viabilidade de marca'}
 
 Retorne um JSON com:
 {
-  "headline": "título do anúncio (máx 40 caracteres para Google, 40 para Meta)",
-  "primary_text": "texto principal do anúncio (máx 125 caracteres para Meta, 90 para Google)",
+  "headline": "título do anúncio (máx 40 caracteres)",
+  "primary_text": "texto principal do anúncio (máx 125 caracteres)",
   "description": "descrição complementar (máx 90 caracteres)",
   "call_to_action": "texto do botão CTA",
   "variations": [
