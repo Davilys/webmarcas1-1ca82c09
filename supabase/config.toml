@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.send-meta-conversion]
 verify_jwt = false
+
+[functions.marketing-ai-agent]
+verify_jwt = false

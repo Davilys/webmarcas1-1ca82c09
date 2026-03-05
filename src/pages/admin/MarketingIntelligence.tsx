@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   BarChart3, Settings, Link2, Users, Brain, AlertTriangle,
   Megaphone, TrendingDown, Clock, Sparkles, Key, Activity, Zap,
-  DollarSign, ArrowRight, TrendingUp, Search,
+  DollarSign, ArrowRight, TrendingUp, Search, Wand2, FlaskConical, Target,
 } from 'lucide-react';
 import MarketingOverview from '@/components/admin/marketing/MarketingOverview';
 import MetaAdsConfig from '@/components/admin/marketing/MetaAdsConfig';
@@ -11,7 +11,6 @@ import GoogleAdsConfig from '@/components/admin/marketing/GoogleAdsConfig';
 import CampaignTable from '@/components/admin/marketing/CampaignTable';
 import AttributionPanel from '@/components/admin/marketing/AttributionPanel';
 import AudienceExport from '@/components/admin/marketing/AudienceExport';
-import AIOptimization from '@/components/admin/marketing/AIOptimization';
 import MarketingAlerts from '@/components/admin/marketing/MarketingAlerts';
 import ConversionFunnelModule from '@/components/admin/marketing/ConversionFunnelModule';
 import HeatmapModule from '@/components/admin/marketing/HeatmapModule';
@@ -22,7 +21,10 @@ import PixelEventTracking from '@/components/admin/marketing/PixelEventTracking'
 import BudgetControl from '@/components/admin/marketing/BudgetControl';
 import ConversionsTracker from '@/components/admin/marketing/ConversionsTracker';
 import AdPerformanceHistory from '@/components/admin/marketing/AdPerformanceHistory';
-import MetaAIAgent from '@/components/admin/marketing/MetaAIAgent';
+import AdCopyGenerator from '@/components/admin/marketing/AdCopyGenerator';
+import ABTestManager from '@/components/admin/marketing/ABTestManager';
+import AudienceSuggester from '@/components/admin/marketing/AudienceSuggester';
+import OptimizationAgent from '@/components/admin/marketing/OptimizationAgent';
 
 export default function MarketingIntelligence() {
   return (
@@ -31,7 +33,7 @@ export default function MarketingIntelligence() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Marketing Intelligence</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            CRM + Growth Marketing + BI de Anúncios — Análise completa de campanhas, atribuição, ROI e otimização por IA
+            CRM + Growth Marketing + BI de Anúncios — Análise, geração de anúncios com IA e otimização completa
           </p>
         </div>
 
@@ -85,17 +87,25 @@ export default function MarketingIntelligence() {
               <Users className="h-3 w-3" />
               Públicos
             </TabsTrigger>
+            <TabsTrigger value="audience-ai" className="gap-1.5 text-xs">
+              <Target className="h-3 w-3" />
+              Público IA
+            </TabsTrigger>
             <TabsTrigger value="prediction" className="gap-1.5 text-xs">
               <Sparkles className="h-3 w-3" />
               Previsão
             </TabsTrigger>
-            <TabsTrigger value="ai" className="gap-1.5 text-xs">
-              <Brain className="h-3 w-3" />
-              IA
+            <TabsTrigger value="ad-generator" className="gap-1.5 text-xs">
+              <Wand2 className="h-3 w-3" />
+              Gerador IA
+            </TabsTrigger>
+            <TabsTrigger value="ab-test" className="gap-1.5 text-xs">
+              <FlaskConical className="h-3 w-3" />
+              Teste A/B
             </TabsTrigger>
             <TabsTrigger value="agent" className="gap-1.5 text-xs">
               <Brain className="h-3 w-3" />
-              Agente
+              Agente IA
             </TabsTrigger>
             <TabsTrigger value="alerts" className="gap-1.5 text-xs">
               <AlertTriangle className="h-3 w-3" />
@@ -123,9 +133,11 @@ export default function MarketingIntelligence() {
           <TabsContent value="budget"><BudgetControl /></TabsContent>
           <TabsContent value="heatmap"><HeatmapModule /></TabsContent>
           <TabsContent value="audiences"><AudienceExport /></TabsContent>
+          <TabsContent value="audience-ai"><AudienceSuggester /></TabsContent>
           <TabsContent value="prediction"><CampaignPrediction /></TabsContent>
-          <TabsContent value="ai"><AIOptimization /></TabsContent>
-          <TabsContent value="agent"><MetaAIAgent /></TabsContent>
+          <TabsContent value="ad-generator"><AdCopyGenerator /></TabsContent>
+          <TabsContent value="ab-test"><ABTestManager /></TabsContent>
+          <TabsContent value="agent"><OptimizationAgent /></TabsContent>
           <TabsContent value="alerts"><MarketingAlerts /></TabsContent>
           <TabsContent value="config-meta"><MetaAdsConfig /></TabsContent>
           <TabsContent value="config-google"><GoogleAdsConfig /></TabsContent>

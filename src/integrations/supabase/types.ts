@@ -2068,6 +2068,109 @@ export type Database = {
           },
         ]
       }
+      marketing_ab_tests: {
+        Row: {
+          campaign_id: string | null
+          created_at: string | null
+          created_by: string | null
+          ended_at: string | null
+          id: string
+          started_at: string | null
+          status: string | null
+          test_name: string
+          winner_variant: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          ended_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string | null
+          test_name: string
+          winner_variant?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          ended_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string | null
+          test_name?: string
+          winner_variant?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_ab_tests_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_ab_variants: {
+        Row: {
+          clicks: number | null
+          conversions: number | null
+          cpl: number | null
+          created_at: string | null
+          ctr: number | null
+          headline: string | null
+          id: string
+          impressions: number | null
+          leads: number | null
+          primary_text: string | null
+          spend: number | null
+          test_id: string
+          updated_at: string | null
+          variant_name: string
+        }
+        Insert: {
+          clicks?: number | null
+          conversions?: number | null
+          cpl?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          headline?: string | null
+          id?: string
+          impressions?: number | null
+          leads?: number | null
+          primary_text?: string | null
+          spend?: number | null
+          test_id: string
+          updated_at?: string | null
+          variant_name: string
+        }
+        Update: {
+          clicks?: number | null
+          conversions?: number | null
+          cpl?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          headline?: string | null
+          id?: string
+          impressions?: number | null
+          leads?: number | null
+          primary_text?: string | null
+          spend?: number | null
+          test_id?: string
+          updated_at?: string | null
+          variant_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_ab_variants_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_ab_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_ad_performance: {
         Row: {
           ad_id: string | null
@@ -2300,6 +2403,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      marketing_audience_suggestions: {
+        Row: {
+          confidence_score: number | null
+          created_at: string | null
+          description: string | null
+          estimated_reach: string | null
+          id: string
+          is_applied: boolean | null
+          name: string
+          source: string | null
+          suggestion_type: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string | null
+          description?: string | null
+          estimated_reach?: string | null
+          id?: string
+          is_applied?: boolean | null
+          name: string
+          source?: string | null
+          suggestion_type?: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string | null
+          description?: string | null
+          estimated_reach?: string | null
+          id?: string
+          is_applied?: boolean | null
+          name?: string
+          source?: string | null
+          suggestion_type?: string
+        }
+        Relationships: []
       }
       marketing_budget_alerts: {
         Row: {
@@ -2548,6 +2687,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      marketing_generated_ads: {
+        Row: {
+          call_to_action: string | null
+          campaign_name: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          generated_by: string | null
+          headline: string
+          id: string
+          objective: string | null
+          platform: string
+          primary_text: string
+          status: string | null
+          target_audience: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          call_to_action?: string | null
+          campaign_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          generated_by?: string | null
+          headline: string
+          id?: string
+          objective?: string | null
+          platform?: string
+          primary_text: string
+          status?: string | null
+          target_audience?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          call_to_action?: string | null
+          campaign_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          generated_by?: string | null
+          headline?: string
+          id?: string
+          objective?: string | null
+          platform?: string
+          primary_text?: string
+          status?: string | null
+          target_audience?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       meeting_participants: {
         Row: {
