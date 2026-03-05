@@ -9,7 +9,6 @@ export interface UTMParams {
   utm_content?: string;
   utm_term?: string;
   fbclid?: string;
-  gclid?: string;
   captured_at?: string;
   landing_page?: string;
   referrer?: string;
