@@ -3,9 +3,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   BarChart3, Settings, Link2, Users, Brain, AlertTriangle,
   Megaphone, TrendingDown, Clock, Sparkles, Key, Activity, Zap,
+  DollarSign, ArrowRight, TrendingUp, Search,
 } from 'lucide-react';
 import MarketingOverview from '@/components/admin/marketing/MarketingOverview';
 import MetaAdsConfig from '@/components/admin/marketing/MetaAdsConfig';
+import GoogleAdsConfig from '@/components/admin/marketing/GoogleAdsConfig';
 import CampaignTable from '@/components/admin/marketing/CampaignTable';
 import AttributionPanel from '@/components/admin/marketing/AttributionPanel';
 import AudienceExport from '@/components/admin/marketing/AudienceExport';
@@ -17,6 +19,10 @@ import CampaignPrediction from '@/components/admin/marketing/CampaignPrediction'
 import KeywordAnalysis from '@/components/admin/marketing/KeywordAnalysis';
 import LeadScoringModule from '@/components/admin/marketing/LeadScoringModule';
 import PixelEventTracking from '@/components/admin/marketing/PixelEventTracking';
+import BudgetControl from '@/components/admin/marketing/BudgetControl';
+import ConversionsTracker from '@/components/admin/marketing/ConversionsTracker';
+import AdPerformanceHistory from '@/components/admin/marketing/AdPerformanceHistory';
+import MetaAIAgent from '@/components/admin/marketing/MetaAIAgent';
 
 export default function MarketingIntelligence() {
   return (
@@ -25,7 +31,7 @@ export default function MarketingIntelligence() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Marketing Intelligence</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Análise de campanhas, atribuição de leads, otimização de ROI e inteligência de Growth Marketing
+            CRM + Growth Marketing + BI de Anúncios — Análise completa de campanhas, atribuição, ROI e otimização por IA
           </p>
         </div>
 
@@ -33,15 +39,19 @@ export default function MarketingIntelligence() {
           <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
             <TabsTrigger value="overview" className="gap-1.5 text-xs">
               <BarChart3 className="h-3 w-3" />
-              Visão Geral
-            </TabsTrigger>
-            <TabsTrigger value="funnel" className="gap-1.5 text-xs">
-              <TrendingDown className="h-3 w-3" />
-              Funil
+              Dashboard
             </TabsTrigger>
             <TabsTrigger value="campaigns" className="gap-1.5 text-xs">
               <Megaphone className="h-3 w-3" />
               Campanhas
+            </TabsTrigger>
+            <TabsTrigger value="conversions" className="gap-1.5 text-xs">
+              <ArrowRight className="h-3 w-3" />
+              Conversões
+            </TabsTrigger>
+            <TabsTrigger value="funnel" className="gap-1.5 text-xs">
+              <TrendingDown className="h-3 w-3" />
+              Funil
             </TabsTrigger>
             <TabsTrigger value="attribution" className="gap-1.5 text-xs">
               <Link2 className="h-3 w-3" />
@@ -51,6 +61,10 @@ export default function MarketingIntelligence() {
               <Zap className="h-3 w-3" />
               Eventos
             </TabsTrigger>
+            <TabsTrigger value="performance" className="gap-1.5 text-xs">
+              <TrendingUp className="h-3 w-3" />
+              Histórico
+            </TabsTrigger>
             <TabsTrigger value="scoring" className="gap-1.5 text-xs">
               <Activity className="h-3 w-3" />
               Lead Score
@@ -58,6 +72,10 @@ export default function MarketingIntelligence() {
             <TabsTrigger value="keywords" className="gap-1.5 text-xs">
               <Key className="h-3 w-3" />
               Keywords
+            </TabsTrigger>
+            <TabsTrigger value="budget" className="gap-1.5 text-xs">
+              <DollarSign className="h-3 w-3" />
+              Orçamento
             </TabsTrigger>
             <TabsTrigger value="heatmap" className="gap-1.5 text-xs">
               <Clock className="h-3 w-3" />
@@ -75,29 +93,42 @@ export default function MarketingIntelligence() {
               <Brain className="h-3 w-3" />
               IA
             </TabsTrigger>
+            <TabsTrigger value="agent" className="gap-1.5 text-xs">
+              <Brain className="h-3 w-3" />
+              Agente
+            </TabsTrigger>
             <TabsTrigger value="alerts" className="gap-1.5 text-xs">
               <AlertTriangle className="h-3 w-3" />
               Alertas
             </TabsTrigger>
-            <TabsTrigger value="config" className="gap-1.5 text-xs">
+            <TabsTrigger value="config-meta" className="gap-1.5 text-xs">
               <Settings className="h-3 w-3" />
-              Config
+              Meta
+            </TabsTrigger>
+            <TabsTrigger value="config-google" className="gap-1.5 text-xs">
+              <Search className="h-3 w-3" />
+              Google
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview"><MarketingOverview /></TabsContent>
-          <TabsContent value="funnel"><ConversionFunnelModule /></TabsContent>
           <TabsContent value="campaigns"><CampaignTable /></TabsContent>
+          <TabsContent value="conversions"><ConversionsTracker /></TabsContent>
+          <TabsContent value="funnel"><ConversionFunnelModule /></TabsContent>
           <TabsContent value="attribution"><AttributionPanel /></TabsContent>
           <TabsContent value="pixels"><PixelEventTracking /></TabsContent>
+          <TabsContent value="performance"><AdPerformanceHistory /></TabsContent>
           <TabsContent value="scoring"><LeadScoringModule /></TabsContent>
           <TabsContent value="keywords"><KeywordAnalysis /></TabsContent>
+          <TabsContent value="budget"><BudgetControl /></TabsContent>
           <TabsContent value="heatmap"><HeatmapModule /></TabsContent>
           <TabsContent value="audiences"><AudienceExport /></TabsContent>
           <TabsContent value="prediction"><CampaignPrediction /></TabsContent>
           <TabsContent value="ai"><AIOptimization /></TabsContent>
+          <TabsContent value="agent"><MetaAIAgent /></TabsContent>
           <TabsContent value="alerts"><MarketingAlerts /></TabsContent>
-          <TabsContent value="config"><MetaAdsConfig /></TabsContent>
+          <TabsContent value="config-meta"><MetaAdsConfig /></TabsContent>
+          <TabsContent value="config-google"><GoogleAdsConfig /></TabsContent>
         </Tabs>
       </div>
     </AdminLayout>
