@@ -194,6 +194,15 @@ const menuItems: MenuItem[] = [
     permissionKey: 'awards'
   },
   { 
+    icon: BarChart3, 
+    label: 'Marketing Intelligence', 
+    subtitle: 'Campanhas e ROI',
+    href: '/admin/marketing',
+    iconColor: 'text-fuchsia-500',
+    iconBg: 'bg-fuchsia-100 dark:bg-fuchsia-900/30',
+    permissionKey: 'marketing_intelligence'
+  },
+  { 
     icon: Settings, 
     label: 'Configurações', 
     subtitle: 'Preferências do sistema',

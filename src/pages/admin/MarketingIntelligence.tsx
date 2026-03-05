@@ -1,4 +1,4 @@
-import AdminLayout from '@/components/admin/AdminLayout';
+import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart3, Settings, Link2, Users, Brain, AlertTriangle, Megaphone } from 'lucide-react';
 import MarketingOverview from '@/components/admin/marketing/MarketingOverview';

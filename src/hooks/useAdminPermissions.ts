@@ -59,6 +59,7 @@ const PATH_TO_PERMISSION_KEY: Record<string, PermissionKey> = {
   '/admin/integracao-perfex': 'perfex_integration',
   '/admin/premiacao': 'awards',
   '/admin/publicacao': 'publications',
+  '/admin/marketing': 'marketing_intelligence',
   '/admin/configuracoes': 'settings',
 };
 

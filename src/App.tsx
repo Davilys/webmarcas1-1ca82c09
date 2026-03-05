@@ -114,6 +114,7 @@ const App = () => (
               <Route path="/admin/emails" element={<AdminEmails />} />
               <Route path="/admin/chat-ao-vivo" element={<AdminChatAoVivo />} />
               <Route path="/admin/premiacao" element={<AdminPremiacao />} />
+              <Route path="/admin/marketing" element={<AdminMarketingIntelligence />} />
               
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
