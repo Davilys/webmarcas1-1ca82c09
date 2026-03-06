@@ -77,11 +77,13 @@ export function ContractStep({
 
     onSelectedClassesChange?.(newList);
 
-    // Recalculate value: at least 1 class
-    const classCount = Math.max(newList.length, 1);
-    const newValue = classCount * getUnitPrice();
-    onPaymentValueChange?.(newValue);
-  }, [selectedClasses, onSelectedClassesChange, onPaymentValueChange, getUnitPrice]);
+    // Corporativo: unlimited registrations, no price change
+    if (plan !== 'corporativo') {
+      const classCount = Math.max(newList.length, 1);
+      const newValue = classCount * getUnitPrice();
+      onPaymentValueChange?.(newValue);
+    }
+  }, [selectedClasses, onSelectedClassesChange, onPaymentValueChange, getUnitPrice, plan]);
 
   const getProcessedContract = useCallback(() => {
     if (!template) return '';
