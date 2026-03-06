@@ -711,7 +711,9 @@ export function generateContractPrintHTML(
   
   <!-- Light Blue Box with Contract Title -->
   <div class="contract-title-box">
-    <p>CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br/>PARA REGISTRO DE MARCA JUNTO AO INPI</p>
+    <p>${contractTitle 
+      ? contractTitle.replace(/ PARA /g, '<br/>PARA ') 
+      : 'CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br/>PARA REGISTRO DE MARCA JUNTO AO INPI'}</p>
   </div>
   
   <!-- Yellow Highlight Section - LEFT BORDER ONLY -->
