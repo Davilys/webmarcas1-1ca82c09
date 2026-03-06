@@ -465,11 +465,39 @@ export default function AdminContratos() {
 
   const CONTRACT_TABS = [
     { value: 'all', label: 'Todos' },
-    { value: 'Contrato Padrão - Registro de Marca INPI', label: 'Contrato Padrão' },
-    { value: 'Procuração INPI - Padrão', label: 'Procuração' },
-    { value: 'Distrato sem Multa - Padrão', label: 'Distrato sem Multa' },
-    { value: 'Distrato com Multa - Padrão', label: 'Distrato com Multa' },
+    { value: 'padrao', label: 'Contrato Padrão' },
+    { value: 'premium', label: 'Contrato Premium' },
+    { value: 'corporativo', label: 'Contrato Corporativo' },
+    { value: 'procuracao', label: 'Procuração' },
+    { value: 'distrato_sem', label: 'Distrato sem Multa' },
+    { value: 'distrato_com', label: 'Distrato com Multa' },
   ];
+
+  const getContractTabMatch = (contract: Contract, tab: string): boolean => {
+    if (tab === 'all') return true;
+    const templateName = (contract.contract_template?.name || '').toLowerCase();
+    const typeName = (contract.contract_type?.name || '').toLowerCase();
+    const subject = (contract.subject || '').toLowerCase();
+    const combined = `${templateName} ${typeName} ${subject}`;
+
+    switch (tab) {
+      case 'padrao':
+        return (combined.includes('padrão') || combined.includes('padrao')) && 
+               !combined.includes('premium') && !combined.includes('corporativ');
+      case 'premium':
+        return combined.includes('premium');
+      case 'corporativo':
+        return combined.includes('corporativ');
+      case 'procuracao':
+        return combined.includes('procura');
+      case 'distrato_sem':
+        return combined.includes('distrato') && combined.includes('sem');
+      case 'distrato_com':
+        return combined.includes('distrato') && combined.includes('com') && !combined.includes('sem');
+      default:
+        return true;
+    }
+  };
 
   const filteredContracts = contracts.filter(contract => {
     const clientName = contract.profile?.full_name || '';
@@ -483,9 +511,7 @@ export default function AdminContratos() {
       (signatureFilter === 'signed' && contract.signature_status === 'signed') ||
       (signatureFilter === 'not_signed' && contract.signature_status !== 'signed');
 
-    const matchesTab = 
-      activeTab === 'all' || 
-      contract.contract_template?.name === activeTab;
+    const matchesTab = getContractTabMatch(contract, activeTab);
 
     let matchesDate = true;
     if (dateFilter !== 'all' && contract.created_at) {
