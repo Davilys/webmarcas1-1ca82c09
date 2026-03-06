@@ -248,14 +248,15 @@ export function ContractStep({
         </div>
       </div>
 
-      {/* Upsell: suggested classes not in initial selection — only for essencial plan */}
-      {plan === 'essencial' && (() => {
+      {/* Upsell: suggested classes not in initial selection — all plans */}
+      {(() => {
         const extraClasses = (suggestedClasses || []).filter(
           cls => !initialSelectedRef.current.includes(cls)
         );
         if (extraClasses.length === 0) return null;
         const unitPrice = getUnitPrice();
         const totalSuggested = (suggestedClasses || []).length;
+        const isCorporativo = plan === 'corporativo';
         return (
           <div className="rounded-2xl border border-primary/30 bg-primary/5 overflow-hidden">
             <div className="p-4 border-b border-primary/20 bg-primary/10 flex items-center gap-2">
@@ -271,6 +272,11 @@ export function ContractStep({
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Sem o registro nestas categorias, terceiros podem usar sua marca legalmente nesses segmentos. A proteção parcial deixa sua marca vulnerável.
               </p>
+              {isCorporativo && (
+                <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                  ✓ Todas as classes estão inclusas no seu Plano Corporativo — sem custo adicional.
+                </p>
+              )}
               <div className="space-y-2 pt-1">
                 {extraClasses.map((cls) => {
                   const idx = (suggestedClasses || []).indexOf(cls);
@@ -306,8 +312,11 @@ export function ContractStep({
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
                       </div>
-                      <span className="shrink-0 text-xs font-semibold text-primary">
-                        +{formatCurrency(unitPrice)}
+                      <span className={cn(
+                        "shrink-0 text-xs font-semibold",
+                        isCorporativo ? "text-emerald-600 dark:text-emerald-400" : "text-primary"
+                      )}>
+                        {isCorporativo ? 'Incluso' : `+${formatCurrency(unitPrice)}`}
                       </span>
                     </label>
                   );
