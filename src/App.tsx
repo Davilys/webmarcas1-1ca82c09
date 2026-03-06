@@ -2,7 +2,21 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+
+const SectionRedirect = ({ section }: { section: string }) => {
+  const navigate = useNavigate();
+  useEffect(() => {
+    navigate('/', { replace: true });
+    setTimeout(() => {
+      const el = document.getElementById(section);
+      el?.scrollIntoView({ behavior: 'smooth' });
+    }, 300);
+  }, []);
+  return null;
+};
+
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ChatModeProvider } from "@/contexts/ChatModeContext";
@@ -83,6 +97,14 @@ const App = () => (
               <Route path="/blog" element={<Blog />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
               <Route path="/termos-de-uso" element={<TermosUso />} />
+              
+              {/* Section redirects - handle URLs without # */}
+              <Route path="/beneficios" element={<SectionRedirect section="beneficios" />} />
+              <Route path="/como-funciona" element={<SectionRedirect section="como-funciona" />} />
+              <Route path="/precos" element={<SectionRedirect section="precos" />} />
+              <Route path="/faq" element={<SectionRedirect section="faq" />} />
+              <Route path="/consultar" element={<SectionRedirect section="consultar" />} />
+              <Route path="/home" element={<SectionRedirect section="home" />} />
               
               {/* Área do Cliente */}
               <Route path="/cliente/login" element={<ClienteLogin />} />
