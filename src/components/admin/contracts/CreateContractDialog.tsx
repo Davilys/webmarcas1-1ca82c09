@@ -378,10 +378,9 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     setProfiles(allProfiles);
     setTemplates(templatesRes.data || []);
 
-    // Auto-select the standard contract template for new clients
+    // Auto-select the standard "Padrão" contract template
     const standardTemplate = templatesRes.data?.find(t => 
-      t.name.toLowerCase().includes('registro de marca') || 
-      t.name.toLowerCase().includes('padrão')
+      t.name.toLowerCase().includes('padrão') && t.name.toLowerCase().includes('registro de marca')
     );
     if (standardTemplate) {
       setSelectedTemplate(standardTemplate);
@@ -1119,6 +1118,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       penalty_installments: '1',
     });
     setSelectedProfile(null);
+    setSelectedTemplate(null);
     setClientSearch('');
     setClientDropdownOpen(false);
     setGeneratedLink(null);
@@ -1215,8 +1215,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       setSelectedProfile(null);
       // Force standard template for new clients
       const standardTemplate = templates.find(t => 
-        t.name.toLowerCase().includes('registro de marca') || 
-        t.name.toLowerCase().includes('padrão')
+        t.name.toLowerCase().includes('padrão') && t.name.toLowerCase().includes('registro de marca')
       );
       if (standardTemplate) {
         setSelectedTemplate(standardTemplate);
