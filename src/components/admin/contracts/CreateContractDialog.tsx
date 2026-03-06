@@ -1215,8 +1215,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       setSelectedProfile(null);
       // Force standard template for new clients
       const standardTemplate = templates.find(t => 
-        t.name.toLowerCase().includes('registro de marca') || 
-        t.name.toLowerCase().includes('padrão')
+        t.name.toLowerCase().includes('padrão') && t.name.toLowerCase().includes('registro de marca')
       );
       if (standardTemplate) {
         setSelectedTemplate(standardTemplate);
