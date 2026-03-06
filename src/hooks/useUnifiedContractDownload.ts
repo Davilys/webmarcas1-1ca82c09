@@ -507,10 +507,11 @@ export async function downloadUnifiedContractPDF(options: UnifiedContractDownloa
     documentType,
     subject,
     blockchainSignature,
+    contractTitle,
   } = options;
 
   const logoBase64 = await getLogoBase64();
-  let printHtml = generateContractHTML(content, logoBase64, blockchainSignature, documentType);
+  let printHtml = generateContractHTML(content, logoBase64, blockchainSignature, documentType, contractTitle);
   
   // Add print-specific styles and floating save button
   const printStyles = `
