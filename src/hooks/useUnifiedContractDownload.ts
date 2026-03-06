@@ -17,6 +17,7 @@ export interface UnifiedContractDownloadOptions {
   signatoryCnpj?: string;
   clientSignature?: string | null;
   blockchainSignature?: BlockchainSignature;
+  contractTitle?: string;
 }
 
 /**
