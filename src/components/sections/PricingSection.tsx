@@ -174,7 +174,7 @@ const PricingSection = () => {
               </div>
 
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-6 text-center">
-                <span className="text-xs font-semibold text-primary">✨ Taxas INPI + Recursos + Oposições = INCLUSO</span>
+                <span className="text-xs font-semibold text-primary">✨ Recursos + Oposições + Exigências = INCLUSO</span>
               </div>
 
               <ul className="space-y-3 mb-6 flex-1">
