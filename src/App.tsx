@@ -84,6 +84,14 @@ const App = () => (
               <Route path="/blog/:slug" element={<BlogPost />} />
               <Route path="/termos-de-uso" element={<TermosUso />} />
               
+              {/* Section redirects - handle URLs without # */}
+              <Route path="/beneficios" element={<SectionRedirect section="beneficios" />} />
+              <Route path="/como-funciona" element={<SectionRedirect section="como-funciona" />} />
+              <Route path="/precos" element={<SectionRedirect section="precos" />} />
+              <Route path="/faq" element={<SectionRedirect section="faq" />} />
+              <Route path="/consultar" element={<SectionRedirect section="consultar" />} />
+              <Route path="/home" element={<SectionRedirect section="home" />} />
+              
               {/* Área do Cliente */}
               <Route path="/cliente/login" element={<ClienteLogin />} />
               <Route path="/cliente/dashboard" element={<ClienteDashboard />} />
