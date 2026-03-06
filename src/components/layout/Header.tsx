@@ -38,6 +38,7 @@ const Header = () => {
     { label: t("nav.benefits"), href: "#beneficios", external: false, isRoute: false },
     { label: t("nav.howItWorks"), href: "#como-funciona", external: false, isRoute: false },
     { label: t("nav.pricing"), href: "#precos", external: false, isRoute: false },
+    { label: "Blog", href: "/blog", external: false, isRoute: true },
     { label: t("nav.faq"), href: "#faq", external: false, isRoute: false },
     { label: t("nav.register"), href: "/registrar", external: false, isRoute: true },
   ];

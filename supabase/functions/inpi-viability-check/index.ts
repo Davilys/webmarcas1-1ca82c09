@@ -200,7 +200,65 @@ async function searchDuckDuckGo(query: string): Promise<Array<{ title: string; u
   }
 }
 
-// ========== ETAPA 3: Consulta INPI via DuckDuckGo + IA ==========
+// ========== ETAPA 3: Consulta INPI via Firecrawl (real) + fallback DuckDuckGo ==========
+
+// Busca real no portal do INPI usando Firecrawl para renderizar a SPA React
+async function searchINPIViaFirecrawl(brandName: string): Promise<string | null> {
+  const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!FIRECRAWL_API_KEY) {
+    console.log('[INPI-FC] FIRECRAWL_API_KEY não configurada, pulando Firecrawl');
+    return null;
+  }
+
+  try {
+    const searchUrl = `https://servicos.busca.inpi.gov.br/marcas/search?q=${encodeURIComponent(brandName)}&searchType=quick`;
+    console.log(`[INPI-FC] Scraping: ${searchUrl}`);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: searchUrl,
+        formats: ['markdown'],
+        onlyMainContent: true,
+        waitFor: 5000,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[INPI-FC] Firecrawl HTTP ${response.status}: ${errText}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const markdown = data.data?.markdown || data.markdown || '';
+    console.log(`[INPI-FC] Markdown recebido: ${markdown.length} chars`);
+
+    if (markdown.length < 20) {
+      console.warn('[INPI-FC] Markdown muito curto, possível falha no carregamento');
+      return null;
+    }
+
+    return markdown;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn('[INPI-FC] Timeout após 25s');
+    } else {
+      console.error('[INPI-FC] Erro:', error);
+    }
+    return null;
+  }
+}
+
 async function searchINPI(brandName: string, mainClass: number): Promise<{
   totalResultados: number;
   resultados: Array<{ processo: string; marca: string; situacao: string; classe: string; titular: string }>;
@@ -209,21 +267,99 @@ async function searchINPI(brandName: string, mainClass: number): Promise<{
 }> {
   const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
+  // TENTATIVA 1: Firecrawl (busca real no portal INPI)
+  const firecrawlMarkdown = await searchINPIViaFirecrawl(brandName);
+
+  if (firecrawlMarkdown) {
+    // Verificar se não há resultados
+    const noResultsPatterns = [
+      'nenhum resultado encontrado',
+      'nenhum resultado',
+      'no results found',
+      '0 resultados',
+      'não foram encontrados',
+    ];
+    const lowerMarkdown = firecrawlMarkdown.toLowerCase();
+    const hasNoResults = noResultsPatterns.some(p => lowerMarkdown.includes(p));
+
+    if (hasNoResults) {
+      console.log('[INPI] Firecrawl: NENHUM resultado encontrado — marca disponível');
+      return { totalResultados: 0, resultados: [], consultadoEm: now };
+    }
+
+    // Há resultados — extrair via IA
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (LOVABLE_API_KEY) {
+      try {
+        console.log('[INPI] Extraindo dados estruturados do markdown real do INPI...');
+        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'openai/gpt-5.2',
+            messages: [
+              {
+                role: 'system',
+                content: `Você é um parser especializado em dados do INPI Brasil. Analise o conteúdo markdown retornado da busca oficial de marcas do INPI e extraia todos os processos encontrados.
+
+Para cada processo, extraia:
+- processo: número do processo (ex: "930072960")
+- marca: nome da marca
+- situacao: status exato (ex: "Registro de marca em vigor", "Pedido definitivamente arquivado", "Pedido depositado", etc.)
+- classe: classe NCL se disponível (ex: "35")
+- titular: nome do titular
+
+Responda APENAS em JSON válido:
+{"totalResultados": N, "resultados": [{"processo": "...", "marca": "...", "situacao": "...", "classe": "...", "titular": "..."}]}
+
+Se o texto mencionar quantidade de resultados (ex: "Mostrando 1 - 2 de um total de 2 resultados"), use esse número.
+NÃO invente dados. Extraia APENAS do conteúdo fornecido.`
+              },
+              {
+                role: 'user',
+                content: `Conteúdo da busca no INPI para a marca "${brandName}":\n\n${firecrawlMarkdown.substring(0, 4000)}`
+              }
+            ],
+            temperature: 0.1,
+            max_completion_tokens: 1200,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content;
+          if (content) {
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              if (typeof parsed.totalResultados === 'number' && Array.isArray(parsed.resultados)) {
+                console.log(`[INPI] Firecrawl + IA: ${parsed.totalResultados} processos extraídos dos dados REAIS do INPI`);
+                return { ...parsed, consultadoEm: now };
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[INPI] Erro ao extrair dados do Firecrawl:', error);
+      }
+    }
+  }
+
+  // TENTATIVA 2 (FALLBACK): DuckDuckGo
+  console.log('[INPI] Firecrawl falhou ou indisponível, usando fallback DuckDuckGo...');
   try {
-    // Duas buscas DuckDuckGo em paralelo
     const [inpiResults, generalResults] = await Promise.all([
       searchDuckDuckGo(`"${brandName}" site:busca.inpi.gov.br`),
       searchDuckDuckGo(`"${brandName}" INPI registro marca classe ${mainClass}`),
     ]);
 
     const allResults = [...inpiResults, ...generalResults];
-    console.log(`[INPI] DuckDuckGo: ${allResults.length} resultados combinados`);
+    console.log(`[INPI] DuckDuckGo fallback: ${allResults.length} resultados combinados`);
 
     if (allResults.length === 0) {
       return { totalResultados: 0, resultados: [], consultadoEm: now };
     }
 
-    // Enviar resultados reais ao GPT-5.2 para estruturar
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       return { totalResultados: allResults.length, resultados: [], consultadoEm: now, error: 'IA indisponível para estruturar resultados' };
@@ -266,13 +402,13 @@ NÃO invente números de processo ou dados. Extraia apenas do que está nos resu
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         if (typeof parsed.totalResultados === 'number' && Array.isArray(parsed.resultados)) {
-          console.log(`[INPI] IA estruturou ${parsed.totalResultados} resultados dos dados reais`);
+          console.log(`[INPI] DuckDuckGo + IA: ${parsed.totalResultados} resultados estruturados`);
           return { ...parsed, consultadoEm: now };
         }
       }
     }
   } catch (error) {
-    console.error('[INPI] Erro:', error);
+    console.error('[INPI] Erro fallback DuckDuckGo:', error);
   }
   return { totalResultados: 0, resultados: [], consultadoEm: now, error: 'Consulta INPI inconclusiva' };
 }

@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.marketing-ai-agent]
 verify_jwt = false
+
+[functions.firecrawl-scrape]
+verify_jwt = false
