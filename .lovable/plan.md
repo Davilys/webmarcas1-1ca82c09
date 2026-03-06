@@ -1,70 +1,139 @@
 
 
-## Correcao: Separacao de contas Admin e Cliente
+# Plano Atualizado — 3 Frentes WebMarcas
 
-### Problemas identificados
+## Frente 1: Busca Real no INPI via Firecrawl
 
-1. **Excluir cliente remove acesso Admin**: Em `ClientDetailSheet.tsx` (linha 642), ao excluir um cliente, o codigo deleta TODAS as `user_roles` do usuario, incluindo a role `admin`. Isso faz o admin perder acesso ao CRM.
+### Testes Realizados
+| Metodo | Resultado |
+|--------|-----------|
+| Portal antigo pePI | **404 morto** — Apache Tomcat 6.0.24 retorna "resource not available" |
+| Portal novo — fetch direto | **SPA React** — HTML retorna apenas skeleton sem dados (precisa JS) |
+| Portal novo — Firecrawl com waitFor | **Unica opcao viavel** — Firecrawl renderiza JS e aguarda resultados |
 
-2. **Criar Admin cria conta de cliente**: O edge function `create-admin-user` cria um usuario no `auth.users`, e o trigger `handle_new_user` automaticamente cria um perfil na tabela `profiles`. Isso faz o admin aparecer na area de clientes.
+### Como funciona o portal novo do INPI
+- URL de busca rapida: `https://servicos.busca.inpi.gov.br/marcas/search?q={marca}&searchType=quick`
+- E uma SPA React que carrega resultados via API interna apos renderizacao JS
+- Firecrawl (ja conectado, `FIRECRAWL_API_KEY` disponivel) consegue renderizar com `waitFor: 5000`
 
-3. **Excluir Admin exclui tudo**: Se o perfil do admin for excluido como cliente, ele perde acesso ao CRM tambem (porque perfil e conta auth sao compartilhados).
+### Logica de viabilidade baseada nos resultados reais
 
-### Solucao
+**Sem resultados** ("Nenhum resultado encontrado"):
+- Viabilidade: **ALTA (97%)**
+- Nivel: `high`
+- A marca nao consta na base do INPI, esta disponivel
 
-#### 1. Corrigir exclusao de cliente para preservar role admin
+**Com resultados encontrados** (ex: "Mostrando 1 - 2 de um total de 2 resultados"):
+- Extrair cada resultado: numero do processo, marca, titular, procurador, status (Registro em vigor / Pedido definitivamente arquivado / etc), datas
+- Se existe "Registro de marca em vigor" na mesma classe → Viabilidade: **BAIXA (~40%)**
+- Se existe apenas "Pedido definitivamente arquivado" → Viabilidade: **MEDIA (~65%)**
+- Se existe em classes diferentes → Viabilidade: **MEDIA (~70%)**
 
-No `ClientDetailSheet.tsx`, ao excluir um cliente, verificar se o usuario tem role `admin` antes de deletar. Se tiver, manter a role admin e apenas remover dados de cliente (processos, contratos, etc.) sem deletar o perfil.
+### O que exibir no laudo
+O Firecrawl retorna apenas o **texto dos dados** (markdown), sem imagens HTML. O laudo da WebMarcas exibe esses dados estruturados:
+- Numero do processo (ex: 930072960)
+- Nome da marca
+- Titular e Procurador
+- Datas (protocolo, publicacao, vigencia)
+- Status (Registro em vigor, Arquivado, etc)
 
-```text
-Antes:
-  supabase.from('user_roles').delete().eq('user_id', client.id)
-  supabase.from('profiles').delete().eq('id', client.id)
+### Implementacao
+1. **Criar** `supabase/functions/firecrawl-scrape/index.ts` — edge function generica para Firecrawl
+2. **Atualizar** `supabase/functions/inpi-viability-check/index.ts`:
+   - Substituir funcao `searchINPI()` para usar Firecrawl como fonte primaria
+   - Firecrawl scrape da URL de busca rapida com `waitFor: 5000` e `formats: ['markdown']`
+   - IA (GPT-5.2) extrai dados estruturados do markdown retornado
+   - Se Firecrawl falhar → fallback para DuckDuckGo (comportamento atual)
+3. **Adicionar** configuracao no `supabase/config.toml` para firecrawl-scrape
 
-Depois:
-  // Verificar se e admin
-  const { data: adminRole } = await supabase
-    .from('user_roles').select('id').eq('user_id', client.id).eq('role', 'admin').maybeSingle();
-  
-  // Se e admin: deletar apenas role 'client' (se existir), manter perfil e admin role
-  // Se NAO e admin: deletar tudo (roles, perfil)
-  if (adminRole) {
-    // Apenas remover role client, manter perfil e admin role
-    supabase.from('user_roles').delete().eq('user_id', client.id).eq('role', 'client');
-    // Limpar dados de cliente no perfil (client_funnel_type = null, etc.)
-  } else {
-    // Remover tudo incluindo perfil
-    supabase.from('user_roles').delete().eq('user_id', client.id);
-    supabase.from('profiles').delete().eq('id', client.id);
-  }
-```
+### O que NAO muda
+- Front-end (laudo, design, animacoes, PDF) — **tudo identico**
+- CNPJ, Internet, Classes NCL — **tudo identico**
+- Estrutura de resposta da API — **identica**
 
-#### 2. Corrigir criacao de Admin para nao criar perfil de cliente
+---
 
-No `create-admin-user` edge function, apos criar o usuario (que gera perfil via trigger), marcar o perfil como admin-only para que nao apareca na listagem de clientes.
+## Frente 2: Blog Estrategico (10 Paginas + Imagens Premium)
 
-O perfil ja e criado pelo trigger `handle_new_user` e nao podemos evitar isso. A solucao e garantir que a query de clientes no Kanban filtre admins-only (usuarios que tem role admin mas nao tem `brand_processes`).
+### Estrutura
+- Rota `/blog` (listagem) e `/blog/:slug` (artigo individual)
+- Layout reutiliza Header/Footer existentes
+- 10 artigos com conteudo SEO real e original
+- Imagens de capa premium geradas via IA (estilo navy/gold do site)
+- CTA em cada artigo para busca de viabilidade
 
-Na pratica, como o Kanban de clientes ja filtra por `brand_processes` (processo de marca), admins sem processos ja nao aparecem. Preciso verificar se a listagem de clientes tambem filtra corretamente.
+### 10 Artigos
+1. Como Fazer Consulta de Marca no INPI em 2026
+2. O Que e Marca Generica e Por Que o INPI Barra
+3. Propriedade Industrial vs. Propriedade Intelectual
+4. Quem Pode Registrar Marca no INPI
+5. Naming Estrategico — Como Criar uma Marca Forte
+6. Pesquisa de Anterioridade — O Guia Completo
+7. Direito Marcario — Proteja Sua Exclusividade
+8. Custos do Registro de Marca — Entenda os Valores (taxas INPI 2026: R$840 PJ / R$440 PF)
+9. Marca Indeferida — O Que Fazer em 5 Passos
+10. Plano Premium WebMarcas — Protecao Total para Sua Marca
 
-#### 3. Corrigir exclusao de Admin para nao afetar perfil
+### Arquivos novos
+- `src/pages/Blog.tsx` — listagem
+- `src/pages/BlogPost.tsx` — artigo individual
+- `src/data/blogPosts.ts` — conteudo completo dos 10 artigos
+- `src/components/blog/BlogCard.tsx`
 
-A exclusao de admin (`removeAdminMutation` no SecuritySettings.tsx) ja esta correta -- so remove role e permissions, nao toca no perfil. Nenhuma alteracao necessaria aqui.
+### Arquivos modificados
+- `src/App.tsx` — rotas /blog e /blog/:slug
+- `src/components/layout/Header.tsx` — link Blog no menu
 
-### Alteracoes tecnicas
+### Impacto: **Zero** — 100% aditivo
 
-**Ficheiro: `src/components/admin/clients/ClientDetailSheet.tsx`**
-- Modificar `handleDeleteClient` para verificar se o usuario tem role `admin`
-- Se tiver role admin: deletar dados de cliente (processos, contratos, faturas, etc.) mas MANTER o perfil e a role admin
-- Se nao tiver role admin: comportamento atual (deletar tudo)
+---
 
-**Ficheiro: `supabase/functions/create-admin-user/index.ts`**
-- Nenhuma alteracao necessaria no edge function. O trigger `handle_new_user` cria o perfil automaticamente, mas admins sem `brand_processes` nao aparecem no Kanban de clientes.
+## Frente 3: Plano Premium + Taxas INPI 2026
 
-### Resultado esperado
+### Taxas INPI 2026 (corrigidas)
+- **LTDA / Pessoa Juridica**: R$ 840,00
+- **Pessoa Fisica / MEI / Simples Nacional**: R$ 440,00
 
-- Excluir um cliente que tambem e admin: remove dados de cliente, mas admin continua com acesso ao CRM
-- Excluir um admin: remove acesso admin, mas se tiver conta de cliente, continua com acesso a area do cliente
-- Criar um admin: cria apenas acesso admin, sem processos de marca (nao aparece no Kanban de clientes)
-- Unico com conta dupla (admin + cliente): Administrador Master (davillys@gmail.com)
+### Secao de Precos — 2 Cards
+**Card 1: Plano Essencial** (atual)
+- R$ 699 a vista | parcelado
+- Registro + acompanhamento basico
+- Recursos extras cobrados separadamente (1 salario minimo/recurso)
+- Taxas INPI **nao incluidas** (valor explicito ao lado)
+
+**Card 2: Plano Premium** (novo, badge "Recomendado")
+- R$ 398/mes (assinatura recorrente)
+- **Tudo incluso**: deposito, oposicoes, exigencias, recursos, acompanhamento ate certificado
+- Taxas do INPI **incluidas** no plano
+
+### Transparencia de Taxas
+- Secao visual abaixo dos cards: "Taxas Governamentais do INPI"
+- PJ/LTDA: R$ 840 | PF/MEI/Simples: R$ 440
+- FAQ atualizado
+
+### Checkout e Backend
+- Toggle Essencial/Premium no `PaymentStep.tsx`
+- Edge function `create-asaas-payment` suporta tipo "subscription"
+- Nova tabela `subscriptions` (id, user_id, plan, status, amount, start_date, end_date)
+
+### Arquivos modificados
+- `src/components/sections/PricingSection.tsx`
+- `src/components/sections/FAQSection.tsx`
+- `src/components/cliente/checkout/PaymentStep.tsx`
+- `supabase/functions/create-asaas-payment/index.ts`
+- `src/hooks/usePricing.ts`
+
+### Impacto: **Medio** — PricingSection muda visual, checkout ganha toggle
+
+---
+
+## Resumo
+
+| Frente | Risco | Tabelas existentes alteradas? |
+|--------|-------|-------------------------------|
+| 1. INPI real | Baixo | Nenhuma |
+| 2. Blog | Zero | Nenhuma |
+| 3. Premium | Medio | Nenhuma (nova tabela `subscriptions`) |
+
+Nenhuma tabela existente e alterada. Autenticacao e fluxos consolidados nao sao tocados.
 
