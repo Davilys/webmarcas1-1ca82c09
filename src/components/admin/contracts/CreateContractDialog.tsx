@@ -2124,11 +2124,24 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                       <SelectValue placeholder="Selecione o modelo" />
                     </SelectTrigger>
                     <SelectContent>
-                      {templates.map(template => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
+                      {[...templates].sort((a, b) => {
+                        const aName = a.name.toLowerCase();
+                        const bName = b.name.toLowerCase();
+                        if (aName.includes('padrão') && aName.includes('registro')) return -1;
+                        if (bName.includes('padrão') && bName.includes('registro')) return 1;
+                        return a.name.localeCompare(b.name);
+                      }).map(template => {
+                        const name = template.name.toLowerCase();
+                        let priceLabel = '';
+                        if (name.includes('padrão') && name.includes('registro')) priceLabel = ' — R$ 699';
+                        else if (name.includes('premium') && name.includes('registro')) priceLabel = ' — R$ 398/mês';
+                        else if (name.includes('corporativo') && name.includes('registro')) priceLabel = ' — R$ 1.194/mês';
+                        return (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}{priceLabel && <span className="text-muted-foreground">{priceLabel}</span>}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
