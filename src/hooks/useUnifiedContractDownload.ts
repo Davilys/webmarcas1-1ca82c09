@@ -55,7 +55,8 @@ function generateContractHTML(
   content: string,
   logoBase64: string,
   blockchainSignature?: BlockchainSignature,
-  documentType: 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa' = 'contract'
+  documentType: 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa' = 'contract',
+  contractTitle?: string
 ): string {
   // Format content with proper styling - matching ContractRenderer component exactly
   const formatContent = (text: string): string => {
