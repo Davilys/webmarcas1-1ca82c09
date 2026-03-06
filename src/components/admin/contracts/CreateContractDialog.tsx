@@ -379,18 +379,16 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     setTemplates(templatesRes.data || []);
 
     // Auto-select the standard contract template only if none is selected yet
-    setSelectedTemplate(prev => {
-      if (prev) return prev; // Don't override user's selection
+    if (!selectedTemplate) {
       const standardTemplate = templatesRes.data?.find(t => 
         t.name.toLowerCase().includes('registro de marca') || 
         t.name.toLowerCase().includes('padrão')
       );
       if (standardTemplate) {
-        setFormData(fd => ({ ...fd, template_id: standardTemplate.id }));
-        return standardTemplate;
+        setSelectedTemplate(standardTemplate);
+        setFormData(prev => ({ ...prev, template_id: standardTemplate.id }));
       }
-      return prev;
-    });
+    }
   };
 
   const generateContractNumber = () => {
