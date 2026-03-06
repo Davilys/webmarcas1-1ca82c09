@@ -24,6 +24,10 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isHomePage = location.pathname === '/';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -32,6 +36,16 @@ const Header = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>, anchor: string) => {
+    e.preventDefault();
+    if (isHomePage) {
+      const el = document.querySelector(anchor);
+      el?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      navigate('/' + anchor);
+    }
+  };
 
   const navItems = [
     { label: t("nav.home"), href: "#home", external: false, isRoute: false },
