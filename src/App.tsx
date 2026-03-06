@@ -17,6 +17,8 @@ import RegistroBlockchain from "./pages/RegistroBlockchain";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import TermosUso from "./pages/TermosUso";
 import NotFound from "./pages/NotFound";
+import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 
 // Cliente pages
 import ClienteLogin from "./pages/cliente/Login";
