@@ -270,7 +270,7 @@ const PricingSection = () => {
                 variant="default"
                 size="lg"
                 className="w-full rounded-2xl"
-                onClick={() => navigate('/cliente/registrar-marca?plano=corporativo')}
+                onClick={scrollToForm}
               >
                 Começar Plano Corporativo
                 <ArrowRight className="w-4 h-4 ml-2" />
