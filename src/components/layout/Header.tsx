@@ -218,9 +218,9 @@ const Header = () => {
               ) : (
                 <a
                   key={item.label}
-                  href={item.href}
+                  href={isHomePage ? item.href : `/${item.href}`}
+                  onClick={(e) => { handleAnchorClick(e, item.href); setIsMobileMenuOpen(false); }}
                   className="px-4 py-3 text-muted-foreground hover:text-foreground transition-colors rounded-xl hover:bg-secondary touch-target"
-                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {item.label}
                 </a>
