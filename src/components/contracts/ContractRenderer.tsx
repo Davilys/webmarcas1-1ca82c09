@@ -26,7 +26,8 @@ export function ContractRenderer({
   className = '',
   blockchainSignature,
   showCertificationSection = false,
-  documentType = 'contract'
+  documentType = 'contract',
+  contractTitle
 }: ContractRendererProps) {
   const renderedContent = useMemo(() => {
     const lines = content.split('\n');
