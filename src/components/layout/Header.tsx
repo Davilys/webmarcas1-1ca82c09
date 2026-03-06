@@ -4,7 +4,7 @@ import { Menu, X, Moon, Sun, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLanguage, type Language } from "@/contexts/LanguageContext";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import {
   DropdownMenu,
@@ -24,6 +24,10 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isHomePage = location.pathname === '/';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -32,6 +36,16 @@ const Header = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>, anchor: string) => {
+    e.preventDefault();
+    if (isHomePage) {
+      const el = document.querySelector(anchor);
+      el?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      navigate('/' + anchor);
+    }
+  };
 
   const navItems = [
     { label: t("nav.home"), href: "#home", external: false, isRoute: false },
@@ -81,7 +95,8 @@ const Header = () => {
               ) : (
                 <a
                   key={item.label}
-                  href={item.href}
+                  href={isHomePage ? item.href : `/${item.href}`}
+                  onClick={(e) => handleAnchorClick(e, item.href)}
                   className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary"
                 >
                   {item.label}
@@ -132,7 +147,7 @@ const Header = () => {
               <Link to="/cliente/login">{t("nav.clientArea")}</Link>
             </Button>
             <Button variant="primary" size="sm" className="btn-glow" asChild>
-              <a href="#consultar">{t("nav.checkBrand")}</a>
+              <a href={isHomePage ? "#consultar" : "/#consultar"} onClick={(e) => handleAnchorClick(e, "#consultar")}>{t("nav.checkBrand")}</a>
             </Button>
           </div>
 
@@ -203,9 +218,9 @@ const Header = () => {
               ) : (
                 <a
                   key={item.label}
-                  href={item.href}
+                  href={isHomePage ? item.href : `/${item.href}`}
+                  onClick={(e) => { handleAnchorClick(e, item.href); setIsMobileMenuOpen(false); }}
                   className="px-4 py-3 text-muted-foreground hover:text-foreground transition-colors rounded-xl hover:bg-secondary touch-target"
-                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {item.label}
                 </a>
@@ -216,7 +231,7 @@ const Header = () => {
                 <Link to="/cliente/login">{t("nav.clientArea")}</Link>
               </Button>
               <Button variant="primary" className="btn-glow touch-target" asChild>
-                <a href="#consultar">{t("nav.checkBrand")}</a>
+                <a href={isHomePage ? "#consultar" : "/#consultar"} onClick={(e) => { handleAnchorClick(e, "#consultar"); setIsMobileMenuOpen(false); }}>{t("nav.checkBrand")}</a>
               </Button>
             </div>
           </nav>
