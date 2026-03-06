@@ -17,6 +17,7 @@ interface ContractRendererProps {
   blockchainSignature?: BlockchainSignature;
   showCertificationSection?: boolean;
   documentType?: 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa';
+  contractTitle?: string;
 }
 
 export function ContractRenderer({ 
@@ -25,7 +26,8 @@ export function ContractRenderer({
   className = '',
   blockchainSignature,
   showCertificationSection = false,
-  documentType = 'contract'
+  documentType = 'contract',
+  contractTitle
 }: ContractRendererProps) {
   const renderedContent = useMemo(() => {
     const lines = content.split('\n');
@@ -215,8 +217,10 @@ export function ContractRenderer({
                 style={{ backgroundColor: '#1e3a5f' }}
               >
                 <p className="text-white font-semibold text-sm leading-tight">
-                  CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br />
-                  PARA REGISTRO DE MARCA JUNTO AO INPI
+                  {contractTitle 
+                    ? contractTitle.split(' PARA ').map((part, i) => i === 0 ? <span key={i}>{part}<br /></span> : <span key={i}>PARA {part}</span>)
+                    : <>CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br />PARA REGISTRO DE MARCA JUNTO AO INPI</>
+                  }
                 </p>
               </div>
               
@@ -382,7 +386,8 @@ export function generateContractPrintHTML(
   blockchainSignature?: BlockchainSignature,
   showCertificationSection: boolean = true,
   documentType: 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa' = 'contract',
-  logoBase64?: string
+  logoBase64?: string,
+  contractTitle?: string
 ): string {
   // Convert plain text to HTML with proper formatting
   const htmlContent = content
@@ -706,7 +711,9 @@ export function generateContractPrintHTML(
   
   <!-- Light Blue Box with Contract Title -->
   <div class="contract-title-box">
-    <p>CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br/>PARA REGISTRO DE MARCA JUNTO AO INPI</p>
+    <p>${contractTitle 
+      ? contractTitle.replace(/ PARA /g, '<br/>PARA ') 
+      : 'CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br/>PARA REGISTRO DE MARCA JUNTO AO INPI'}</p>
   </div>
   
   <!-- Yellow Highlight Section - LEFT BORDER ONLY -->

@@ -17,6 +17,7 @@ export interface UnifiedContractDownloadOptions {
   signatoryCnpj?: string;
   clientSignature?: string | null;
   blockchainSignature?: BlockchainSignature;
+  contractTitle?: string;
 }
 
 /**
@@ -54,7 +55,8 @@ function generateContractHTML(
   content: string,
   logoBase64: string,
   blockchainSignature?: BlockchainSignature,
-  documentType: 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa' = 'contract'
+  documentType: 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa' = 'contract',
+  contractTitle?: string
 ): string {
   // Format content with proper styling - matching ContractRenderer component exactly
   const formatContent = (text: string): string => {
@@ -472,7 +474,9 @@ function generateContractHTML(
   
   <!-- Light Blue Contract Title Box -->
   <div class="pdf-contract-title-box">
-    <p>CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br/>PARA REGISTRO DE MARCA JUNTO AO INPI</p>
+    <p>${contractTitle 
+      ? contractTitle.replace(/ PARA /g, '<br/>PARA ') 
+      : 'CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br/>PARA REGISTRO DE MARCA JUNTO AO INPI'}</p>
   </div>
   
   <!-- Yellow Highlight Box - LEFT BORDER ONLY -->
@@ -503,10 +507,11 @@ export async function downloadUnifiedContractPDF(options: UnifiedContractDownloa
     documentType,
     subject,
     blockchainSignature,
+    contractTitle,
   } = options;
 
   const logoBase64 = await getLogoBase64();
-  let printHtml = generateContractHTML(content, logoBase64, blockchainSignature, documentType);
+  let printHtml = generateContractHTML(content, logoBase64, blockchainSignature, documentType, contractTitle);
   
   // Add print-specific styles and floating save button
   const printStyles = `
@@ -599,10 +604,11 @@ export async function printUnifiedContract(options: UnifiedContractDownloadOptio
     content,
     documentType,
     blockchainSignature,
+    contractTitle,
   } = options;
 
   const logoBase64 = await getLogoBase64();
-  let printHtml = generateContractHTML(content, logoBase64, blockchainSignature, documentType);
+  let printHtml = generateContractHTML(content, logoBase64, blockchainSignature, documentType, contractTitle);
   
   // Add print-specific styles and floating buttons
   const printStyles = `

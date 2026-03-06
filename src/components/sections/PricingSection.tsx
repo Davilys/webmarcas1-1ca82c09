@@ -4,10 +4,12 @@ import { getNextFridayFormatted } from "@/lib/dateUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePricing } from "@/hooks/usePricing";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 const PricingSection = () => {
   const { t } = useLanguage();
   const { pricing, isLoading, getCartaoParcelaText, getBoletoParcelaText } = usePricing();
+  const navigate = useNavigate();
 
   const scrollToForm = () => {
     document.getElementById("consultar")?.scrollIntoView({ behavior: "smooth" });
@@ -206,7 +208,7 @@ const PricingSection = () => {
                 variant="hero"
                 size="lg"
                 className="w-full rounded-2xl shadow-xl shadow-primary/25 hover:shadow-primary/40"
-                onClick={scrollToForm}
+                onClick={() => navigate('/cliente/registrar-marca?plano=premium')}
               >
                 Começar Plano Premium
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -268,7 +270,7 @@ const PricingSection = () => {
                 variant="default"
                 size="lg"
                 className="w-full rounded-2xl"
-                onClick={scrollToForm}
+                onClick={() => navigate('/cliente/registrar-marca?plano=corporativo')}
               >
                 Começar Plano Corporativo
                 <ArrowRight className="w-4 h-4 ml-2" />

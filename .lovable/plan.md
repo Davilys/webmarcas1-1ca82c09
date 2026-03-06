@@ -1,63 +1,70 @@
 
 
-# Plano: Contratos por Plano + Fluxo de Checkout por Plano
+## Correcao: Separacao de contas Admin e Cliente
 
-## O que precisa ser feito
+### Problemas identificados
 
-### 1. Criar 2 novos modelos de contrato (Premium e Corporativo)
+1. **Excluir cliente remove acesso Admin**: Em `ClientDetailSheet.tsx` (linha 642), ao excluir um cliente, o codigo deleta TODAS as `user_roles` do usuario, incluindo a role `admin`. Isso faz o admin perder acesso ao CRM.
 
-Adicionar em `useContractTemplate.ts` dois novos templates default baseados no contrato padrao existente, com as seguintes diferenças:
+2. **Criar Admin cria conta de cliente**: O edge function `create-admin-user` cria um usuario no `auth.users`, e o trigger `handle_new_user` automaticamente cria um perfil na tabela `profiles`. Isso faz o admin aparecer na area de clientes.
 
-**Contrato Premium (R$398/mês)**:
-- Título: "CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO PREMIUM PARA REGISTRO DE MARCA JUNTO AO INPI"
-- Cláusula 5.1: pagamento recorrente mensal de R$398,00
-- Cláusula 5.2: "Taxas do INPI e anuidade: As taxas federais obrigatórias (GRU) serão de responsabilidade exclusiva do CONTRATANTE, devendo ser recolhidas diretamente ao INPI e a taxa de anuidade valor de R$398,00 a ser paga sempre do 05/12 de cada ano. Após essas etapas, o requerente receberá o certificado de registro válido por 10 anos, com direito à renovação."
-- Cláusula 10.3: Remover cobrança separada de publicações/despachos (está tudo incluso no Premium) — substituir por: "A CONTRATADA se compromete a cumprir todas as exigências, oposições e recursos necessários sem custo adicional de honorários, estando estes já contemplados na mensalidade do Plano Premium."
+3. **Excluir Admin exclui tudo**: Se o perfil do admin for excluido como cliente, ele perde acesso ao CRM tambem (porque perfil e conta auth sao compartilhados).
 
-**Contrato Corporativo (R$1.194/mês)**:
-- Mesmo que Premium mas com título "CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS CORPORATIVO..."
-- Cláusula 5.1: pagamento recorrente mensal de R$1.194,00
-- Cláusula 5.2: mesma do Premium, com anuidade de R$1.194,00
-- Cláusula 10.3: mesma do Premium (tudo incluso)
-- **Nova Cláusula 10.4**: "O Plano Corporativo contempla registros de marcas ilimitados, vinculados exclusivamente ao CPF ou CNPJ do CONTRATANTE que realizou a contratação. Todas as marcas registradas sob este plano deverão ser tituladas no mesmo CPF ou CNPJ cadastrado. Caso o CONTRATANTE deseje registrar marcas em outro CPF ou CNPJ, deverá contratar um novo plano específico para tal finalidade."
+### Solucao
 
-### 2. Fluxo de checkout por plano selecionado
+#### 1. Corrigir exclusao de cliente para preservar role admin
 
-**PricingSection.tsx**: Alterar os botões dos planos Premium e Corporativo para navegar para `/cliente/registrar-marca?plano=premium` ou `?plano=corporativo` em vez de scrollToForm. Essencial mantém o scroll para busca na landing.
+No `ClientDetailSheet.tsx`, ao excluir um cliente, verificar se o usuario tem role `admin` antes de deletar. Se tiver, manter a role admin e apenas remover dados de cliente (processos, contratos, etc.) sem deletar o perfil.
 
-**RegistrarMarca.tsx**: Ler query param `plano` da URL. Armazenar em state. Passar para PaymentStep e ContractStep.
+```text
+Antes:
+  supabase.from('user_roles').delete().eq('user_id', client.id)
+  supabase.from('profiles').delete().eq('id', client.id)
 
-**PaymentStep.tsx**: Quando `plano=premium` ou `plano=corporativo`:
-- Não mostrar opções PIX/Cartão/Boleto tradicionais
-- Mostrar apenas o valor mensal do plano (R$398 ou R$1.194) com informação que será recorrente via Asaas
-- Forma de pagamento: apenas cartão de crédito (recorrente)
+Depois:
+  // Verificar se e admin
+  const { data: adminRole } = await supabase
+    .from('user_roles').select('id').eq('user_id', client.id).eq('role', 'admin').maybeSingle();
+  
+  // Se e admin: deletar apenas role 'client' (se existir), manter perfil e admin role
+  // Se NAO e admin: deletar tudo (roles, perfil)
+  if (adminRole) {
+    // Apenas remover role client, manter perfil e admin role
+    supabase.from('user_roles').delete().eq('user_id', client.id).eq('role', 'client');
+    // Limpar dados de cliente no perfil (client_funnel_type = null, etc.)
+  } else {
+    // Remover tudo incluindo perfil
+    supabase.from('user_roles').delete().eq('user_id', client.id);
+    supabase.from('profiles').delete().eq('id', client.id);
+  }
+```
 
-**ContractStep.tsx**: Usar o template correto baseado no plano:
-- Sem plano ou `essencial` → template padrão atual
-- `premium` → template Premium
-- `corporativo` → template Corporativo
-- Usar `useContractTemplate('Contrato Premium...')` ou `('Contrato Corporativo...')`
+#### 2. Corrigir criacao de Admin para nao criar perfil de cliente
 
-### 3. Renderização consistente (mesmo papel timbrado)
+No `create-admin-user` edge function, apos criar o usuario (que gera perfil via trigger), marcar o perfil como admin-only para que nao apareca na listagem de clientes.
 
-Os novos contratos usam exatamente o mesmo `ContractRenderer` e `generateContractPrintHTML` — mesmo letterhead, mesma barra laranja, mesmo estilo. A única diferença é o conteúdo textual (cláusulas) e o título no box azul escuro.
+O perfil ja e criado pelo trigger `handle_new_user` e nao podemos evitar isso. A solucao e garantir que a query de clientes no Kanban filtre admins-only (usuarios que tem role admin mas nao tem `brand_processes`).
 
-Para que o `ContractRenderer` exiba o título correto no box azul, passaremos o título do contrato como prop e ajustaremos o texto do `contract-title-box`.
+Na pratica, como o Kanban de clientes ja filtra por `brand_processes` (processo de marca), admins sem processos ja nao aparecem. Preciso verificar se a listagem de clientes tambem filtra corretamente.
 
-### Arquivos modificados
+#### 3. Corrigir exclusao de Admin para nao afetar perfil
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useContractTemplate.ts` | Adicionar 2 templates default (Premium/Corporativo) + lógica `replaceContractVariables` para planos recorrentes |
-| `src/components/sections/PricingSection.tsx` | Botões Premium/Corporativo navegam para checkout com query param |
-| `src/pages/cliente/RegistrarMarca.tsx` | Ler `?plano=` da URL, passar para PaymentStep/ContractStep |
-| `src/components/cliente/checkout/PaymentStep.tsx` | Modo recorrente quando plano != essencial |
-| `src/components/cliente/checkout/ContractStep.tsx` | Selecionar template correto por plano |
-| `src/components/contracts/ContractRenderer.tsx` | Aceitar título customizado no box azul |
+A exclusao de admin (`removeAdminMutation` no SecuritySettings.tsx) ja esta correta -- so remove role e permissions, nao toca no perfil. Nenhuma alteracao necessaria aqui.
 
-### O que NÃO muda
-- Plano Essencial: fluxo inteiro permanece idêntico
-- Papel timbrado / visual do contrato: idêntico
-- Assinatura / blockchain / certificação: idêntico
-- Tabelas existentes: nenhuma alteração
+### Alteracoes tecnicas
+
+**Ficheiro: `src/components/admin/clients/ClientDetailSheet.tsx`**
+- Modificar `handleDeleteClient` para verificar se o usuario tem role `admin`
+- Se tiver role admin: deletar dados de cliente (processos, contratos, faturas, etc.) mas MANTER o perfil e a role admin
+- Se nao tiver role admin: comportamento atual (deletar tudo)
+
+**Ficheiro: `supabase/functions/create-admin-user/index.ts`**
+- Nenhuma alteracao necessaria no edge function. O trigger `handle_new_user` cria o perfil automaticamente, mas admins sem `brand_processes` nao aparecem no Kanban de clientes.
+
+### Resultado esperado
+
+- Excluir um cliente que tambem e admin: remove dados de cliente, mas admin continua com acesso ao CRM
+- Excluir um admin: remove acesso admin, mas se tiver conta de cliente, continua com acesso a area do cliente
+- Criar um admin: cria apenas acesso admin, sem processos de marca (nao aparece no Kanban de clientes)
+- Unico com conta dupla (admin + cliente): Administrador Master (davillys@gmail.com)
 

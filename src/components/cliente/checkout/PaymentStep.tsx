@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { trackInitiateCheckout } from "@/lib/metaPixel";
-import { ArrowLeft, ArrowRight, Check, CreditCard, QrCode, FileText, Loader2, Shield, Clock, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CreditCard, QrCode, FileText, Loader2, Shield, Clock, Zap, Crown, Infinity, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePricing } from "@/hooks/usePricing";
+import type { PlanType } from "@/hooks/useContractTemplate";
 
 interface PaymentOption {
   id: string;
@@ -24,55 +25,84 @@ interface PaymentStepProps {
   onNext: (method: string, value: number) => void;
   onBack: () => void;
   classCount?: number;
+  plan?: PlanType;
 }
 
-export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1 }: PaymentStepProps) {
+export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1, plan = 'essencial' }: PaymentStepProps) {
   const [selected, setSelected] = useState(selectedMethod || "");
   const [error, setError] = useState("");
   const { pricing, isLoading } = usePricing();
+  const isRecurring = plan === 'premium' || plan === 'corporativo';
 
   useEffect(() => {
     trackInitiateCheckout();
   }, []);
 
+  // Auto-select for recurring plans
+  useEffect(() => {
+    if (isRecurring) {
+      setSelected('recorrente_cartao');
+    }
+  }, [isRecurring]);
+
   const qty = Math.max(classCount, 1);
 
-  const paymentOptions: PaymentOption[] = useMemo(() => [
-    {
-      id: "avista",
-      title: "PIX — À Vista",
-      subtitle: "Pagamento instantâneo e seguro",
-      price: `R$ ${(pricing.avista.value * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      totalLabel: "Total",
-      priceValue: pricing.avista.value * qty,
-      icon: QrCode,
-      badge: "Melhor preço",
-      badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-      features: ["Aprovação imediata", "QR Code gerado na hora", "Sem taxas extras"],
-    },
-    {
-      id: "cartao6x",
-      title: "Cartão de Crédito",
-      subtitle: `${pricing.cartao.installments}x sem juros`,
-      price: `R$ ${(pricing.cartao.installmentValue * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      totalLabel: `${pricing.cartao.installments}x de`,
-      priceValue: pricing.cartao.value * qty,
-      icon: CreditCard,
-      badge: "Sem juros",
-      badgeColor: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-      features: ["Aprovação instantânea", "Parcele em até 6x", "Todas as bandeiras"],
-    },
-    {
-      id: "boleto3x",
-      title: "Boleto Parcelado",
-      subtitle: `${pricing.boleto.installments}x sem juros`,
-      price: `R$ ${(pricing.boleto.installmentValue * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      totalLabel: `${pricing.boleto.installments}x de`,
-      priceValue: pricing.boleto.value * qty,
-      icon: FileText,
-      features: ["Até 3 dias úteis", "Parcelado sem juros", "Emissão automática"],
-    },
-  ], [pricing, qty]);
+  const recurringValue = plan === 'premium' ? 398 : plan === 'corporativo' ? 1194 : 0;
+  const planLabel = plan === 'premium' ? 'Plano Premium' : 'Plano Corporativo';
+
+  const paymentOptions: PaymentOption[] = useMemo(() => {
+    if (isRecurring) {
+      return [{
+        id: "recorrente_cartao",
+        title: "Cartão de Crédito — Recorrente",
+        subtitle: `${planLabel} · cobrança mensal automática`,
+        price: `R$ ${recurringValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        totalLabel: "Mensal",
+        priceValue: recurringValue,
+        icon: CreditCard,
+        badge: "Assinatura",
+        badgeColor: "bg-primary/10 text-primary border-primary/20",
+        features: ["Cobrança automática mensal", "Cancelamento a qualquer momento", "Sem taxa de adesão"],
+      }];
+    }
+
+    return [
+      {
+        id: "avista",
+        title: "PIX — À Vista",
+        subtitle: "Pagamento instantâneo e seguro",
+        price: `R$ ${(pricing.avista.value * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        totalLabel: "Total",
+        priceValue: pricing.avista.value * qty,
+        icon: QrCode,
+        badge: "Melhor preço",
+        badgeColor: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+        features: ["Aprovação imediata", "QR Code gerado na hora", "Sem taxas extras"],
+      },
+      {
+        id: "cartao6x",
+        title: "Cartão de Crédito",
+        subtitle: `${pricing.cartao.installments}x sem juros`,
+        price: `R$ ${(pricing.cartao.installmentValue * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        totalLabel: `${pricing.cartao.installments}x de`,
+        priceValue: pricing.cartao.value * qty,
+        icon: CreditCard,
+        badge: "Sem juros",
+        badgeColor: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+        features: ["Aprovação instantânea", "Parcele em até 6x", "Todas as bandeiras"],
+      },
+      {
+        id: "boleto3x",
+        title: "Boleto Parcelado",
+        subtitle: `${pricing.boleto.installments}x sem juros`,
+        price: `R$ ${(pricing.boleto.installmentValue * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        totalLabel: `${pricing.boleto.installments}x de`,
+        priceValue: pricing.boleto.value * qty,
+        icon: FileText,
+        features: ["Até 3 dias úteis", "Parcelado sem juros", "Emissão automática"],
+      },
+    ];
+  }, [pricing, qty, isRecurring, recurringValue, planLabel]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,16 +134,52 @@ export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1 }: 
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
-            <CreditCard className="w-3.5 h-3.5" />
-            Forma de Pagamento
+            {isRecurring ? <RefreshCw className="w-3.5 h-3.5" /> : <CreditCard className="w-3.5 h-3.5" />}
+            {isRecurring ? 'Assinatura Mensal' : 'Forma de Pagamento'}
           </div>
-          <h2 className="text-2xl font-bold">Escolha como pagar</h2>
+          <h2 className="text-2xl font-bold">
+            {isRecurring ? 'Confirme sua assinatura' : 'Escolha como pagar'}
+          </h2>
           <p className="text-muted-foreground text-sm">
-            {qty > 1
-              ? `${qty} classes selecionadas — valores já multiplicados.`
-              : "Selecione a forma mais conveniente para você."}
+            {isRecurring
+              ? `Você selecionou o ${planLabel}. O valor será cobrado mensalmente.`
+              : qty > 1
+                ? `${qty} classes selecionadas — valores já multiplicados.`
+                : "Selecione a forma mais conveniente para você."}
           </p>
         </div>
+
+        {/* Recurring plan highlight */}
+        {isRecurring && (
+          <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4">
+            <div className="flex items-center gap-3 mb-3">
+              {plan === 'premium' ? (
+                <Crown className="w-6 h-6 text-primary" />
+              ) : (
+                <Infinity className="w-6 h-6 text-primary" />
+              )}
+              <div>
+                <p className="font-bold text-foreground">{planLabel}</p>
+                <p className="text-xs text-muted-foreground">
+                  {plan === 'premium'
+                    ? 'Proteção total com todos os recursos inclusos'
+                    : 'Marcas ilimitadas + tudo do Premium'}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {(plan === 'premium'
+                ? ['Exigências inclusas', 'Oposições inclusas', 'Recursos inclusos', 'Monitoramento RPI']
+                : ['Marcas ilimitadas', 'Tudo incluso', 'Gerente dedicado', 'Suporte prioritário']
+              ).map((item, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <Check className="w-3 h-3 text-emerald-500" />
+                  <span className="text-muted-foreground">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Payment Options */}
         <div className="space-y-3">
@@ -171,6 +237,9 @@ export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1 }: 
                       <p className={cn("font-bold text-lg leading-tight", isSelected ? "text-primary" : "")}>
                         {option.price}
                       </p>
+                      {isRecurring && (
+                        <p className="text-[10px] text-muted-foreground">/mês</p>
+                      )}
                     </div>
                     <div className={cn(
                       "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
