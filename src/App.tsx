@@ -2,7 +2,21 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+
+const SectionRedirect = ({ section }: { section: string }) => {
+  const navigate = useNavigate();
+  useEffect(() => {
+    navigate('/', { replace: true });
+    setTimeout(() => {
+      const el = document.getElementById(section);
+      el?.scrollIntoView({ behavior: 'smooth' });
+    }, 300);
+  }, []);
+  return null;
+};
+
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ChatModeProvider } from "@/contexts/ChatModeContext";
