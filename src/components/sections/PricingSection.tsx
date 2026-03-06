@@ -219,7 +219,7 @@ const PricingSection = () => {
               <h4 className="font-display font-bold text-sm text-foreground">Taxas Governamentais do INPI (2026)</h4>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Além dos honorários, o INPI cobra taxas oficiais para o pedido de registro. No Plano Premium, essas taxas já estão inclusas.
+              Além dos honorários, o INPI cobra taxas oficiais para o pedido de registro.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-card rounded-xl p-4 border border-border/50 text-center">
