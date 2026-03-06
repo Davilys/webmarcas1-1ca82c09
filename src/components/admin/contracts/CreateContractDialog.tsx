@@ -1121,6 +1121,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       penalty_installments: '1',
     });
     setSelectedProfile(null);
+    setSelectedTemplate(null);
     setClientSearch('');
     setClientDropdownOpen(false);
     setGeneratedLink(null);
