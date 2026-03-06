@@ -95,6 +95,10 @@ const PricingSection = () => {
               <p className="text-muted-foreground text-sm mb-6">Registro + acompanhamento básico</p>
 
               <div className="text-center mb-6">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className="text-lg text-muted-foreground line-through">R$1.194</span>
+                  <span className="bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">-43%</span>
+                </div>
                 <div className="text-4xl md:text-5xl font-display font-bold bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent mb-1">
                   R$699
                 </div>
