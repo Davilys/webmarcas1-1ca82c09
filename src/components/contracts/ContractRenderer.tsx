@@ -17,6 +17,7 @@ interface ContractRendererProps {
   blockchainSignature?: BlockchainSignature;
   showCertificationSection?: boolean;
   documentType?: 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa';
+  contractTitle?: string;
 }
 
 export function ContractRenderer({ 
