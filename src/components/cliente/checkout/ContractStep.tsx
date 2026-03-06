@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Loader2, Download, Printer, Check, Shield, FileText, Lock, Sparkles, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useContractTemplate, replaceContractVariables } from "@/hooks/useContractTemplate";
+import { useContractTemplate, replaceContractVariables, type PlanType } from "@/hooks/useContractTemplate";
 import { ContractRenderer, generateContractPrintHTML } from "@/components/contracts/ContractRenderer";
 import { downloadUnifiedContractPDF, printUnifiedContract } from "@/hooks/useUnifiedContractDownload";
 import type { PersonalData } from "./PersonalDataStep";
@@ -26,7 +26,14 @@ interface ContractStepProps {
   suggestedClassDescriptions?: string[];
   onSelectedClassesChange?: (classes: number[]) => void;
   onPaymentValueChange?: (value: number) => void;
+  plan?: PlanType;
 }
+
+const PLAN_TEMPLATE_NAMES: Record<PlanType, string> = {
+  essencial: 'Contrato Padrão - Registro de Marca INPI',
+  premium: 'Contrato Premium - Registro de Marca INPI',
+  corporativo: 'Contrato Corporativo - Registro de Marca INPI',
+};
 
 export function ContractStep({
   personalData,
@@ -42,10 +49,12 @@ export function ContractStep({
   suggestedClassDescriptions,
   onSelectedClassesChange,
   onPaymentValueChange,
+  plan = 'essencial',
 }: ContractStepProps) {
   const [accepted, setAccepted] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const { template, isLoading, documentType } = useContractTemplate('Contrato Padrão - Registro de Marca INPI');
+  const templateName = PLAN_TEMPLATE_NAMES[plan];
+  const { template, isLoading, documentType } = useContractTemplate(templateName, plan);
   const { pricing } = usePricing();
   const initialSelectedRef = useRef<number[]>(selectedClasses || []);
 
@@ -82,13 +91,24 @@ export function ContractStep({
       paymentMethod,
       selectedClasses,
       classDescriptions,
+      plan,
     });
-  }, [template, personalData, brandData, paymentMethod, selectedClasses, classDescriptions]);
+  }, [template, personalData, brandData, paymentMethod, selectedClasses, classDescriptions, plan]);
+
+  // Extract contract title from the template content for the renderer
+  const getContractTitle = useCallback(() => {
+    if (!template) return undefined;
+    const firstLine = template.content.split('\n')[0]?.trim();
+    if (firstLine && firstLine.includes('CONTRATO PARTICULAR')) {
+      return firstLine;
+    }
+    return undefined;
+  }, [template]);
 
   const printContract = async () => {
     try {
       const contractContent = getProcessedContract();
-      await printUnifiedContract({ content: contractContent, documentType, subject: brandData.brandName, signatoryName: personalData.fullName, signatoryCpf: personalData.cpf });
+      await printUnifiedContract({ content: contractContent, documentType, subject: brandData.brandName, signatoryName: personalData.fullName, signatoryCpf: personalData.cpf, contractTitle: getContractTitle() });
     } catch (error) {
       toast.error("Não foi possível abrir a janela de impressão.");
     }
@@ -98,7 +118,7 @@ export function ContractStep({
     setIsDownloading(true);
     try {
       const contractContent = getProcessedContract();
-      await downloadUnifiedContractPDF({ content: contractContent, documentType, subject: brandData.brandName, signatoryName: personalData.fullName, signatoryCpf: personalData.cpf });
+      await downloadUnifiedContractPDF({ content: contractContent, documentType, subject: brandData.brandName, signatoryName: personalData.fullName, signatoryCpf: personalData.cpf, contractTitle: getContractTitle() });
     } catch (error) {
       toast.error("Erro ao abrir visualização do contrato.");
     } finally {
@@ -112,7 +132,7 @@ export function ContractStep({
       return;
     }
     const contractContent = getProcessedContract();
-    const fullContractHtml = generateContractPrintHTML(contractContent, brandData.brandName, personalData.fullName, personalData.cpf, undefined, true, documentType);
+    const fullContractHtml = generateContractPrintHTML(contractContent, brandData.brandName, personalData.fullName, personalData.cpf, undefined, true, documentType, undefined, getContractTitle());
     onSubmit(fullContractHtml);
   };
 
@@ -120,6 +140,9 @@ export function ContractStep({
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   const getPaymentLabel = () => {
+    if (plan === 'premium' || plan === 'corporativo') {
+      return `Assinatura Mensal (Cartão)`;
+    }
     switch (paymentMethod) {
       case 'avista': return 'PIX — À Vista';
       case 'cartao6x': return 'Cartão de Crédito (6x)';
@@ -127,6 +150,8 @@ export function ContractStep({
       default: return 'Pagamento';
     }
   };
+
+  const isRecurring = plan === 'premium' || plan === 'corporativo';
 
   if (isLoading) {
     return (
@@ -170,7 +195,7 @@ export function ContractStep({
             { label: "Marca", value: brandData.brandName, highlight: false },
             { label: "Titular", value: personalData.fullName, highlight: false },
             { label: "Pagamento", value: getPaymentLabel(), highlight: false },
-            { label: "Total", value: formatCurrency(paymentValue), highlight: true },
+            { label: isRecurring ? "Mensal" : "Total", value: `${formatCurrency(paymentValue)}${isRecurring ? '/mês' : ''}`, highlight: true },
           ].map((item, i) => (
             <div key={i} className={cn("p-4", i >= 2 && "border-t border-border")}>
               <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
@@ -215,13 +240,14 @@ export function ContractStep({
               showLetterhead={true}
               showCertificationSection={false}
               documentType={documentType}
+              contractTitle={getContractTitle()}
             />
           </div>
         </div>
       </div>
 
-      {/* Upsell: suggested classes not in initial selection */}
-      {(() => {
+      {/* Upsell: suggested classes not in initial selection — only for essencial plan */}
+      {plan === 'essencial' && (() => {
         const extraClasses = (suggestedClasses || []).filter(
           cls => !initialSelectedRef.current.includes(cls)
         );
@@ -334,7 +360,7 @@ export function ContractStep({
           ) : (
             <>
               <Sparkles className="w-5 h-5 mr-2" />
-              Finalizar e Pagar
+              {isRecurring ? 'Assinar e Iniciar' : 'Finalizar e Pagar'}
               <Check className="w-5 h-5 ml-2" />
             </>
           )}

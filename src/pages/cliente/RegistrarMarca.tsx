@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { ClientLayout } from "@/components/cliente/ClientLayout";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import type { ViabilityResult } from "@/lib/api/viability";
 import { generateAndUploadContractPdf } from "@/hooks/useContractPdfUpload";
 import { Shield, Award, Clock, Star } from "lucide-react";
+import type { PlanType } from "@/hooks/useContractTemplate";
 
 const STEP_TITLES = [
   { title: "Consulta de Viabilidade", sub: "Verificando no banco do INPI" },
@@ -22,10 +23,21 @@ const STEP_TITLES = [
   { title: "Contrato Digital", sub: "Revise e assine" },
 ];
 
+const PLAN_LABELS: Record<PlanType, string> = {
+  essencial: 'Plano Essencial',
+  premium: 'Plano Premium',
+  corporativo: 'Plano Corporativo',
+};
+
 export default function RegistrarMarca() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Read plan from URL
+  const planParam = (searchParams.get('plano') || 'essencial') as PlanType;
+  const plan: PlanType = ['premium', 'corporativo'].includes(planParam) ? planParam : 'essencial';
 
   const [viabilityResult, setViabilityResult] = useState<ViabilityResult | null>(null);
   const [personalData, setPersonalData] = useState<PersonalData>({
@@ -123,6 +135,7 @@ export default function RegistrarMarca() {
           classDescriptions: selectedClassDescriptions,
           suggestedClasses,
           suggestedClassDescriptions,
+          plan,
         },
       });
 
@@ -144,7 +157,7 @@ export default function RegistrarMarca() {
 
       const orderData = {
         personalData, brandData, paymentMethod, paymentValue,
-        selectedClasses,
+        selectedClasses, plan,
         acceptedAt: new Date().toISOString(),
         leadId: data.leadId,
         contractId: data.contractId,
@@ -181,6 +194,11 @@ export default function RegistrarMarca() {
               <p className="text-muted-foreground mt-1 text-sm">
                 Processo 100% online • Aprovado pelo INPI • Resultado garantido
               </p>
+              {plan !== 'essencial' && (
+                <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold">
+                  {plan === 'premium' ? '👑' : '♾️'} {PLAN_LABELS[plan]}
+                </div>
+              )}
             </div>
           </div>
 
@@ -259,6 +277,7 @@ export default function RegistrarMarca() {
                     onNext={handlePaymentNext}
                     onBack={() => setStep(3)}
                     classCount={classCount}
+                    plan={plan}
                   />
                 </motion.div>
               )}
@@ -281,6 +300,7 @@ export default function RegistrarMarca() {
                     suggestedClassDescriptions={suggestedClassDescriptions}
                     onSelectedClassesChange={setSelectedClasses}
                     onPaymentValueChange={setPaymentValue}
+                    plan={plan}
                   />
                 </motion.div>
               )}

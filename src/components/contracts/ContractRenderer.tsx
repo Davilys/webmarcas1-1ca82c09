@@ -217,8 +217,10 @@ export function ContractRenderer({
                 style={{ backgroundColor: '#1e3a5f' }}
               >
                 <p className="text-white font-semibold text-sm leading-tight">
-                  CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br />
-                  PARA REGISTRO DE MARCA JUNTO AO INPI
+                  {contractTitle 
+                    ? contractTitle.split(' PARA ').map((part, i) => i === 0 ? <span key={i}>{part}<br /></span> : <span key={i}>PARA {part}</span>)
+                    : <>CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br />PARA REGISTRO DE MARCA JUNTO AO INPI</>
+                  }
                 </p>
               </div>
               
