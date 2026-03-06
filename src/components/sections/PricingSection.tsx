@@ -34,7 +34,7 @@ const PricingSection = () => {
 
   const premiumFeatures = [
     "Tudo do Plano Essencial",
-    "Taxas do INPI inclusas",
+    
     "Resposta a oposições inclusa",
     "Cumprimento de exigências incluso",
     "Recursos contra indeferimento inclusos",
@@ -174,7 +174,7 @@ const PricingSection = () => {
               </div>
 
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-6 text-center">
-                <span className="text-xs font-semibold text-primary">✨ Taxas INPI + Recursos + Oposições = INCLUSO</span>
+                <span className="text-xs font-semibold text-primary">✨ Recursos + Oposições + Exigências = INCLUSO</span>
               </div>
 
               <ul className="space-y-3 mb-6 flex-1">
@@ -219,7 +219,7 @@ const PricingSection = () => {
               <h4 className="font-display font-bold text-sm text-foreground">Taxas Governamentais do INPI (2026)</h4>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Além dos honorários, o INPI cobra taxas oficiais para o pedido de registro. No Plano Premium, essas taxas já estão inclusas.
+              Além dos honorários, o INPI cobra taxas oficiais para o pedido de registro.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-card rounded-xl p-4 border border-border/50 text-center">
