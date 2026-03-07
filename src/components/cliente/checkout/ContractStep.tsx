@@ -320,7 +320,7 @@ export function ContractStep({
                         "shrink-0 text-xs font-semibold",
                         isCorporativo ? "text-emerald-600 dark:text-emerald-400" : "text-primary"
                       )}>
-                        {isCorporativo ? 'Incluso' : `+${formatCurrency(unitPrice)}`}
+                        {isCorporativo ? 'Incluso' : plan === 'premium' ? `+${formatCurrency(unitPrice)}/mês` : `+${formatCurrency(unitPrice)}`}
                       </span>
                     </label>
                   );
