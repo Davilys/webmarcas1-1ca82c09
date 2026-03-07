@@ -74,16 +74,35 @@ export const fetchAddressByCEP = async (cep: string): Promise<AddressData | null
   
   if (cleanCEP.length !== 8) return null;
   
+  // Try ViaCEP first
   try {
     const response = await fetch(`https://viacep.com.br/ws/${cleanCEP}/json/`);
     const data = await response.json();
     
-    if (data.erro) return null;
-    
-    return data as AddressData;
+    if (!data.erro) {
+      return data as AddressData;
+    }
   } catch {
-    return null;
+    // ViaCEP failed, try fallback
   }
+
+  // Fallback: BrasilAPI
+  try {
+    const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCEP}`);
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        logradouro: data.street || '',
+        bairro: data.neighborhood || '',
+        localidade: data.city || '',
+        uf: data.state || '',
+      };
+    }
+  } catch {
+    // BrasilAPI also failed
+  }
+
+  return null;
 };
 
 // Format helpers
