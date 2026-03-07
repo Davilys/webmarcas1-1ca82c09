@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { lead_ids, campaign_id, subject, body, channels, test, scheduled_for } = await req.json();
+    const { lead_ids, campaign_id, subject, body, channels, test, scheduled_for, immediate } = await req.json();
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
