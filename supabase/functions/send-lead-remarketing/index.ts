@@ -332,11 +332,13 @@ Deno.serve(async (req) => {
         }
 
         // Log activity
-        await supabase.from("lead_activities").insert({
-          lead_id: lead.id,
-          activity_type: "direct_message",
-          content: `Mensagem direta enviada. Email: ${selectedChannels.includes("email") && lead.email ? "sim" : "não"}, WhatsApp: ${selectedChannels.includes("whatsapp") && lead.phone ? "sim" : "não"}`,
-        }).catch(() => {});
+        try {
+          await supabase.from("lead_activities").insert({
+            lead_id: lead.id,
+            activity_type: "direct_message",
+            content: `Mensagem direta enviada. Email: ${selectedChannels.includes("email") && lead.email ? "sim" : "não"}, WhatsApp: ${selectedChannels.includes("whatsapp") && lead.phone ? "sim" : "não"}`,
+          });
+        } catch (_) { /* ignore */ }
       }
 
       // Update campaign as completed
