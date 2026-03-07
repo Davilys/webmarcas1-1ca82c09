@@ -510,6 +510,8 @@ export default function AdminLeads() {
   const [activeTab, setActiveTab] = useState('lista');
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [messageLeads, setMessageLeads] = useState<Lead[]>([]);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
 
   useEffect(() => { fetchLeads(); }, []);
 
