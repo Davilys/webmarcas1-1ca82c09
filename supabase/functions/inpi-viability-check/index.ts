@@ -61,20 +61,28 @@ function getClassesForBusinessAreaFallback(businessArea: string): { classes: num
   }
   const keywordMap: [string[], string][] = [
     [['software', 'app', 'sistema', 'ti'], 'tecnologia'],
-    [['restaurante', 'comida', 'gastronomia', 'lanchonete'], 'alimentacao'],
-    [['roupa', 'vestuario', 'loja', 'boutique'], 'moda'],
-    [['clinica', 'hospital', 'medic', 'farmacia'], 'saude'],
-    [['escola', 'curso', 'ensino', 'faculdade'], 'educacao'],
-    [['salao', 'estetica', 'cabelo', 'cosmetico'], 'beleza'],
-    [['obra', 'engenharia', 'arquitetura', 'pedreiro'], 'construcao'],
-    [['banco', 'investimento', 'credito', 'financeira'], 'financeiro'],
-    [['advogado', 'juridico', 'direito'], 'advocacia'],
-    [['carro', 'moto', 'oficina', 'mecanica'], 'automotivo'],
+    [['restaurante', 'comida', 'gastronomia', 'lanchonete', 'sorvete', 'sorveteria', 'acai', 'açaí', 'pizzaria', 'hamburgueria', 'doceria', 'padaria', 'cafeteria', 'bar'], 'alimentacao'],
+    [['roupa', 'vestuario', 'loja', 'boutique', 'moda'], 'moda'],
+    [['clinica', 'hospital', 'medic', 'farmacia', 'odonto', 'dentista', 'fisioterapia'], 'saude'],
+    [['escola', 'curso', 'ensino', 'faculdade', 'treinamento'], 'educacao'],
+    [['salao', 'estetica', 'cabelo', 'cosmetico', 'barbearia', 'beleza', 'manicure'], 'beleza'],
+    [['obra', 'engenharia', 'arquitetura', 'pedreiro', 'construcao', 'construtora'], 'construcao'],
+    [['banco', 'investimento', 'credito', 'financeira', 'contabilidade', 'fintech'], 'financeiro'],
+    [['advogado', 'juridico', 'direito', 'advocacia'], 'advocacia'],
+    [['carro', 'moto', 'oficina', 'mecanica', 'automotivo', 'concessionaria'], 'automotivo'],
   ];
   for (const [keywords, area] of keywordMap) {
     if (keywords.some(k => normalized.includes(k))) return BUSINESS_AREA_CLASSES[area];
   }
-  return BUSINESS_AREA_CLASSES.default;
+  // Dynamic default fallback — contextualizes descriptions with the client's actual business area
+  return {
+    classes: [35, 41, 42],
+    descriptions: [
+      `Classe 35 – Comércio, vendas, marketing e gestão do seu negócio de ${businessArea}, atendimento ao cliente e promoção dos seus serviços. (Classe principal)`,
+      `Classe 41 – Cursos, treinamentos, workshops, eventos e atividades educacionais relacionadas a ${businessArea}. (protege o serviço)`,
+      `Classe 42 – Desenvolvimento de sites, sistemas, plataformas digitais e soluções tecnológicas para ${businessArea}. (protege a tecnologia)`,
+    ]
+  };
 }
 
 // ========== ETAPA 2: Mapeamento NCL via IA ==========
