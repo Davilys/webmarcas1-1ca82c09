@@ -47,7 +47,8 @@ export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1, pl
 
   const qty = Math.max(classCount, 1);
 
-  const recurringValue = plan === 'premium' ? 398 : plan === 'corporativo' ? 1194 : 0;
+  const baseRecurring = plan === 'premium' ? 398 : plan === 'corporativo' ? 1194 : 0;
+  const recurringValue = plan === 'premium' ? baseRecurring * qty : baseRecurring;
   const planLabel = plan === 'premium' ? 'Plano Premium' : 'Plano Corporativo';
 
   const paymentOptions: PaymentOption[] = useMemo(() => {
