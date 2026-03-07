@@ -2,8 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { useEffect, lazy, Suspense } from "react";
 
 const SectionRedirect = ({ section }: { section: string }) => {
   const navigate = useNavigate();
@@ -20,57 +20,66 @@ const SectionRedirect = ({ section }: { section: string }) => {
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ChatModeProvider } from "@/contexts/ChatModeContext";
+
+// Only the landing page is eagerly loaded for instant first paint
 import Index from "./pages/Index";
-import Registro from "./pages/Registro";
-import Registrar from "./pages/Registrar";
-import StatusPedido from "./pages/StatusPedido";
-import Obrigado from "./pages/Obrigado";
-import VerificarContrato from "./pages/VerificarContrato";
-import AssinarDocumento from "./pages/AssinarDocumento";
-import RegistroBlockchain from "./pages/RegistroBlockchain";
-import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
-import TermosUso from "./pages/TermosUso";
-import NotFound from "./pages/NotFound";
-import Blog from "./pages/Blog";
-import BlogPost from "./pages/BlogPost";
+
+// All other pages are lazy-loaded for code splitting
+const Registro = lazy(() => import("./pages/Registro"));
+const Registrar = lazy(() => import("./pages/Registrar"));
+const StatusPedido = lazy(() => import("./pages/StatusPedido"));
+const Obrigado = lazy(() => import("./pages/Obrigado"));
+const VerificarContrato = lazy(() => import("./pages/VerificarContrato"));
+const AssinarDocumento = lazy(() => import("./pages/AssinarDocumento"));
+const RegistroBlockchain = lazy(() => import("./pages/RegistroBlockchain"));
+const PoliticaPrivacidade = lazy(() => import("./pages/PoliticaPrivacidade"));
+const TermosUso = lazy(() => import("./pages/TermosUso"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Blog = lazy(() => import("./pages/Blog"));
+const BlogPost = lazy(() => import("./pages/BlogPost"));
 
 // Cliente pages
-import ClienteLogin from "./pages/cliente/Login";
-import ClienteDashboard from "./pages/cliente/Dashboard";
-import ClienteProcessos from "./pages/cliente/Processos";
-import ClienteProcessoDetalhe from "./pages/cliente/ProcessoDetalhe";
-import ClienteDocumentos from "./pages/cliente/Documentos";
-import ClienteFinanceiro from "./pages/cliente/Financeiro";
-import ClienteChatSuporte from "./pages/cliente/ChatSuporte";
-import ClienteConfiguracoes from "./pages/cliente/Configuracoes";
-import ClienteRegistrarMarca from "./pages/cliente/RegistrarMarca";
-import ClienteStatusPedido from "./pages/cliente/StatusPedido";
-import ClientePedidoConfirmado from "./pages/cliente/PedidoConfirmado";
-import ClienteRecuperarSenha from "./pages/cliente/RecuperarSenha";
-import ClienteRedefinirSenha from "./pages/cliente/RedefinirSenha";
-import ClienteAnaliseInteligente from "./pages/cliente/AnaliseInteligente";
+const ClienteLogin = lazy(() => import("./pages/cliente/Login"));
+const ClienteDashboard = lazy(() => import("./pages/cliente/Dashboard"));
+const ClienteProcessos = lazy(() => import("./pages/cliente/Processos"));
+const ClienteProcessoDetalhe = lazy(() => import("./pages/cliente/ProcessoDetalhe"));
+const ClienteDocumentos = lazy(() => import("./pages/cliente/Documentos"));
+const ClienteFinanceiro = lazy(() => import("./pages/cliente/Financeiro"));
+const ClienteChatSuporte = lazy(() => import("./pages/cliente/ChatSuporte"));
+const ClienteConfiguracoes = lazy(() => import("./pages/cliente/Configuracoes"));
+const ClienteRegistrarMarca = lazy(() => import("./pages/cliente/RegistrarMarca"));
+const ClienteStatusPedido = lazy(() => import("./pages/cliente/StatusPedido"));
+const ClientePedidoConfirmado = lazy(() => import("./pages/cliente/PedidoConfirmado"));
+const ClienteRecuperarSenha = lazy(() => import("./pages/cliente/RecuperarSenha"));
+const ClienteRedefinirSenha = lazy(() => import("./pages/cliente/RedefinirSenha"));
+const ClienteAnaliseInteligente = lazy(() => import("./pages/cliente/AnaliseInteligente"));
 
 // Admin pages
-import AdminLogin from "./pages/admin/Login";
-import AdminDashboard from "./pages/admin/Dashboard";
-import AdminLeads from "./pages/admin/Leads";
-import AdminClientes from "./pages/admin/Clientes";
-import AdminContratos from "./pages/admin/Contratos";
-import AdminModelosContrato from "./pages/admin/ModelosContrato";
-import AdminProcessos from "./pages/admin/Processos";
-import AdminDocumentos from "./pages/admin/Documentos";
-import AdminFinanceiro from "./pages/admin/Financeiro";
-import AdminNotificacoes from "./pages/admin/Notificacoes";
-import AdminConfiguracoes from "./pages/admin/Configuracoes";
-import AdminRecursosINPI from "./pages/admin/RecursosINPI";
-import AdminRevistaINPI from "./pages/admin/RevistaINPI";
-import AdminPublicacoes from "./pages/admin/Publicacoes";
+const AdminLogin = lazy(() => import("./pages/admin/Login"));
+const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
+const AdminLeads = lazy(() => import("./pages/admin/Leads"));
+const AdminClientes = lazy(() => import("./pages/admin/Clientes"));
+const AdminContratos = lazy(() => import("./pages/admin/Contratos"));
+const AdminModelosContrato = lazy(() => import("./pages/admin/ModelosContrato"));
+const AdminProcessos = lazy(() => import("./pages/admin/Processos"));
+const AdminDocumentos = lazy(() => import("./pages/admin/Documentos"));
+const AdminFinanceiro = lazy(() => import("./pages/admin/Financeiro"));
+const AdminNotificacoes = lazy(() => import("./pages/admin/Notificacoes"));
+const AdminConfiguracoes = lazy(() => import("./pages/admin/Configuracoes"));
+const AdminRecursosINPI = lazy(() => import("./pages/admin/RecursosINPI"));
+const AdminRevistaINPI = lazy(() => import("./pages/admin/RevistaINPI"));
+const AdminPublicacoes = lazy(() => import("./pages/admin/Publicacoes"));
+const AdminEmails = lazy(() => import("./pages/admin/Emails"));
+const AdminChatAoVivo = lazy(() => import("./pages/admin/ChatAoVivo"));
+const AdminPremiacao = lazy(() => import("./pages/admin/Premiacao"));
+const AdminMarketingIntelligence = lazy(() => import("./pages/admin/MarketingIntelligence"));
 
-import AdminEmails from "./pages/admin/Emails";
-import AdminChatAoVivo from "./pages/admin/ChatAoVivo";
-import AdminPremiacao from "./pages/admin/Premiacao";
-import AdminMarketingIntelligence from "./pages/admin/MarketingIntelligence";
-
+// Minimal loading fallback
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 // Initialize query client
 const queryClient = new QueryClient();
@@ -84,6 +93,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/registro" element={<Registro />} />
@@ -146,6 +156,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </BrowserRouter>
         </TooltipProvider>
         </ChatModeProvider>
