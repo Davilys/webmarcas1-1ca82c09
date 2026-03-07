@@ -156,12 +156,13 @@ function PipelineBar({ leads }: { leads: Lead[] }) {
 }
 
 // ─── Lead Row (static) ──────────────────────────
-function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert }: {
+function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert, onSendMessage }: {
   lead: Lead; selected: boolean;
   onSelect: (id: string, checked: boolean) => void;
   onEdit: (lead: Lead) => void;
   onDelete: (id: string) => void;
   onConvert: (lead: Lead) => void;
+  onSendMessage: (lead: Lead) => void;
 }) {
   const cfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG['novo'];
 
