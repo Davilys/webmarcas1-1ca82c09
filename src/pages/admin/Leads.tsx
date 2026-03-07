@@ -315,6 +315,17 @@ function BulkBar({ selectedIds, leads, onClear, onComplete, onSendMessage }: {
         </SelectContent>
       </Select>
 
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => onSendMessage(leads.filter(l => selectedIds.includes(l.id)))}
+        disabled={loading}
+        className="h-8 rounded-xl text-xs gap-1.5 border-blue-500/30 text-blue-600 hover:bg-blue-500/10"
+      >
+        <Mail className="h-3.5 w-3.5" />
+        Enviar Mensagem
+      </Button>
+
       <Button size="sm" variant="destructive" onClick={bulkDelete} disabled={loading} className="h-8 rounded-xl text-xs gap-1.5">
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
         Excluir
