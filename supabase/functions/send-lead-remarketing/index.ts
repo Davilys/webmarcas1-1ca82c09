@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ─── CAMPAIGN MODE: Queue items ────────────────────────────────────
+    // ─── CAMPAIGN MODE ────────────────────────────────────────────────
     if (!lead_ids || !Array.isArray(lead_ids) || lead_ids.length === 0) {
       throw new Error("lead_ids is required");
     }
@@ -287,6 +287,78 @@ Deno.serve(async (req) => {
     const emailSubject = subject || "Temos uma oportunidade especial para você!";
     const emailBody = body || "Olá {{nome}}, gostaríamos de retomar contato com você.";
 
+    // ─── IMMEDIATE MODE: Send now, don't queue ─────────────────────────
+    if (immediate === true) {
+      let emailsSent = 0;
+      let whatsappSent = 0;
+      const errors: string[] = [];
+
+      for (const lead of leads) {
+        const personalizedBody = emailBody
+          .replace(/\{\{nome\}\}/g, lead.full_name || "")
+          .replace(/\{\{email\}\}/g, lead.email || "")
+          .replace(/\{\{empresa\}\}/g, lead.company_name || "");
+        const personalizedSubject = emailSubject
+          .replace(/\{\{nome\}\}/g, lead.full_name || "");
+
+        // Send email immediately
+        if (selectedChannels.includes("email") && lead.email) {
+          const emailResult = await sendEmailNow(resendApiKey, lead.email, personalizedSubject, personalizedBody);
+          if (emailResult.success) {
+            emailsSent++;
+            await supabase.from("email_logs").insert({
+              from_email: "noreply@webmarcas.net",
+              to_email: lead.email,
+              subject: personalizedSubject,
+              body: personalizedBody,
+              status: "sent",
+              trigger_type: "direct_send",
+              related_lead_id: lead.id,
+            });
+          } else {
+            errors.push(`Email ${lead.email}: ${emailResult.error}`);
+          }
+        }
+
+        // Send WhatsApp immediately
+        if (selectedChannels.includes("whatsapp") && lead.phone) {
+          const waMessage = await summarizeForWhatsApp(personalizedBody, lead.full_name || "", personalizedSubject);
+          const waResult = await sendWhatsAppNow(supabase, lead.phone, lead.full_name, waMessage);
+          if (waResult.success) {
+            whatsappSent++;
+          } else {
+            errors.push(`WhatsApp ${lead.phone}: ${waResult.error}`);
+          }
+        }
+
+        // Log activity
+        await supabase.from("lead_activities").insert({
+          lead_id: lead.id,
+          activity_type: "direct_message",
+          content: `Mensagem direta enviada. Email: ${selectedChannels.includes("email") && lead.email ? "sim" : "não"}, WhatsApp: ${selectedChannels.includes("whatsapp") && lead.phone ? "sim" : "não"}`,
+        }).catch(() => {});
+      }
+
+      // Update campaign as completed
+      if (campaign_id) {
+        await supabase
+          .from("lead_remarketing_campaigns")
+          .update({
+            status: "concluida",
+            total_sent: emailsSent + whatsappSent,
+            sent_at: new Date().toISOString(),
+            channels: selectedChannels,
+          })
+          .eq("id", campaign_id);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, immediate: true, emails_sent: emailsSent, whatsapp_sent: whatsappSent, errors }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // ─── QUEUE MODE: Schedule for business hours ───────────────────────
     const now = scheduled_for ? new Date(scheduled_for) : new Date();
     let emailSlot = 0;
     let waSlot = 0;
