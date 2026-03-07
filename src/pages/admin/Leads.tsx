@@ -869,6 +869,14 @@ export default function AdminLeads() {
         leads={leads}
         onClear={() => setSelectedIds([])}
         onComplete={fetchLeads}
+        onSendMessage={(selectedLeads) => { setMessageLeads(selectedLeads); setMessageDialogOpen(true); }}
+      />
+
+      <LeadDirectMessageDialog
+        open={messageDialogOpen}
+        onOpenChange={setMessageDialogOpen}
+        leads={messageLeads}
+        onSent={fetchLeads}
       />
     </AdminLayout>
   );
