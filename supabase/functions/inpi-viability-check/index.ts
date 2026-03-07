@@ -858,12 +858,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { brandName, businessArea } = await req.json();
+    const { brandName, businessArea, classesOnly } = await req.json();
 
     if (!brandName || !businessArea) {
       return new Response(
         JSON.stringify({ success: false, error: 'Nome da marca e ramo de atividade são obrigatórios' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // MODE: classesOnly — return only NCL class suggestions (used by admin contract creation)
+    if (classesOnly) {
+      console.log(`[CLASSES-ONLY] Gerando classes para ramo: "${businessArea}"`);
+      const { classes, descriptions } = await suggestClassesWithAI(businessArea);
+      return new Response(
+        JSON.stringify({ success: true, classes, classDescriptions: descriptions }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

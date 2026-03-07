@@ -514,7 +514,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     setSelectedClasses([]);
     try {
       const { data, error } = await supabase.functions.invoke('inpi-viability-check', {
-        body: { brandName: brandData.brandName, businessArea: brandData.businessArea },
+        body: { brandName: brandData.brandName, businessArea: brandData.businessArea, classesOnly: true },
       });
       if (error) throw error;
       if (data?.classes && data.classes.length > 0) {
