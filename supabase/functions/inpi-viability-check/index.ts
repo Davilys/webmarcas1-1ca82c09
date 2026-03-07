@@ -755,9 +755,14 @@ ${webSection}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🏷️ *CLASSES NCL RECOMENDADAS*
+🏷️ *Classes sugeridas (estratégia com ${classes.length} classes):*
 
-${classDescriptions.join('\n')}
+${classDescriptions.map((desc, i) => {
+  const tag = i === 0 ? '(Classe principal)' : i === 1 ? '(protege o produto)' : '(protege a loja ou franquia)';
+  // If description already has a parenthetical tag, use as-is; otherwise append
+  const hasTag = desc.includes('(') && desc.includes(')');
+  return hasTag ? desc : `${desc} ${tag}`;
+}).join('\n\n')}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
