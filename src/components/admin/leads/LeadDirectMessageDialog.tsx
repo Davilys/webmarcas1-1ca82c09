@@ -188,15 +188,24 @@ export function LeadDirectMessageDialog({ open, onOpenChange, leads, onSent }: P
           subject,
           body,
           channels,
+          immediate: true,
         },
       });
       if (error) throw error;
 
-      const queued = data?.queued || 0;
-      toast.success(
-        `${queued} envio(s) iniciado(s)! Distribuição em horário comercial (Seg-Sex, 10h-17h).`,
-        { duration: 5000 }
-      );
+      const emailsSent = data?.emails_sent || 0;
+      const whatsappSent = data?.whatsapp_sent || 0;
+      const sendErrors = data?.errors || [];
+
+      if (emailsSent > 0 || whatsappSent > 0) {
+        const parts: string[] = [];
+        if (emailsSent > 0) parts.push(`${emailsSent} e-mail(s)`);
+        if (whatsappSent > 0) parts.push(`${whatsappSent} WhatsApp(s)`);
+        toast.success(`✅ Enviado com sucesso: ${parts.join(' e ')}!`, { duration: 5000 });
+      }
+      if (sendErrors.length > 0) {
+        toast.error(`Alguns envios falharam: ${sendErrors.slice(0, 2).join('; ')}`, { duration: 6000 });
+      }
       onOpenChange(false);
       setSubject('');
       setBody('');
