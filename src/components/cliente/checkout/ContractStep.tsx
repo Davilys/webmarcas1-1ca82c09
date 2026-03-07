@@ -58,15 +58,19 @@ export function ContractStep({
   const { pricing } = usePricing();
   const initialSelectedRef = useRef<number[]>(selectedClasses || []);
 
-  // Price per class by payment method
+  // Price per class by payment method / plan
   const getUnitPrice = useCallback(() => {
+    // Recurring plans: price per class = monthly value
+    if (plan === 'premium') return 398;
+    if (plan === 'corporativo') return 0; // incluso
+    // Essencial: price varies by payment method
     switch (paymentMethod) {
       case 'avista': return pricing.avista.value;
       case 'cartao6x': case 'cartao': return pricing.cartao.value;
       case 'boleto3x': case 'boleto': return pricing.boleto.value;
       default: return pricing.avista.value;
     }
-  }, [paymentMethod, pricing]);
+  }, [paymentMethod, pricing, plan]);
 
   const handleToggleClass = useCallback((cls: number) => {
     const currentSelected = selectedClasses || [];

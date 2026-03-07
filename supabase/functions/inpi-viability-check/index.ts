@@ -93,8 +93,19 @@ async function suggestClassesWithAI(businessArea: string): Promise<{ classes: nu
       body: JSON.stringify({
         model: 'openai/gpt-5.2',
         messages: [
-          { role: 'system', content: 'Você é um especialista em propriedade intelectual e classificação NCL do INPI Brasil. Responda sempre em JSON válido, sem markdown.' },
-          { role: 'user', content: `Sugira EXATAMENTE 3 classes NCL (1-45) para o ramo "${businessArea}". JSON: {"classes":[n1,n2,n3],"descriptions":["Classe XX – desc1","Classe XX – desc2","Classe XX – desc3"]}` }
+          { role: 'system', content: `Você é um especialista em propriedade intelectual e classificação NCL do INPI Brasil.
+Ao sugerir classes, as descrições devem ser ESPECÍFICAS e CONTEXTUALIZADAS para o ramo de atividade do cliente, usando linguagem clara que o cliente leigo entenda.
+NÃO use descrições genéricas como "Publicidade, gestão de negócios". 
+Use descrições que mencionem os produtos/serviços reais do ramo do cliente.
+Indique entre parênteses a função estratégica de cada classe: (Classe principal), (protege o produto), (protege a loja ou franquia), (protege o serviço), etc.
+Responda sempre em JSON válido, sem markdown.` },
+          { role: 'user', content: `O cliente atua no ramo "${businessArea}". Sugira EXATAMENTE 3 classes NCL (1-45) mais estratégicas para proteger a marca dele.
+
+Exemplo para "Sorveteria":
+{"classes":[43,30,35],"descriptions":["Classe 43 – Serviços de sorveteria, venda de sorvetes, picolés, sobremesas geladas e atendimento ao público. (Classe principal)","Classe 30 – Sorvetes, picolés, sobremesas geladas e produtos alimentícios à base de leite ou frutas. (protege o produto)","Classe 35 – Comércio varejista e venda de sorvetes, picolés e produtos alimentícios. (protege a loja ou franquia)"]}
+
+Agora gere para o ramo "${businessArea}" seguindo o mesmo padrão detalhado e contextualizado.
+JSON: {"classes":[n1,n2,n3],"descriptions":["Classe XX – descrição específica do ramo. (função estratégica)","Classe XX – descrição específica. (função)","Classe XX – descrição específica. (função)"]}` }
         ],
         temperature: 0.3,
         max_completion_tokens: 600,
