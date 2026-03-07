@@ -773,6 +773,7 @@ export default function AdminLeads() {
                             onEdit={lead => { setDetailLead(lead); setDetailOpen(true); }}
                             onDelete={handleDelete}
                             onConvert={handleConvert}
+                            onSendMessage={(lead) => { setMessageLeads([lead]); setMessageDialogOpen(true); }}
                           />
                         ))
                       )}
