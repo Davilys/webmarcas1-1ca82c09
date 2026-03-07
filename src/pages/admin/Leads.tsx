@@ -241,6 +241,9 @@ function LeadRow({ lead, selected, onSelect, onEdit, onDelete, onConvert, onSend
             <DropdownMenuItem onClick={() => onEdit(lead)} className="gap-2 text-sm cursor-pointer">
               <Edit className="h-3.5 w-3.5 text-primary" /> Editar
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onSendMessage(lead)} className="gap-2 text-sm cursor-pointer">
+              <Mail className="h-3.5 w-3.5 text-blue-500" /> Enviar Mensagem
+            </DropdownMenuItem>
             {lead.status !== 'convertido' && (
               <DropdownMenuItem onClick={() => onConvert(lead)} className="gap-2 text-sm cursor-pointer">
                 <UserCheck className="h-3.5 w-3.5 text-emerald-500" /> Converter em Cliente
