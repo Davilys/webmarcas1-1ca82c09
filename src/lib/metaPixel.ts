@@ -40,4 +40,9 @@ export function trackPurchase(value: number = 699.00, currency: string = 'BRL'):
     window.fbq('track', 'Purchase', { value, currency });
     console.log('[Meta Pixel] Purchase event tracked:', { value, currency });
   }
+  // Google Ads conversion
+  if (typeof window !== 'undefined' && window.gtag) {
+    window.gtag('event', 'conversion', { 'send_to': 'AW-1017056174/6qgsCMHB74MaEK6X_OQD' });
+    console.log('[Google Ads] Conversion event tracked');
+  }
 }
