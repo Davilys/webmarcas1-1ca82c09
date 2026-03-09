@@ -2300,9 +2300,15 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                   full_name: client.full_name,
                                   email: client.email,
                                   phone: client.phone,
-                                  brand_name: clientBrands.length > 0 ? clientBrands[0].brand_name : client.brand_name,
-                                  process_number: clientBrands.length > 0 ? clientBrands[0].process_number : client.process_number,
-                                  process_id: clientBrands.length > 0 ? clientBrands[0].id : client.process_id,
+                                  brand_name: (() => {
+                                    const targetBrand = clientBrands.find(b => b.id === selectedServiceBrandId);
+                                    return targetBrand ? targetBrand.brand_name : (clientBrands.length > 0 ? clientBrands[0].brand_name : client.brand_name);
+                                  })(),
+                                  process_number: (() => {
+                                    const targetBrand = clientBrands.find(b => b.id === selectedServiceBrandId);
+                                    return targetBrand ? targetBrand.process_number : (clientBrands.length > 0 ? clientBrands[0].process_number : client.process_number);
+                                  })(),
+                                  process_id: selectedServiceBrandId || (clientBrands.length > 0 ? clientBrands[0].id : client.process_id),
                                 }}
                                 stage={actionStage}
                                 onClose={() => setExpandedStageAction(null)}
