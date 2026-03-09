@@ -2639,9 +2639,9 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                     <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                   ) : (
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <Tag className="h-4 w-4 text-primary" />
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Tag className="h-4 w-4 text-primary shrink-0" />
                           <span className="text-sm font-semibold">{clientBrands.length} marca{clientBrands.length !== 1 ? 's' : ''} registrada{clientBrands.length !== 1 ? 's' : ''}</span>
                         </div>
                         <Dialog open={showAddProcessDialog} onOpenChange={setShowAddProcessDialog}>
