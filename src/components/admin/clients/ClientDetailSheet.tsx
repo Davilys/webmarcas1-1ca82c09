@@ -72,6 +72,7 @@ const LEGACY_SERVICE_TYPES = [
   { id: 'pedido_registro', label: 'Pedido de Registro', description: 'Solicitação inicial junto ao INPI', stage: 'protocolado', icon: FileText },
   { id: 'cumprimento_exigencia', label: 'Cumprimento de Exigência', description: 'Resposta a exigência formal do INPI', stage: '003', icon: FileCheck },
   { id: 'oposicao', label: 'Manifestação de Oposição', description: 'Defesa contra oposição de terceiros', stage: 'oposicao', icon: Shield },
+  { id: 'exigencia_merito', label: 'Exigência de Mérito', description: 'Exigência de mérito emitida pelo INPI', stage: 'exigencia_merito', icon: FileCheck },
   { id: 'recurso', label: 'Recurso Administrativo', description: 'Recurso contra indeferimento do INPI', stage: 'indeferimento', icon: TrendingUp },
   { id: 'renovacao', label: 'Renovação de Marca', description: 'Renovação do registro decenal', stage: 'renovacao', icon: RefreshCw },
   { id: 'notificacao', label: 'Notificação Extrajudicial', description: 'Cessação de uso indevido', stage: 'notificacao', icon: Bell },
