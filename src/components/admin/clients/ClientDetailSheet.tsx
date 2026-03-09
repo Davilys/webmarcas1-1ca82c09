@@ -2661,14 +2661,43 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                 <TabsContent value="brands" className="mt-0 space-y-4">
                   {loading ? (
                     <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-                  ) : clientBrands.length === 0 ? (
-                    <EmptyState icon={Tag} title="Nenhuma marca" description="As marcas registradas por este cliente aparecerão aqui" />
                   ) : (
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Tag className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-semibold">{clientBrands.length} marca{clientBrands.length !== 1 ? 's' : ''} registrada{clientBrands.length !== 1 ? 's' : ''}</span>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <Tag className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-semibold">{clientBrands.length} marca{clientBrands.length !== 1 ? 's' : ''} registrada{clientBrands.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <Dialog open={showAddProcessDialog} onOpenChange={setShowAddProcessDialog}>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-8 text-xs">
+                              <Plus className="h-3.5 w-3.5 mr-1" />Adicionar Marca
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader><DialogTitle>Adicionar Processo de Marca</DialogTitle></DialogHeader>
+                            <DialogDescription>Adicione uma nova marca ao portfólio deste cliente.</DialogDescription>
+                            <div className="space-y-4 py-4">
+                              <div><Label>Nome da Marca *</Label><Input placeholder="Ex: WebMarcas" value={newProcess.brand_name} onChange={(e) => setNewProcess({...newProcess, brand_name: e.target.value})} /></div>
+                              <div><Label>Número do Processo (INPI)</Label><Input placeholder="Ex: 928374651" value={newProcess.process_number} onChange={(e) => setNewProcess({...newProcess, process_number: e.target.value})} /></div>
+                              <div><Label>Fase do Pipeline</Label>
+                                <Select value={newProcess.pipeline_stage} onValueChange={(v) => setNewProcess({...newProcess, pipeline_stage: v})}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>{PIPELINE_STAGES.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}</SelectContent>
+                                </Select>
+                              </div>
+                              <div><Label>Área de Atuação</Label><Input placeholder="Ex: Tecnologia" value={newProcess.business_area} onChange={(e) => setNewProcess({...newProcess, business_area: e.target.value})} /></div>
+                            </div>
+                            <DialogFooter>
+                              <Button variant="outline" onClick={() => setShowAddProcessDialog(false)}>Cancelar</Button>
+                              <Button onClick={handleCreateProcess}>Criar Processo</Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
                       </div>
+                      {clientBrands.length === 0 ? (
+                        <EmptyState icon={Tag} title="Nenhuma marca" description="Clique em 'Adicionar Marca' para registrar a primeira marca deste cliente" />
+                      ) : (
                       <AnimatePresence>
                         {clientBrands.map((brand, i) => {
                           const stageInfo = PIPELINE_STAGES.find(s => s.id === brand.pipeline_stage) || PIPELINE_STAGES[0];
