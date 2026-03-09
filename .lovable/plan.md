@@ -1,70 +1,32 @@
 
 
-## Correcao: Separacao de contas Admin e Cliente
+## Plano: Botão "Add Marca" + Seletor de Marca nos Serviços + Cards por Marca no Kanban
 
-### Problemas identificados
+### Contexto
+Atualmente:
+- O botão "Adicionar Processo" só aparece quando o cliente não tem nenhuma marca (empty state)
+- Na aba Serviços, o sistema sempre usa a primeira marca do cliente (hardcoded `clientBrands[0]`)
+- No Kanban, clientes com múltiplas marcas são agrupados em um único card
 
-1. **Excluir cliente remove acesso Admin**: Em `ClientDetailSheet.tsx` (linha 642), ao excluir um cliente, o codigo deleta TODAS as `user_roles` do usuario, incluindo a role `admin`. Isso faz o admin perder acesso ao CRM.
+### Mudanças
 
-2. **Criar Admin cria conta de cliente**: O edge function `create-admin-user` cria um usuario no `auth.users`, e o trigger `handle_new_user` automaticamente cria um perfil na tabela `profiles`. Isso faz o admin aparecer na area de clientes.
+#### 1. Aba Marcas — Botão "Adicionar Marca" sempre visível
+- Mover o Dialog de criação de processo para fora do `EmptyState`
+- Adicionar botão `+ Adicionar Marca` no header da aba, ao lado do contador "X marcas registradas"
+- Reutilizar o mesmo `handleCreateProcess` existente
 
-3. **Excluir Admin exclui tudo**: Se o perfil do admin for excluido como cliente, ele perde acesso ao CRM tambem (porque perfil e conta auth sao compartilhados).
+#### 2. Aba Serviços — Seletor de Marca
+- Quando o cliente tem mais de uma marca, exibir um `Select` no topo da aba para o admin escolher qual marca receberá o serviço
+- O `ServiceActionPanel` receberá os dados da marca selecionada (não mais `clientBrands[0]`)
+- O pipeline_stage será atualizado apenas no `brand_processes` da marca selecionada
 
-### Solucao
+#### 3. Kanban — Um card por marca/processo
+- Na função `fetchClients` em `Clientes.tsx`, ao invés de agrupar todos os processos em um único `ClientWithProcess`, criar um entry separado para cada processo
+- Cada card mostra o nome do cliente + nome da marca específica
+- O `process_id` e `pipeline_stage` de cada card correspondem ao processo individual
+- Ao clicar no card, o `ClientDetailSheet` abre com `focusProcessId` da marca clicada
 
-#### 1. Corrigir exclusao de cliente para preservar role admin
-
-No `ClientDetailSheet.tsx`, ao excluir um cliente, verificar se o usuario tem role `admin` antes de deletar. Se tiver, manter a role admin e apenas remover dados de cliente (processos, contratos, etc.) sem deletar o perfil.
-
-```text
-Antes:
-  supabase.from('user_roles').delete().eq('user_id', client.id)
-  supabase.from('profiles').delete().eq('id', client.id)
-
-Depois:
-  // Verificar se e admin
-  const { data: adminRole } = await supabase
-    .from('user_roles').select('id').eq('user_id', client.id).eq('role', 'admin').maybeSingle();
-  
-  // Se e admin: deletar apenas role 'client' (se existir), manter perfil e admin role
-  // Se NAO e admin: deletar tudo (roles, perfil)
-  if (adminRole) {
-    // Apenas remover role client, manter perfil e admin role
-    supabase.from('user_roles').delete().eq('user_id', client.id).eq('role', 'client');
-    // Limpar dados de cliente no perfil (client_funnel_type = null, etc.)
-  } else {
-    // Remover tudo incluindo perfil
-    supabase.from('user_roles').delete().eq('user_id', client.id);
-    supabase.from('profiles').delete().eq('id', client.id);
-  }
-```
-
-#### 2. Corrigir criacao de Admin para nao criar perfil de cliente
-
-No `create-admin-user` edge function, apos criar o usuario (que gera perfil via trigger), marcar o perfil como admin-only para que nao apareca na listagem de clientes.
-
-O perfil ja e criado pelo trigger `handle_new_user` e nao podemos evitar isso. A solucao e garantir que a query de clientes no Kanban filtre admins-only (usuarios que tem role admin mas nao tem `brand_processes`).
-
-Na pratica, como o Kanban de clientes ja filtra por `brand_processes` (processo de marca), admins sem processos ja nao aparecem. Preciso verificar se a listagem de clientes tambem filtra corretamente.
-
-#### 3. Corrigir exclusao de Admin para nao afetar perfil
-
-A exclusao de admin (`removeAdminMutation` no SecuritySettings.tsx) ja esta correta -- so remove role e permissions, nao toca no perfil. Nenhuma alteracao necessaria aqui.
-
-### Alteracoes tecnicas
-
-**Ficheiro: `src/components/admin/clients/ClientDetailSheet.tsx`**
-- Modificar `handleDeleteClient` para verificar se o usuario tem role `admin`
-- Se tiver role admin: deletar dados de cliente (processos, contratos, faturas, etc.) mas MANTER o perfil e a role admin
-- Se nao tiver role admin: comportamento atual (deletar tudo)
-
-**Ficheiro: `supabase/functions/create-admin-user/index.ts`**
-- Nenhuma alteracao necessaria no edge function. O trigger `handle_new_user` cria o perfil automaticamente, mas admins sem `brand_processes` nao aparecem no Kanban de clientes.
-
-### Resultado esperado
-
-- Excluir um cliente que tambem e admin: remove dados de cliente, mas admin continua com acesso ao CRM
-- Excluir um admin: remove acesso admin, mas se tiver conta de cliente, continua com acesso a area do cliente
-- Criar um admin: cria apenas acesso admin, sem processos de marca (nao aparece no Kanban de clientes)
-- Unico com conta dupla (admin + cliente): Administrador Master (davillys@gmail.com)
+### Arquivos a modificar
+- `src/components/admin/clients/ClientDetailSheet.tsx` — botão add marca + seletor de marca nos serviços
+- `src/pages/admin/Clientes.tsx` — lógica de cards por marca no fetchClients
 
