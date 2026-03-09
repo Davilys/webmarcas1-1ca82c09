@@ -2968,6 +2968,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                           );
                         })}
                       </AnimatePresence>
+                      )}
                     </div>
                   )}
                 </TabsContent>
