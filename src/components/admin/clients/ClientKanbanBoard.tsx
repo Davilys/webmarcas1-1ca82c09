@@ -516,32 +516,34 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
                                     <p className="font-bold text-sm mb-0.5 line-clamp-1">
                                       {client.full_name || 'Sem nome'}
                                     </p>
-                                    {client.brands && client.brands.length > 1 ? (
+                                    {client.brand_name ? (
                                       <div className="flex items-center gap-1.5 flex-wrap">
                                         <p className="font-bold text-sm text-primary line-clamp-1">
-                                          {client.brands[0].brand_name}
+                                          {client.brand_name}
                                         </p>
-                                        <Tooltip>
-                                          <TooltipTrigger>
-                                            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20 hover:bg-primary/20">
-                                              +{client.brands.length - 1} marca{client.brands.length > 2 ? 's' : ''}
-                                            </Badge>
-                                          </TooltipTrigger>
-                                          <TooltipContent side="bottom" className="max-w-[250px]">
-                                            <p className="font-semibold text-xs mb-1">Marcas registradas:</p>
-                                            <ul className="text-xs space-y-0.5">
-                                              {client.brands.map(b => (
-                                                <li key={b.id} className="flex items-center gap-1">
-                                                  <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
-                                                  {b.brand_name}
-                                                  {b.process_number && <span className="text-muted-foreground font-mono">#{b.process_number}</span>}
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          </TooltipContent>
-                                        </Tooltip>
+                                        {client.brands && client.brands.length > 1 && (
+                                          <Tooltip>
+                                            <TooltipTrigger>
+                                              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20 hover:bg-primary/20">
+                                                +{client.brands.length - 1} marca{client.brands.length > 2 ? 's' : ''}
+                                              </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="max-w-[250px]">
+                                              <p className="font-semibold text-xs mb-1">Marcas registradas:</p>
+                                              <ul className="text-xs space-y-0.5">
+                                                {client.brands.map(b => (
+                                                  <li key={b.id} className="flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                                                    {b.brand_name}
+                                                    {b.process_number && <span className="text-muted-foreground font-mono">#{b.process_number}</span>}
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        )}
                                       </div>
-                                    ) : client.brand_name ? (
+                                    ) : client.brands && client.brands.length > 0 ? (
                                       <div className="flex items-center gap-1.5 flex-wrap">
                                         <p className="font-bold text-sm text-primary line-clamp-1">
                                           {client.brand_name}
