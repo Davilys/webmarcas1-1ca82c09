@@ -2256,8 +2256,9 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                   setSelectedServiceType(stage.id);
                                   setEditData(prev => ({ ...prev, pipeline_stage: stage.id }));
                                   setExpandedStageAction(prev => prev === stage.id ? null : stage.id);
-                                  if (client.process_id) {
-                                    await supabase.from('brand_processes').update({ pipeline_stage: stage.id }).eq('id', client.process_id);
+                                    const targetProcessId = selectedServiceBrandId || client.process_id;
+                                    if (targetProcessId) {
+                                    await supabase.from('brand_processes').update({ pipeline_stage: stage.id }).eq('id', targetProcessId);
                                     toast.success(`Serviço: ${stage.label}`);
                                     onUpdate();
                                   }
