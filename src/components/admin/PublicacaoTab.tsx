@@ -1397,12 +1397,16 @@ export default function PublicacaoTab() {
   }, []);
 
   const handleAutoPopulateFromRPI = useCallback((entry: any) => {
-    if (linkedProcessIds.has(entry.matched_process_id)) {
+    if (linkedProcessIds.has(entry.matched_process_id) || submittedRpiEntryIds.has(entry.id)) {
       toast.error('Este processo já possui uma publicação vinculada');
       return;
     }
     const proc = processMap.get(entry.matched_process_id);
     if (!proc) return;
+    
+    // Mark as submitted immediately to prevent duplicates
+    setSubmittedRpiEntryIds(prev => new Set(prev).add(entry.id));
+    
     const status = resolveStatusFromDispatch(entry.dispatch_text);
     createMutation.mutate({
       process_id: entry.matched_process_id,
@@ -1419,32 +1423,11 @@ export default function PublicacaoTab() {
       process_number_rpi: entry.process_number || null,
       descricao_prazo: entry.dispatch_text || null,
     });
-  }, [linkedProcessIds, processMap, resolveStatusFromDispatch, createMutation, currentUserQuery.data]);
+  }, [linkedProcessIds, submittedRpiEntryIds, processMap, resolveStatusFromDispatch, createMutation, currentUserQuery.data]);
 
   const availableRpiEntries = useMemo(() => {
-    return rpiEntries.filter(e => e.matched_process_id && !linkedProcessIds.has(e.matched_process_id));
-  }, [rpiEntries, linkedProcessIds]);
-
-  // ─── Auto-import available RPI entries ────
-  const autoImportingRef = useRef(false);
-  useEffect(() => {
-    if (availableRpiEntries.length === 0 || autoImportingRef.current || isLoading) return;
-    autoImportingRef.current = true;
-    
-    // Auto-import each pending entry
-    let imported = 0;
-    for (const entry of availableRpiEntries) {
-      const proc = processMap.get(entry.matched_process_id);
-      if (!proc) continue;
-      handleAutoPopulateFromRPI(entry);
-      imported++;
-    }
-    if (imported > 0) {
-      console.log(`Auto-imported ${imported} RPI entries to Publicações`);
-    }
-    // Reset after a delay to allow for new entries
-    setTimeout(() => { autoImportingRef.current = false; }, 5000);
-  }, [availableRpiEntries, isLoading, processMap, handleAutoPopulateFromRPI]);
+    return rpiEntries.filter(e => e.matched_process_id && !linkedProcessIds.has(e.matched_process_id) && !submittedRpiEntryIds.has(e.id));
+  }, [rpiEntries, linkedProcessIds, submittedRpiEntryIds]);
 
   // Kanban status change handler
   const handleKanbanStatusChange = (id: string, newStatus: PubStatus, pub: any) => {
