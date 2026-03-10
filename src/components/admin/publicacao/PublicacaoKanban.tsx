@@ -44,6 +44,15 @@ interface Props {
 
 export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap, onSelect, selectedId, onStatusChange, resolveRpiNumber }: Props) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
+
+  // Build a secondary lookup: process_number -> process for fallback resolution
+  const processNumberMap = useMemo(() => {
+    const map = new Map<string, any>();
+    processMap.forEach((proc) => {
+      if (proc.process_number) map.set(proc.process_number, proc);
+    });
+    return map;
+  }, [processMap]);
   const [dragOverStatus, setDragOverStatus] = useState<PubStatus | null>(null);
 
   const columns = useMemo(() => {
@@ -160,7 +169,11 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                 )}
                 {items.map(pub => {
                   const proc = pub.process_id ? processMap.get(pub.process_id) : null;
+                  // Fallback: try finding process by process_number_rpi
+                  const resolvedProc = proc || (pub.process_number_rpi ? processNumberMap.get(pub.process_number_rpi) : null);
                   const client = pub.client_id ? clientMap.get(pub.client_id) : null;
+                  // If no client from pub.client_id, try from the resolved process
+                  const resolvedClient = client || (resolvedProc?.user_id ? clientMap.get(resolvedProc.user_id) : null);
                   const admin = pub.admin_id ? adminMap.get(pub.admin_id) : null;
                   let deadlineDate = pub.proximo_prazo_critico;
                   if (!deadlineDate && pub.data_publicacao_rpi) {
@@ -171,8 +184,8 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                     }
                   }
                   const days = deadlineDate ? differenceInDays(parseISO(deadlineDate), new Date()) : null;
-                  const brandName = proc?.brand_name || pub.brand_name_rpi || '—';
-                  const processNumber = proc?.process_number || pub.process_number_rpi || null;
+                  const brandName = resolvedProc?.brand_name || pub.brand_name_rpi || '—';
+                  const processNumber = resolvedProc?.process_number || pub.process_number_rpi || null;
                   const rpiNumber = resolveRpiNumber ? resolveRpiNumber(pub) : null;
                   const isOverdue = days !== null && days < 0;
                   const isUrgent = days !== null && days >= 0 && days <= 7;
@@ -199,15 +212,15 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-extrabold text-foreground leading-tight line-clamp-2">{brandName}</p>
                           <p className="text-[11px] truncate mt-0.5 leading-tight font-semibold text-primary">
-                            {client?.full_name || '—'}
+                            {resolvedClient?.full_name || '—'}
                           </p>
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             {processNumber && (
                               <span className="text-[9px] text-muted-foreground/70 font-mono bg-muted/50 px-1 rounded">{processNumber}</span>
                             )}
-                            {(pub.ncl_class || proc?.ncl_classes) && (
+                            {(pub.ncl_class || resolvedProc?.ncl_classes) && (
                               <span className="text-[9px] text-violet-700 dark:text-violet-400 font-medium bg-violet-100 dark:bg-violet-900/40 px-1 rounded">
-                                NCL {pub.ncl_class || (proc?.ncl_classes ? proc.ncl_classes.join(', ') : '')}
+                                NCL {pub.ncl_class || (resolvedProc?.ncl_classes ? resolvedProc.ncl_classes.join(', ') : '')}
                               </span>
                             )}
                             {rpiNumber && (

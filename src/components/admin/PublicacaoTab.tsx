@@ -909,7 +909,14 @@ export default function PublicacaoTab() {
   const kpiStats = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const withClient = publicacoes.filter(p => !!p.client_id && !!clientMap.get(p.client_id));
+    const withClient = publicacoes.filter(p => {
+      const dc = p.client_id ? clientMap.get(p.client_id) : null;
+      if (dc) return true;
+      const pr = p.process_id ? processMap.get(p.process_id) : null;
+      const prByNum = !pr && (p as any).process_number_rpi ? processes.find(pp => pp.process_number === (p as any).process_number_rpi) : null;
+      const rp = pr || prByNum;
+      return rp?.user_id ? !!clientMap.get(rp.user_id) : false;
+    });
     const total = withClient.length;
     const urgentes = withClient.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d >= 0 && d <= 7; }).length;
     const atrasados = withClient.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d < 0; }).length;
@@ -920,18 +927,30 @@ export default function PublicacaoTab() {
   // ─── Status counts ────
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    publicacoes.filter(p => !!p.client_id && !!clientMap.get(p.client_id)).forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
+    publicacoes.filter(p => {
+      const dc = p.client_id ? clientMap.get(p.client_id) : null;
+      if (dc) return true;
+      const pr = p.process_id ? processMap.get(p.process_id) : null;
+      const prByNum = !pr && (p as any).process_number_rpi ? processes.find(pp => pp.process_number === (p as any).process_number_rpi) : null;
+      const rp = pr || prByNum;
+      return rp?.user_id ? !!clientMap.get(rp.user_id) : false;
+    }).forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
     return counts;
-  }, [publicacoes, clientMap]);
+  }, [publicacoes, clientMap, processMap, processes]);
 
   // ─── Filtering + Sorting + Pagination ────
   const filtered = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     let result = publicacoes.filter(pub => {
-      if (!pub.client_id || !clientMap.get(pub.client_id)) return false;
+      // Try resolving client: direct client_id OR via linked process's user_id
+      const directClient = pub.client_id ? clientMap.get(pub.client_id) : null;
       const proc = pub.process_id ? processMap.get(pub.process_id) : null;
-      const client = pub.client_id ? clientMap.get(pub.client_id) : null;
+      const procByNumber = !proc && (pub as any).process_number_rpi ? processes.find(p => p.process_number === (pub as any).process_number_rpi) : null;
+      const resolvedProc = proc || procByNumber;
+      const resolvedClient = directClient || (resolvedProc?.user_id ? clientMap.get(resolvedProc.user_id) : null);
+      if (!resolvedClient) return false;
+      const client = resolvedClient;
       if (search) {
         const q = search.toLowerCase();
         const matchName = proc?.brand_name?.toLowerCase().includes(q) || (pub as any).brand_name_rpi?.toLowerCase().includes(q);
