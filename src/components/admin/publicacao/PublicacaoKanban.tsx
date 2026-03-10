@@ -187,7 +187,7 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                   const brandName = resolvedProc?.brand_name || pub.brand_name_rpi || '—';
                   const processNumber = resolvedProc?.process_number || pub.process_number_rpi || null;
                   const rpiNumber = resolveRpiNumber ? resolveRpiNumber(pub) : null;
-                  const nclValue = pub.ncl_class || (resolvedProc?.ncl_classes ? resolvedProc.ncl_classes.join(', ') : '');
+                  const isOverdue = days !== null && days < 0;
                   const isUrgent = days !== null && days >= 0 && days <= 7;
                   const isDragging = draggedId === pub.id;
 
