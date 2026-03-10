@@ -466,6 +466,10 @@ export default function PublicacaoTab() {
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
+  // ─── Sync tracking state (must be before auto-sync useEffect) ────
+  const linkedProcessIds = useMemo(() => new Set(publicacoes.map(p => p.process_id)), [publicacoes]);
+  const [submittedRpiEntryIds, setSubmittedRpiEntryIds] = useState<Set<string>>(new Set());
+
   // ─── Auto-archive expired publications ────
   const autoArchiveRef = useRef(false);
   useEffect(() => {
