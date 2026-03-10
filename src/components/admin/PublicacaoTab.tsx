@@ -383,6 +383,7 @@ export default function PublicacaoTab() {
       }
       return allClients;
     },
+    staleTime: 60000,
   });
 
   const { data: admins = [] } = useQuery({
