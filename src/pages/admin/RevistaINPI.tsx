@@ -662,11 +662,14 @@ export default function RevistaINPI() {
       }
 
       if (existingPub) {
-        // Update existing pub with client and process
+        // Update existing pub with client, process AND brand metadata
         await supabase.from('publicacoes_marcas').update({
           client_id: selectedClient.id,
           process_id: resolvedProcessId || undefined,
           status: pubStatus,
+          brand_name_rpi: assignEntry.brand_name || null,
+          process_number_rpi: assignEntry.process_number || null,
+          ncl_class: assignEntry.ncl_classes?.join(', ') || null,
           updated_at: new Date().toISOString(),
         }).eq('id', existingPub.id);
       } else if (existingByProcessNumber) {
@@ -676,6 +679,9 @@ export default function RevistaINPI() {
           process_id: resolvedProcessId || undefined,
           status: pubStatus,
           rpi_entry_id: assignEntry.id,
+          brand_name_rpi: assignEntry.brand_name || null,
+          process_number_rpi: assignEntry.process_number || null,
+          ncl_class: assignEntry.ncl_classes?.join(', ') || null,
           updated_at: new Date().toISOString(),
         }).eq('id', existingByProcessNumber.id);
       } else {
