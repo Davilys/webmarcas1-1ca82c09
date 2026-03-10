@@ -197,14 +197,11 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                       <div className="flex items-start gap-1">
                         <GripVertical className="w-3 h-3 text-muted-foreground/40 mt-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold truncate text-foreground leading-tight">{brandName}</p>
-                          <p className="text-[10px] truncate mt-0.5 leading-tight">
-                            {client?.full_name
-                              ? <span className="text-muted-foreground">{client.full_name}</span>
-                              : <span className="text-amber-600 dark:text-amber-400 font-medium">Sem cliente</span>
-                            }
+                          <p className="text-sm font-extrabold truncate text-foreground leading-tight">{brandName}</p>
+                          <p className="text-[11px] truncate mt-0.5 leading-tight font-semibold text-primary">
+                            {client?.full_name || '—'}
                           </p>
-                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             {processNumber && (
                               <span className="text-[9px] text-muted-foreground/70 font-mono bg-muted/50 px-1 rounded">{processNumber}</span>
                             )}
@@ -217,15 +214,21 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                               <span className="text-[9px] text-cyan-700 dark:text-cyan-400 font-medium bg-cyan-100 dark:bg-cyan-900/40 px-1 rounded">RPI {rpiNumber}</span>
                             )}
                           </div>
+                          {pub.data_publicacao_rpi && (
+                            <div className="flex items-center gap-1 mt-1 text-[9px] text-muted-foreground">
+                              <Calendar className="w-3 h-3" />
+                              <span>Pub: {format(parseISO(pub.data_publicacao_rpi), 'dd/MM/yyyy')}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border/40">
                         {days !== null ? (
                           <div className={cn('flex items-center gap-1 text-[10px] font-semibold',
-                            isOverdue ? 'text-destructive' : isUrgent ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'
+                            isOverdue ? 'text-destructive animate-pulse' : isUrgent ? 'text-amber-600 dark:text-amber-400' : days <= 15 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
                           )}>
                             {isOverdue ? <AlertTriangle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                            {isOverdue ? `${Math.abs(days)}d atrasado` : `${days}d`}
+                            {isOverdue ? `${Math.abs(days)}d atrasado` : `${days}d restantes`}
                           </div>
                         ) : <span />}
                         {admin && (
