@@ -604,6 +604,12 @@ export default function PublicacaoTab() {
           clientId = proc?.user_id || null;
         }
 
+        // ★ REGRA FUNDAMENTAL: NÃO criar publicação órfã — só entra no Kanban com cliente vinculado
+        if (!clientId) {
+          skipped++;
+          continue;
+        }
+
         // Determine status from dispatch
         let status: PubStatus = '003';
         const dispatchText = (entry.dispatch_text || '').toLowerCase();
@@ -627,11 +633,24 @@ export default function PublicacaoTab() {
           process_number_rpi: entry.process_number || null,
         } as any, entry.dispatch_text);
 
-        // Check if there's an existing publicação with the same process number → UPDATE
+        // ★ REGRA: Mesmo nº de processo → ATUALIZAR card (mover de coluna). Nº diferente → NOVO card.
         if (entry.process_number && existingPubByProcessNumber.has(entry.process_number)) {
           const existingPub = existingPubByProcessNumber.get(entry.process_number)!;
-          const updateData: any = { ...pubData };
-          delete updateData.process_number_rpi;
+          // Only update status/dates — keep existing process_number_rpi and client linkage
+          const updateData: any = {
+            status: pubData.status,
+            data_publicacao_rpi: pubData.data_publicacao_rpi,
+            proximo_prazo_critico: pubData.proximo_prazo_critico,
+            descricao_prazo: pubData.descricao_prazo,
+            rpi_entry_id: entry.id,
+            updated_at: new Date().toISOString(),
+          };
+          if (pubData.data_certificado) updateData.data_certificado = pubData.data_certificado;
+          if (pubData.data_renovacao) updateData.data_renovacao = pubData.data_renovacao;
+          if (pubData.prazo_oposicao) updateData.prazo_oposicao = pubData.prazo_oposicao;
+          // Update client/process if the existing one didn't have them
+          if (!existingPub.client_id && clientId) updateData.client_id = clientId;
+          if (!existingPub.process_id && processId) updateData.process_id = processId;
           toUpdate.push({ id: existingPub.id, data: updateData });
         } else {
           toInsert.push(pubData);
@@ -699,64 +718,9 @@ export default function PublicacaoTab() {
     doSync();
   }, [isLoading, rpiEntries, publicacoes, processes, clients, queryClient, submittedRpiEntryIds]);
 
-  // ─── Separate orphan reconciliation (runs independently of sync guard) ────
-  const orphanFixRef = useRef(false);
-  useEffect(() => {
-    if (orphanFixRef.current || isLoading || publicacoes.length === 0) return;
-
-    const orphans = publicacoes.filter(p => !p.client_id && (p as any).rpi_entry_id);
-    if (orphans.length === 0) return;
-
-    orphanFixRef.current = true;
-
-    const fixOrphans = async () => {
-      const orphanRpiIds = orphans.map(p => (p as any).rpi_entry_id as string);
-      const { data: linkedEntries } = await supabase
-        .from('rpi_entries')
-        .select('id, matched_client_id')
-        .in('id', orphanRpiIds)
-        .not('matched_client_id', 'is', null);
-
-      if (linkedEntries && linkedEntries.length > 0) {
-        let orphansFixed = 0;
-        for (const entry of linkedEntries) {
-          const { error } = await supabase
-            .from('publicacoes_marcas')
-            .update({ client_id: entry.matched_client_id })
-            .eq('rpi_entry_id', entry.id)
-            .is('client_id', null);
-          if (!error) orphansFixed++;
-        }
-        if (orphansFixed > 0) {
-          queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
-          toast.success(`✅ ${orphansFixed} publicação(ões) vinculada(s) ao cliente automaticamente`);
-        }
-      }
-
-      // Also fix orphans via process_id → user_id lookup
-      const processOrphans = publicacoes.filter(p => !p.client_id && p.process_id);
-      if (processOrphans.length > 0) {
-        let fixed = 0;
-        for (const pub of processOrphans) {
-          const proc = processes.find(pr => pr.id === pub.process_id);
-          if (proc?.user_id) {
-            const { error } = await supabase
-              .from('publicacoes_marcas')
-              .update({ client_id: proc.user_id })
-              .eq('id', pub.id)
-              .is('client_id', null);
-            if (!error) fixed++;
-          }
-        }
-        if (fixed > 0) {
-          queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
-          toast.success(`✅ ${fixed} publicação(ões) vinculada(s) via processo`);
-        }
-      }
-    };
-
-    fixOrphans();
-  }, [isLoading, publicacoes, processes, queryClient]);
+  // ─── Orphan reconciliation removed: orphans are no longer created ────
+  // When client is assigned in Revista INPI, the publicação is created with client_id.
+  // Auto-sync skips entries without matched_client_id.
 
   // ─── Mutations ────
   const createMutation = useMutation({

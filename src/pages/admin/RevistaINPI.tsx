@@ -629,29 +629,82 @@ export default function RevistaINPI() {
       deadlineDate.setDate(deadlineDate.getDate() + 60);
       const { error: entryError } = await supabase.from('rpi_entries').update({ matched_client_id: selectedClient.id, update_status: 'pending', updated_at: new Date().toISOString(), linked_at: new Date().toISOString() }).eq('id', assignEntry.id);
       if (entryError) throw entryError;
-      // Propagate client_id to publicacoes_marcas (sync with Publicações tab)
-      await supabase.from('publicacoes_marcas').update({ client_id: selectedClient.id }).eq('rpi_entry_id', assignEntry.id);
 
-      // [SYNC] If dispatch_type is set, sync pipeline_stage — resolve process by client
-      if (assignEntry.dispatch_type) {
-        const resolvedProcessId = await resolveBrandProcessId(assignEntry.matched_process_id, selectedClient.id, assignEntry.process_number);
-        if (resolvedProcessId) {
-          const dispatchValue = DISPATCH_TYPE_OPTIONS.find(o => o.label === assignEntry.dispatch_type || o.value === assignEntry.dispatch_type)?.value || assignEntry.dispatch_type;
-          const pipelineStage = PUB_STATUS_TO_PIPELINE[dispatchValue] || dispatchValue;
-          await supabase.from('brand_processes').update({
-            pipeline_stage: pipelineStage,
-            updated_at: new Date().toISOString(),
-          }).eq('id', resolvedProcessId);
+      // Resolve process_id
+      const resolvedProcessId = await resolveBrandProcessId(assignEntry.matched_process_id, selectedClient.id, assignEntry.process_number);
 
-          // Link process_id on publicacoes_marcas
-          await supabase.from('publicacoes_marcas').update({ process_id: resolvedProcessId }).eq('rpi_entry_id', assignEntry.id);
-
-          // Save matched_process_id on rpi_entry
-          if (!assignEntry.matched_process_id) {
-            await supabase.from('rpi_entries').update({ matched_process_id: resolvedProcessId }).eq('id', assignEntry.id);
-          }
-        }
+      // Save matched_process_id on rpi_entry for future lookups
+      if (resolvedProcessId && !assignEntry.matched_process_id) {
+        await supabase.from('rpi_entries').update({ matched_process_id: resolvedProcessId }).eq('id', assignEntry.id);
       }
+
+      // Check if publicação already exists for this rpi_entry
+      const { data: existingPub } = await supabase.from('publicacoes_marcas')
+        .select('id')
+        .eq('rpi_entry_id', assignEntry.id)
+        .maybeSingle();
+
+      // Also check by process_number_rpi (same process → update, not duplicate)
+      let existingByProcessNumber = null;
+      if (!existingPub && assignEntry.process_number) {
+        const { data: pubByPn } = await supabase.from('publicacoes_marcas')
+          .select('id')
+          .eq('process_number_rpi', assignEntry.process_number)
+          .maybeSingle();
+        existingByProcessNumber = pubByPn;
+      }
+
+      // Determine status from dispatch_type
+      let pubStatus = '003';
+      if (assignEntry.dispatch_type) {
+        const dispatchValue = DISPATCH_TYPE_OPTIONS.find(o => o.label === assignEntry.dispatch_type || o.value === assignEntry.dispatch_type)?.value || assignEntry.dispatch_type;
+        pubStatus = dispatchValue;
+      }
+
+      if (existingPub) {
+        // Update existing pub with client and process
+        await supabase.from('publicacoes_marcas').update({
+          client_id: selectedClient.id,
+          process_id: resolvedProcessId || undefined,
+          status: pubStatus,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existingPub.id);
+      } else if (existingByProcessNumber) {
+        // Same process number → update card (move column), don't duplicate
+        await supabase.from('publicacoes_marcas').update({
+          client_id: selectedClient.id,
+          process_id: resolvedProcessId || undefined,
+          status: pubStatus,
+          rpi_entry_id: assignEntry.id,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existingByProcessNumber.id);
+      } else {
+        // ★ CREATE new publicação card — only now that we have a client
+        const deadlineStr = format(deadlineDate, 'yyyy-MM-dd');
+        await supabase.from('publicacoes_marcas').insert({
+          status: pubStatus,
+          tipo_publicacao: 'publicacao_rpi',
+          rpi_entry_id: assignEntry.id,
+          process_id: resolvedProcessId || null,
+          client_id: selectedClient.id,
+          brand_name_rpi: assignEntry.brand_name || null,
+          process_number_rpi: assignEntry.process_number || null,
+          data_publicacao_rpi: assignEntry.publication_date || null,
+          proximo_prazo_critico: deadlineStr,
+          descricao_prazo: 'Prazo padrão - 60 dias',
+        });
+      }
+
+      // [SYNC] Update brand_processes pipeline_stage
+      if (resolvedProcessId && assignEntry.dispatch_type) {
+        const dispatchValue = DISPATCH_TYPE_OPTIONS.find(o => o.label === assignEntry.dispatch_type || o.value === assignEntry.dispatch_type)?.value || assignEntry.dispatch_type;
+        const pipelineStage = PUB_STATUS_TO_PIPELINE[dispatchValue] || dispatchValue;
+        await supabase.from('brand_processes').update({
+          pipeline_stage: pipelineStage,
+          updated_at: new Date().toISOString(),
+        }).eq('id', resolvedProcessId);
+      }
+
       await supabase.from('notifications').insert({ user_id: selectedClient.id, title: assignPriority === 'urgent' ? '🚨 URGENTE: Nova Publicação INPI' : 'Nova Publicação INPI', message: `Uma publicação referente ao processo ${assignEntry.process_number} (${assignEntry.brand_name || 'Marca'}) foi vinculada ao seu perfil. Prazo: 60 dias.`, type: assignPriority === 'urgent' ? 'warning' : 'info', link: '/cliente/processos' });
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from('client_activities').insert({ user_id: selectedClient.id, admin_id: user?.id, activity_type: 'rpi_publication', description: `Publicação RPI vinculada: ${assignEntry.brand_name} - ${assignEntry.dispatch_type}. Prioridade: ${assignPriority === 'urgent' ? 'Urgente' : 'Média'}. Prazo: 60 dias.`, metadata: { process_number: assignEntry.process_number, dispatch_code: assignEntry.dispatch_code, dispatch_text: assignEntry.dispatch_text, deadline_date: deadlineDate.toISOString(), priority: assignPriority } });
