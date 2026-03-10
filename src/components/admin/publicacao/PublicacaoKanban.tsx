@@ -2,8 +2,8 @@ import { useMemo, useCallback, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { differenceInDays, parseISO, addDays, addYears } from 'date-fns';
-import { Clock, AlertTriangle, User, Flame, GripVertical } from 'lucide-react';
+import { differenceInDays, parseISO, addDays, addYears, format } from 'date-fns';
+import { Clock, AlertTriangle, User, Flame, GripVertical, Calendar } from 'lucide-react';
 
 type PubStatus = '003' | 'oposicao' | 'exigencia_merito' | 'indeferimento' | 'deferimento' | 'certificado' | 'renovacao' | 'arquivado';
 
