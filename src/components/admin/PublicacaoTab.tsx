@@ -883,7 +883,7 @@ export default function PublicacaoTab() {
   const kpiStats = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const withClient = publicacoes.filter(p => !!p.client_id);
+    const withClient = publicacoes.filter(p => !!p.client_id && !!clientMap.get(p.client_id));
     const total = withClient.length;
     const urgentes = withClient.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d >= 0 && d <= 7; }).length;
     const atrasados = withClient.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d < 0; }).length;
