@@ -662,11 +662,14 @@ export default function RevistaINPI() {
       }
 
       if (existingPub) {
-        // Update existing pub with client and process
+        // Update existing pub with client, process AND brand metadata
         await supabase.from('publicacoes_marcas').update({
           client_id: selectedClient.id,
           process_id: resolvedProcessId || undefined,
           status: pubStatus,
+          brand_name_rpi: assignEntry.brand_name || null,
+          process_number_rpi: assignEntry.process_number || null,
+          ncl_class: assignEntry.ncl_classes?.join(', ') || null,
           updated_at: new Date().toISOString(),
         }).eq('id', existingPub.id);
       } else if (existingByProcessNumber) {
@@ -676,6 +679,9 @@ export default function RevistaINPI() {
           process_id: resolvedProcessId || undefined,
           status: pubStatus,
           rpi_entry_id: assignEntry.id,
+          brand_name_rpi: assignEntry.brand_name || null,
+          process_number_rpi: assignEntry.process_number || null,
+          ncl_class: assignEntry.ncl_classes?.join(', ') || null,
           updated_at: new Date().toISOString(),
         }).eq('id', existingByProcessNumber.id);
       } else {
@@ -1195,18 +1201,29 @@ export default function RevistaINPI() {
                                                          }).eq('id', entry.id);
                                                          if (error) throw error;
 
-                                                         // [SYNC] Propagate edits to publicacoes_marcas
-                                                         const { data: linkedPub } = await supabase.from('publicacoes_marcas')
-                                                           .select('id')
-                                                           .eq('rpi_entry_id', entry.id)
-                                                           .maybeSingle();
-                                                         if (linkedPub) {
-                                                           await supabase.from('publicacoes_marcas').update({
-                                                             brand_name_rpi: editForm.brand_name || null,
-                                                             process_number_rpi: editForm.process_number || null,
-                                                             updated_at: new Date().toISOString(),
-                                                           }).eq('id', linkedPub.id);
-                                                         }
+                                                          // [SYNC] Propagate edits to publicacoes_marcas (with fallback lookup)
+                                                          let linkedPub: { id: string } | null = null;
+                                                          const { data: pubByRpi } = await supabase.from('publicacoes_marcas')
+                                                            .select('id')
+                                                            .eq('rpi_entry_id', entry.id)
+                                                            .maybeSingle();
+                                                          linkedPub = pubByRpi || null;
+                                                          // Fallback: lookup by process_number_rpi if not found by rpi_entry_id
+                                                          if (!linkedPub && editForm.process_number) {
+                                                            const { data: pubByPn } = await supabase.from('publicacoes_marcas')
+                                                              .select('id')
+                                                              .eq('process_number_rpi', editForm.process_number)
+                                                              .maybeSingle();
+                                                            linkedPub = pubByPn || null;
+                                                          }
+                                                          if (linkedPub) {
+                                                            await supabase.from('publicacoes_marcas').update({
+                                                              brand_name_rpi: editForm.brand_name || null,
+                                                              process_number_rpi: editForm.process_number || null,
+                                                              ncl_class: nclArray.length > 0 ? nclArray.join(', ') : null,
+                                                              updated_at: new Date().toISOString(),
+                                                            }).eq('id', linkedPub.id);
+                                                          }
 
                                                          // [SYNC] Also update brand_processes if process_number changed
                                                          if (editForm.process_number && entry.matched_client_id) {
