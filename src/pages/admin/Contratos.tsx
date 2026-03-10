@@ -483,7 +483,8 @@ export default function AdminContratos() {
     switch (tab) {
       case 'padrao':
         return (combined.includes('padrão') || combined.includes('padrao')) && 
-               !combined.includes('premium') && !combined.includes('corporativ');
+               combined.includes('registro de marca') &&
+               !combined.includes('premium') && !combined.includes('corporativ') && !combined.includes('procura');
       case 'premium':
         return combined.includes('premium');
       case 'corporativo':
