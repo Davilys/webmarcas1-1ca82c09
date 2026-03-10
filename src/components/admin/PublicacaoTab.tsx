@@ -896,7 +896,7 @@ export default function PublicacaoTab() {
     const counts: Record<string, number> = {};
     publicacoes.filter(p => !!p.client_id && !!clientMap.get(p.client_id)).forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
     return counts;
-  }, [publicacoes]);
+  }, [publicacoes, clientMap]);
 
   // ─── Filtering + Sorting + Pagination ────
   const filtered = useMemo(() => {
