@@ -109,7 +109,7 @@ export function PublicacaoDetailPanel({
               <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted"><X className="w-4 h-4 text-muted-foreground" /></button>
             </div>
             <div className="mt-2">
-              <p className="font-bold text-base">{brandName}</p>
+              <p className="font-bold text-base break-words">{brandName}</p>
               <p className="text-xs text-muted-foreground">
                 {processNumber} {' · '}
                 {selected.client_id ? (clientMap.get(selected.client_id)?.full_name || '—') : <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-600 dark:text-amber-400 ml-1">Sem cliente</Badge>}

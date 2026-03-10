@@ -197,7 +197,7 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                       <div className="flex items-start gap-1">
                         <GripVertical className="w-3 h-3 text-muted-foreground/40 mt-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-extrabold truncate text-foreground leading-tight">{brandName}</p>
+                          <p className="text-sm font-extrabold text-foreground leading-tight line-clamp-2">{brandName}</p>
                           <p className="text-[11px] truncate mt-0.5 leading-tight font-semibold text-primary">
                             {client?.full_name || '—'}
                           </p>
