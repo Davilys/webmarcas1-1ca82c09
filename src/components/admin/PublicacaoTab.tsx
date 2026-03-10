@@ -351,6 +351,7 @@ export default function PublicacaoTab() {
       if (error) throw error;
       return (data || []) as Publicacao[];
     },
+    staleTime: 30000,
   });
 
   const { data: processes = [] } = useQuery({
@@ -360,6 +361,7 @@ export default function PublicacaoTab() {
       if (error) throw error;
       return data || [];
     },
+    staleTime: 30000,
   });
 
   const { data: clients = [] } = useQuery({
@@ -381,6 +383,7 @@ export default function PublicacaoTab() {
       }
       return allClients;
     },
+    staleTime: 60000,
   });
 
   const { data: admins = [] } = useQuery({
@@ -393,6 +396,7 @@ export default function PublicacaoTab() {
       const { data: profiles } = await supabase.from('profiles').select('id, full_name, email').in('id', adminIds);
       return profiles || [];
     },
+    staleTime: 60000,
   });
 
   const { data: logs = [] } = useQuery({
@@ -415,6 +419,7 @@ export default function PublicacaoTab() {
       if (error) return [];
       return data || [];
     },
+    staleTime: 60000,
   });
 
   const { data: rpiUploads = [] } = useQuery({
@@ -427,6 +432,7 @@ export default function PublicacaoTab() {
       if (error) return [];
       return data || [];
     },
+    staleTime: 60000,
   });
 
   const currentUserQuery = useQuery({
@@ -479,19 +485,21 @@ export default function PublicacaoTab() {
     autoArchiveRef.current = true;
 
     const archiveAll = async () => {
-      for (const pub of expired) {
+      const now = new Date().toISOString();
+      // Batch all updates in parallel instead of sequential
+      await Promise.all(expired.map(async (pub) => {
         await supabase.from('publicacoes_marcas').update({
           status: 'arquivado',
-          updated_at: new Date().toISOString(),
+          updated_at: now,
         }).eq('id', pub.id);
 
         if (pub.process_id) {
           await supabase.from('brand_processes').update({
             pipeline_stage: 'arquivado',
-            updated_at: new Date().toISOString(),
+            updated_at: now,
           }).eq('id', pub.process_id);
         }
-      }
+      }));
       queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
       queryClient.invalidateQueries({ queryKey: ['brand-processes-pub'] });
       toast.info(`${expired.length} publicação(ões) arquivada(s) automaticamente por prazo vencido.`);
