@@ -208,6 +208,11 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                             {processNumber && (
                               <span className="text-[9px] text-muted-foreground/70 font-mono bg-muted/50 px-1 rounded">{processNumber}</span>
                             )}
+                            {(pub.ncl_class || proc?.ncl_classes) && (
+                              <span className="text-[9px] text-violet-700 dark:text-violet-400 font-medium bg-violet-100 dark:bg-violet-900/40 px-1 rounded">
+                                NCL {pub.ncl_class || (proc?.ncl_classes ? proc.ncl_classes.join(', ') : '')}
+                              </span>
+                            )}
                             {rpiNumber && (
                               <span className="text-[9px] text-cyan-700 dark:text-cyan-400 font-medium bg-cyan-100 dark:bg-cyan-900/40 px-1 rounded">RPI {rpiNumber}</span>
                             )}
