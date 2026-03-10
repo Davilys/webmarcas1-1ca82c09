@@ -909,7 +909,14 @@ export default function PublicacaoTab() {
   const kpiStats = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const withClient = publicacoes.filter(p => !!p.client_id && !!clientMap.get(p.client_id));
+    const withClient = publicacoes.filter(p => {
+      const dc = p.client_id ? clientMap.get(p.client_id) : null;
+      if (dc) return true;
+      const pr = p.process_id ? processMap.get(p.process_id) : null;
+      const prByNum = !pr && (p as any).process_number_rpi ? processes.find(pp => pp.process_number === (p as any).process_number_rpi) : null;
+      const rp = pr || prByNum;
+      return rp?.user_id ? !!clientMap.get(rp.user_id) : false;
+    });
     const total = withClient.length;
     const urgentes = withClient.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d >= 0 && d <= 7; }).length;
     const atrasados = withClient.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d < 0; }).length;
