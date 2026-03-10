@@ -487,7 +487,7 @@ export default function PublicacaoTab() {
 
         if (pub.process_id) {
           await supabase.from('brand_processes').update({
-            pipeline_stage: 'distrato',
+            pipeline_stage: 'arquivado',
             updated_at: new Date().toISOString(),
           }).eq('id', pub.process_id);
         }

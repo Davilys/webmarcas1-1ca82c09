@@ -96,7 +96,7 @@ serve(async (req) => {
             await supabase
               .from("brand_processes")
               .update({
-                pipeline_stage: "distrato",
+                pipeline_stage: "arquivado",
                 updated_at: now.toISOString(),
               })
               .eq("id", pub.process_id);
