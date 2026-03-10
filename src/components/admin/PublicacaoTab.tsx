@@ -883,27 +883,27 @@ export default function PublicacaoTab() {
   const kpiStats = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const withClient = publicacoes.filter(p => !!p.client_id);
+    const withClient = publicacoes.filter(p => !!p.client_id && !!clientMap.get(p.client_id));
     const total = withClient.length;
     const urgentes = withClient.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d >= 0 && d <= 7; }).length;
     const atrasados = withClient.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d < 0; }).length;
     const deferidosMes = withClient.filter(p => p.status === 'deferimento' && p.data_decisao && isAfter(parseISO(p.data_decisao), startOfMonth)).length;
     return { total, urgentes, atrasados, deferidosMes };
-  }, [publicacoes]);
+  }, [publicacoes, clientMap]);
 
   // ─── Status counts ────
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    publicacoes.filter(p => !!p.client_id).forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
+    publicacoes.filter(p => !!p.client_id && !!clientMap.get(p.client_id)).forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
     return counts;
-  }, [publicacoes]);
+  }, [publicacoes, clientMap]);
 
   // ─── Filtering + Sorting + Pagination ────
   const filtered = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     let result = publicacoes.filter(pub => {
-      if (!pub.client_id) return false;
+      if (!pub.client_id || !clientMap.get(pub.client_id)) return false;
       const proc = pub.process_id ? processMap.get(pub.process_id) : null;
       const client = pub.client_id ? clientMap.get(pub.client_id) : null;
       if (search) {
@@ -1303,7 +1303,7 @@ export default function PublicacaoTab() {
   };
 
   // Stats for orphan count
-  const orphanCount = useMemo(() => publicacoes.filter(p => !p.client_id).length, [publicacoes]);
+  const orphanCount = useMemo(() => publicacoes.filter(p => !p.client_id || !clientMap.get(p.client_id)).length, [publicacoes, clientMap]);
 
   const resetCreateForm = () => {
     setCreateProcessId('');
