@@ -361,6 +361,7 @@ export default function PublicacaoTab() {
       if (error) throw error;
       return data || [];
     },
+    staleTime: 30000,
   });
 
   const { data: clients = [] } = useQuery({
