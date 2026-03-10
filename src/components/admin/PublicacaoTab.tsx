@@ -1303,7 +1303,7 @@ export default function PublicacaoTab() {
   };
 
   // Stats for orphan count
-  const orphanCount = useMemo(() => publicacoes.filter(p => !p.client_id).length, [publicacoes]);
+  const orphanCount = useMemo(() => publicacoes.filter(p => !p.client_id || !clientMap.get(p.client_id)).length, [publicacoes, clientMap]);
 
   const resetCreateForm = () => {
     setCreateProcessId('');
