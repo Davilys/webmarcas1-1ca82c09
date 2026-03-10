@@ -485,19 +485,25 @@ export default function PublicacaoTab() {
     autoArchiveRef.current = true;
 
     const archiveAll = async () => {
-      for (const pub of expired) {
-        await supabase.from('publicacoes_marcas').update({
-          status: 'arquivado',
-          updated_at: new Date().toISOString(),
-        }).eq('id', pub.id);
-
+      const now = new Date().toISOString();
+      // Batch all updates in parallel instead of sequential
+      await Promise.all(expired.map(async (pub) => {
+        const promises: Promise<any>[] = [
+          supabase.from('publicacoes_marcas').update({
+            status: 'arquivado',
+            updated_at: now,
+          }).eq('id', pub.id),
+        ];
         if (pub.process_id) {
-          await supabase.from('brand_processes').update({
-            pipeline_stage: 'arquivado',
-            updated_at: new Date().toISOString(),
-          }).eq('id', pub.process_id);
+          promises.push(
+            supabase.from('brand_processes').update({
+              pipeline_stage: 'arquivado',
+              updated_at: now,
+            }).eq('id', pub.process_id)
+          );
         }
-      }
+        return Promise.all(promises);
+      }));
       queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
       queryClient.invalidateQueries({ queryKey: ['brand-processes-pub'] });
       toast.info(`${expired.length} publicação(ões) arquivada(s) automaticamente por prazo vencido.`);
