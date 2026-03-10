@@ -2718,7 +2718,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                     </div>
                                     <div className="min-w-0">
                                       <p className="font-semibold text-sm truncate">{brand.brand_name}</p>
-                                      {brand.business_area && <p className="text-xs text-muted-foreground truncate">{brand.business_area}</p>}
+                                      {brand.business_area && <p className="text-xs text-muted-foreground line-clamp-2">{brand.business_area}</p>}
                                       {/* Publication status for this brand */}
                                       {(() => {
                                         const linkedPub = processPublicacoes.find((p: any) => p.process_id === brand.id);
