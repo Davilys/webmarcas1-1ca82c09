@@ -604,6 +604,12 @@ export default function PublicacaoTab() {
           clientId = proc?.user_id || null;
         }
 
+        // ★ REGRA FUNDAMENTAL: NÃO criar publicação órfã — só entra no Kanban com cliente vinculado
+        if (!clientId) {
+          skipped++;
+          continue;
+        }
+
         // Determine status from dispatch
         let status: PubStatus = '003';
         const dispatchText = (entry.dispatch_text || '').toLowerCase();
@@ -627,11 +633,24 @@ export default function PublicacaoTab() {
           process_number_rpi: entry.process_number || null,
         } as any, entry.dispatch_text);
 
-        // Check if there's an existing publicação with the same process number → UPDATE
+        // ★ REGRA: Mesmo nº de processo → ATUALIZAR card (mover de coluna). Nº diferente → NOVO card.
         if (entry.process_number && existingPubByProcessNumber.has(entry.process_number)) {
           const existingPub = existingPubByProcessNumber.get(entry.process_number)!;
-          const updateData: any = { ...pubData };
-          delete updateData.process_number_rpi;
+          // Only update status/dates — keep existing process_number_rpi and client linkage
+          const updateData: any = {
+            status: pubData.status,
+            data_publicacao_rpi: pubData.data_publicacao_rpi,
+            proximo_prazo_critico: pubData.proximo_prazo_critico,
+            descricao_prazo: pubData.descricao_prazo,
+            rpi_entry_id: entry.id,
+            updated_at: new Date().toISOString(),
+          };
+          if (pubData.data_certificado) updateData.data_certificado = pubData.data_certificado;
+          if (pubData.data_renovacao) updateData.data_renovacao = pubData.data_renovacao;
+          if (pubData.prazo_oposicao) updateData.prazo_oposicao = pubData.prazo_oposicao;
+          // Update client/process if the existing one didn't have them
+          if (!existingPub.client_id && clientId) updateData.client_id = clientId;
+          if (!existingPub.process_id && processId) updateData.process_id = processId;
           toUpdate.push({ id: existingPub.id, data: updateData });
         } else {
           toInsert.push(pubData);
