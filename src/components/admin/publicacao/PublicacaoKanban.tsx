@@ -212,15 +212,15 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-extrabold text-foreground leading-tight line-clamp-2">{brandName}</p>
                           <p className="text-[11px] truncate mt-0.5 leading-tight font-semibold text-primary">
-                            {client?.full_name || '—'}
+                            {resolvedClient?.full_name || '—'}
                           </p>
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             {processNumber && (
                               <span className="text-[9px] text-muted-foreground/70 font-mono bg-muted/50 px-1 rounded">{processNumber}</span>
                             )}
-                            {(pub.ncl_class || proc?.ncl_classes) && (
+                            {(pub.ncl_class || resolvedProc?.ncl_classes) && (
                               <span className="text-[9px] text-violet-700 dark:text-violet-400 font-medium bg-violet-100 dark:bg-violet-900/40 px-1 rounded">
-                                NCL {pub.ncl_class || (proc?.ncl_classes ? proc.ncl_classes.join(', ') : '')}
+                                NCL {pub.ncl_class || (resolvedProc?.ncl_classes ? resolvedProc.ncl_classes.join(', ') : '')}
                               </span>
                             )}
                             {rpiNumber && (
