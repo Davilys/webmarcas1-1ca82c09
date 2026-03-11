@@ -1127,7 +1127,7 @@ export default function RecursosINPI() {
                 <h2 className="text-xl font-bold">Qual tipo de recurso deseja gerar?</h2>
                 <p className="text-muted-foreground text-sm mt-1">Selecione o tipo e avance para escolher a estratégia jurídica</p>
               </div>
-              <div className="grid md:grid-cols-4 gap-4">
+              <div className="grid md:grid-cols-3 gap-4">
                 {Object.entries(RESOURCE_TYPE_CONFIG).map(([key, config]) => {
                   const Icon = config.icon;
                   const isSelected = resourceType === key;
