@@ -294,7 +294,7 @@ export default function RecursosINPI() {
 
   // Procurador state
   const [procuradorData, setProcuradorData] = useState<ProcuradorData>({
-    marca: '', processo_inpi: '', ncl_class: '', titular: '', cpf_cnpj_titular: '',
+    marca: '', processo_inpi: '', ncl_class: '', titular: '', cpf_cnpj_titular: '', endereco_titular: '',
     procurador_antigo: '', motivo: ''
   });
   useEffect(() => {
