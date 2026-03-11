@@ -829,8 +829,7 @@ export default function RecursosINPI() {
               ))}
             </motion.div>
 
-            {/* Dispatch Type Summary — Premium Cards */}
-            <motion.div {...fadeIn} transition={{ delay: 0.2 }} className="grid grid-cols-1 md:grid-cols-4 gap-5">
+            <motion.div {...fadeIn} transition={{ delay: 0.2 }} className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {[
                 { 
                   label: 'Indeferimentos', 
@@ -879,6 +878,30 @@ export default function RecursosINPI() {
                   ringBg: 'stroke-purple-500/15',
                   tagBg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
                   approved: resources.filter(r => r.resource_type === 'notificacao_extrajudicial' && r.status === 'approved').length,
+                },
+                { 
+                  label: 'Troca Procurador', 
+                  subtitle: 'Revogação e nomeação',
+                  count: dispatchStats.troca_procurador, 
+                  icon: UserMinus, 
+                  gradient: 'from-orange-500 to-amber-600',
+                  glowColor: 'hsla(25, 95%, 53%, 0.15)',
+                  ringColor: 'stroke-orange-500',
+                  ringBg: 'stroke-orange-500/15',
+                  tagBg: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+                  approved: resources.filter(r => r.resource_type === 'troca_procurador' && r.status === 'approved').length,
+                },
+                { 
+                  label: 'Nomeação Procurador', 
+                  subtitle: 'Outorga de poderes',
+                  count: dispatchStats.nomeacao_procurador, 
+                  icon: UserCheck, 
+                  gradient: 'from-teal-500 to-emerald-600',
+                  glowColor: 'hsla(160, 84%, 39%, 0.15)',
+                  ringColor: 'stroke-teal-500',
+                  ringBg: 'stroke-teal-500/15',
+                  tagBg: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20',
+                  approved: resources.filter(r => r.resource_type === 'nomeacao_procurador' && r.status === 'approved').length,
                 },
               ].map((item, i) => {
                 const pct = stats.total > 0 ? Math.round((item.count / stats.total) * 100) : 0;
