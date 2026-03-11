@@ -91,6 +91,7 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const isNotif = isNotificacao(resourceType);
+  const isProcuradorPetition = resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador';
   const cleanedContent = cleanMarkdown(content);
   const bodyContent = stripClosingFromContent(cleanedContent, resourceType);
 
@@ -98,11 +99,19 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
     ? format(new Date(resource.approved_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
     : format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
-  const documentTitle = isNotif ? 'Notificação Extrajudicial' : 'Recurso Administrativo';
-  const documentTitleUpper = isNotif ? 'NOTIFICAÇÃO EXTRAJUDICIAL' : 'RECURSO ADMINISTRATIVO';
+  const documentTitle = isNotif
+    ? 'Notificação Extrajudicial'
+    : isProcuradorPetition
+      ? resourceType === 'troca_procurador'
+        ? 'Petição de Troca de Procurador'
+        : 'Petição de Nomeação de Procurador'
+      : 'Recurso Administrativo';
+  const documentTitleUpper = documentTitle.toUpperCase();
   const pdfFileName = isNotif
     ? `Notificacao_Extrajudicial_${resource.brand_name?.replace(/\s+/g, '_') || 'WebMarcas'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`
-    : `Recurso_${resource.brand_name?.replace(/\s+/g, '_') || 'INPI'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+    : isProcuradorPetition
+      ? `${resourceType === 'troca_procurador' ? 'Peticao_Troca_Procurador' : 'Peticao_Nomeacao_Procurador'}_${resource.brand_name?.replace(/\s+/g, '_') || 'INPI'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`
+      : `Recurso_${resource.brand_name?.replace(/\s+/g, '_') || 'INPI'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -337,8 +346,8 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
       pdf.setTextColor(80, 80, 80);
       pdf.text('Procurador', pageWidth / 2, yPos + 6, { align: 'center' });
 
-      if (!isNotif) {
-        // Only show CPF for INPI resources
+      if (!isNotif && !isProcuradorPetition) {
+        // Only show CPF for standard INPI appeal resources
         pdf.text('CPF 393.239.118-79', pageWidth / 2, yPos + 12, { align: 'center' });
       }
 
@@ -485,7 +494,7 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
               <div className="w-52 mx-auto mb-3" style={{ height: '2px', background: '#1e3a5f' }} />
               <p className="font-semibold text-base" style={{ color: '#1e3a5f' }}>Davilys Danques de Oliveira Cunha</p>
               <p className="text-sm" style={{ color: '#555' }}>Procurador</p>
-              {!isNotif && (
+              {!isNotif && !isProcuradorPetition && (
                 <p className="text-sm" style={{ color: '#777' }}>CPF 393.239.118-79</p>
               )}
             </div>

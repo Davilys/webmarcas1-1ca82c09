@@ -71,7 +71,6 @@ interface ProcuradorData {
   titular: string;
   cpf_cnpj_titular: string;
   procurador_antigo: string;
-  cpf_procurador_antigo: string;
   motivo: string;
 }
 
@@ -295,7 +294,7 @@ export default function RecursosINPI() {
   // Procurador state
   const [procuradorData, setProcuradorData] = useState<ProcuradorData>({
     marca: '', processo_inpi: '', ncl_class: '', titular: '', cpf_cnpj_titular: '',
-    procurador_antigo: '', cpf_procurador_antigo: '', motivo: ''
+    procurador_antigo: '', motivo: ''
   });
   useEffect(() => {
     if (clientSearchTimeoutRef.current) clearTimeout(clientSearchTimeoutRef.current);
@@ -683,16 +682,26 @@ export default function RecursosINPI() {
   const handleApproveResource = async () => {
     if (!currentResourceId) return;
     try {
-      await supabase
+      const { data: updatedResource, error } = await supabase
         .from('inpi_resources')
-        .update({ final_content: draftContent, status: 'approved', approved_at: new Date().toISOString() })
-        .eq('id', currentResourceId);
+        .update({
+          final_content: draftContent,
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', currentResourceId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setSelectedResource(updatedResource);
       setStep('approved');
-      toast.success('Recurso aprovado!');
+      toast.success(resourceType === 'notificacao_extrajudicial' ? 'Notificação aprovada!' : 'Recurso aprovado!');
       fetchResources();
     } catch (error) {
       console.error('Error approving resource:', error);
-      toast.error('Erro ao aprovar recurso');
+      toast.error(error instanceof Error ? error.message : 'Erro ao aprovar recurso');
     }
   };
 
@@ -712,7 +721,7 @@ export default function RecursosINPI() {
     setNotificanteData({ nome: '', cpf_cnpj: '', endereco: '', processo_inpi: '', registro_marca: '', marca: '' });
     setNotificadoData({ nome: '', cpf_cnpj: '', endereco: '' });
     setUserInstructions('');
-    setProcuradorData({ marca: '', processo_inpi: '', ncl_class: '', titular: '', cpf_cnpj_titular: '', procurador_antigo: '', cpf_procurador_antigo: '', motivo: '' });
+    setProcuradorData({ marca: '', processo_inpi: '', ncl_class: '', titular: '', cpf_cnpj_titular: '', procurador_antigo: '', motivo: '' });
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (multiFileInputRef.current) multiFileInputRef.current.value = '';
   };
@@ -2106,7 +2115,11 @@ export default function RecursosINPI() {
                 <FileText className="h-5 w-5 text-primary" />
                 {selectedResource?.resource_type === 'notificacao_extrajudicial' 
                   ? 'Notificação Extrajudicial — Papel Timbrado'
-                  : 'Recurso Administrativo — Papel Timbrado'
+                  : selectedResource?.resource_type === 'troca_procurador'
+                    ? 'Petição de Troca de Procurador — Papel Timbrado'
+                    : selectedResource?.resource_type === 'nomeacao_procurador'
+                      ? 'Petição de Nomeação de Procurador — Papel Timbrado'
+                      : 'Recurso Administrativo — Papel Timbrado'
                 }
               </DialogTitle>
             </DialogHeader>

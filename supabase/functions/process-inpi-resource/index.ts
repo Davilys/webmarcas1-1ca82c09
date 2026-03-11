@@ -205,7 +205,6 @@ TITULAR/CONSTITUINTE:
 
 ${isTroca ? `PROCURADOR ANTERIOR (A SER REVOGADO):
 - Nome: ${procuradorData.procurador_antigo || 'Não informado'}
-- CPF: ${procuradorData.cpf_procurador_antigo || 'Não informado'}
 ` : ''}
 NOVO PROCURADOR (A SER NOMEADO):
 - Nome: Davilys Danques de Oliveira Cunha
