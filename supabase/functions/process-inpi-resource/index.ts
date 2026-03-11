@@ -667,6 +667,47 @@ serve(async (req) => {
           }
         }
       }
+    } else if (resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador') {
+      // Procurador flow
+      const { procuradorData, files } = body;
+
+      systemPrompt = buildProcuradorPrompt(
+        currentDate,
+        procuradorData || {},
+        resourceType,
+        agentStrategy,
+        agentName
+      );
+
+      const tipoLabel = resourceType === 'troca_procurador' ? 'TROCA DE PROCURADOR' : 'NOMEAÇÃO DE PROCURADOR';
+      let textInstruction = `Elabore a PETIÇÃO DE ${tipoLabel} COMPLETA e JURIDICAMENTE ROBUSTA conforme as instruções. O documento deve ter no MÍNIMO 1.500 palavras, seguindo rigorosamente TODAS as seções obrigatórias. NÃO simplifique, NÃO encurte.`;
+
+      if (files && files.length > 0) {
+        textInstruction += `\n\nO usuário anexou ${files.length} documento(s). Analise-os para enriquecer a petição.`;
+      }
+
+      userContent.push({ type: "text", text: textInstruction });
+
+      if (files && Array.isArray(files)) {
+        for (const file of files) {
+          if (file.type === 'application/pdf') {
+            userContent.push({
+              type: "file",
+              file: {
+                filename: file.name || "documento.pdf",
+                file_data: `data:application/pdf;base64,${file.base64}`
+              }
+            });
+          } else if (file.type?.startsWith('image/')) {
+            userContent.push({
+              type: "image_url",
+              image_url: {
+                url: `data:${file.type};base64,${file.base64}`
+              }
+            });
+          }
+        }
+      }
     } else {
       // Standard INPI resource flow
       const { fileBase64, fileType } = body;
