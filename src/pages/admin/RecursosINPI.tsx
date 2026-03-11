@@ -1288,6 +1288,16 @@ export default function RecursosINPI() {
                     Usar {agent.name} e Preencher Dados
                     <ArrowRight className="h-4 w-4 ml-auto" />
                   </Button>
+                ) : isProcuradorType ? (
+                  <Button 
+                    onClick={() => setStep('procurador-data')} 
+                    size="lg" 
+                    className={`flex-1 gap-3 rounded-xl h-14 text-base shadow-xl bg-gradient-to-r ${agent.color} hover:opacity-90 transition-opacity`}
+                  >
+                    <agent.icon className="h-5 w-5" />
+                    Usar {agent.name} e Preencher Dados
+                    <ArrowRight className="h-4 w-4 ml-auto" />
+                  </Button>
                 ) : (
                   <Button 
                     onClick={() => fileInputRef.current?.click()} 
