@@ -1575,6 +1575,288 @@ export default function RecursosINPI() {
             </motion.div>
           )}
 
+          {/* PROCURADOR DATA FORM */}
+          {step === 'procurador-data' && (
+            <motion.div key="procurador-data" {...fadeIn} className="space-y-6">
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-bold">
+                  {resourceType === 'troca_procurador' ? 'Dados para Troca de Procurador' : 'Dados para Nomeação de Procurador'}
+                </h2>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Preencha os dados do titular e do(s) procurador(es) para a IA gerar a petição
+                </p>
+              </div>
+
+              {/* Titular / Cliente */}
+              <Card className="border-teal-500/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-teal-500" />
+                    Dados do Titular / Constituinte
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Client Search */}
+                  <div className="relative" ref={clientDropdownRef}>
+                    <Label className="flex items-center gap-2 mb-2">
+                      <Search className="h-3.5 w-3.5" />
+                      Pesquisar Cliente
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Digite nome, e-mail, CPF/CNPJ ou empresa..."
+                        value={clientSearchQuery}
+                        onChange={(e) => setClientSearchQuery(e.target.value)}
+                        onFocus={() => { if (clientSearchResults.length > 0) setShowClientDropdown(true); }}
+                        className="pl-9 rounded-xl"
+                      />
+                      {isSearchingClients && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                      {clientSearchQuery && !isSearchingClients && (
+                        <button
+                          onClick={() => { setClientSearchQuery(''); setClientSearchResults([]); setShowClientDropdown(false); }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    {showClientDropdown && clientSearchResults.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-xl shadow-xl max-h-64 overflow-y-auto">
+                        {clientSearchResults.map((client) => (
+                          <button
+                            key={client.id}
+                            onClick={() => {
+                              setProcuradorData(prev => ({
+                                ...prev,
+                                titular: client.company_name || client.full_name || '',
+                                cpf_cnpj_titular: client.cpf_cnpj || '',
+                              }));
+                              setClientSearchQuery(client.company_name || client.full_name || '');
+                              setShowClientDropdown(false);
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-accent transition-colors border-b border-border/50 last:border-0"
+                          >
+                            <p className="font-medium text-sm">{client.company_name || client.full_name || 'Sem nome'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {[client.email, client.cpf_cnpj, client.phone].filter(Boolean).join(' • ')}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Selecione um cliente para preencher automaticamente ou preencha manualmente abaixo
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nome / Razão Social do Titular *</Label>
+                      <Input
+                        placeholder="Nome completo ou razão social"
+                        value={procuradorData.titular}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, titular: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CPF / CNPJ do Titular</Label>
+                      <Input
+                        placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                        value={procuradorData.cpf_cnpj_titular}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, cpf_cnpj_titular: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nome da Marca *</Label>
+                      <Input
+                        placeholder="Nome da marca registrada"
+                        value={procuradorData.marca}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, marca: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nº Processo INPI</Label>
+                      <Input
+                        placeholder="Ex: 920123456"
+                        value={procuradorData.processo_inpi}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, processo_inpi: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Classe NCL</Label>
+                      <Input
+                        placeholder="Ex: 35"
+                        value={procuradorData.ncl_class}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, ncl_class: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Procurador Antigo (só para troca) */}
+              {resourceType === 'troca_procurador' && (
+                <Card className="border-orange-500/20">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <UserMinus className="h-5 w-5 text-orange-500" />
+                      Procurador Anterior (a ser revogado)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Nome Completo *</Label>
+                        <Input
+                          placeholder="Nome do procurador anterior"
+                          value={procuradorData.procurador_antigo}
+                          onChange={(e) => setProcuradorData(prev => ({ ...prev, procurador_antigo: e.target.value }))}
+                          className="rounded-xl"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>CPF</Label>
+                        <Input
+                          placeholder="000.000.000-00"
+                          value={procuradorData.cpf_procurador_antigo}
+                          onChange={(e) => setProcuradorData(prev => ({ ...prev, cpf_procurador_antigo: e.target.value }))}
+                          className="rounded-xl"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Novo Procurador */}
+              <Card className="border-emerald-500/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <UserCheck className="h-5 w-5 text-emerald-500" />
+                    {resourceType === 'troca_procurador' ? 'Novo Procurador (a ser nomeado)' : 'Procurador a ser Nomeado'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nome Completo *</Label>
+                      <Input
+                        placeholder="Nome do novo procurador"
+                        value={procuradorData.procurador_novo}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, procurador_novo: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CPF</Label>
+                      <Input
+                        placeholder="000.000.000-00"
+                        value={procuradorData.cpf_procurador_novo}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, cpf_procurador_novo: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Instruções / Motivo */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-primary" />
+                    Instruções para o Agente de IA
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    placeholder={resourceType === 'troca_procurador' 
+                      ? "Descreva o motivo da troca de procurador, informações adicionais sobre o caso, e qualquer instrução especial para a elaboração da petição..."
+                      : "Descreva o contexto da nomeação, poderes específicos a serem outorgados, e qualquer informação relevante..."
+                    }
+                    value={procuradorData.motivo}
+                    onChange={(e) => setProcuradorData(prev => ({ ...prev, motivo: e.target.value }))}
+                    rows={5}
+                    className="rounded-xl resize-none"
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Anexar Documentos */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Upload className="h-5 w-5 text-primary" />
+                    Anexar Documentos (Opcional)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Anexe procurações anteriores, documentos do processo ou outros arquivos relevantes.
+                  </p>
+                  <div 
+                    onClick={() => multiFileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 rounded-xl cursor-pointer transition-colors hover:bg-muted/50"
+                  >
+                    <Upload className="h-6 w-6 text-muted-foreground mb-2" />
+                    <p className="text-sm font-medium">Clique para selecionar arquivos</p>
+                    <p className="text-xs text-muted-foreground">PDFs, imagens (JPG, PNG) e documentos</p>
+                  </div>
+                  <input 
+                    ref={multiFileInputRef} 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp" 
+                    multiple 
+                    className="hidden" 
+                    onChange={handleMultiFileSelect} 
+                  />
+                  {multipleFiles.length > 0 && (
+                    <div className="space-y-2">
+                      {multipleFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl border">
+                          {f.type.startsWith('image/') ? (
+                            <ImageIcon className="h-5 w-5 text-blue-500 shrink-0" />
+                          ) : (
+                            <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{f.name}</p>
+                            <p className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeMultiFile(i)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setStep('select-agent')} className="rounded-xl">Voltar</Button>
+                <Button 
+                  onClick={processDocument}
+                  disabled={!procuradorData.titular || !procuradorData.marca || !procuradorData.procurador_novo}
+                  size="lg" 
+                  className={`flex-1 gap-3 rounded-xl h-14 text-base shadow-xl bg-gradient-to-r ${agent.color} hover:opacity-90 transition-opacity`}
+                >
+                  <Zap className="h-5 w-5" />
+                  Gerar {resourceType === 'troca_procurador' ? 'Troca' : 'Nomeação'} com {agent.name}
+                  <ArrowRight className="h-4 w-4 ml-auto" />
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
           {/* UPLOAD */}
           {step === 'upload' && file && (
             <motion.div key="upload" {...fadeIn}>
