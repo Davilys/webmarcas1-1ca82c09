@@ -60,10 +60,13 @@ serve(async (req) => {
     // ========================================
     // STEP 2: Find or create customer in Asaas
     // ========================================
-    const cpfCnpj = profile.cpf_cnpj?.replace(/\D/g, '') || '';
+    const rawCpfCnpj = profile.cpf_cnpj?.replace(/\D/g, '') || '';
+    // Validate: CPF must have 11 digits, CNPJ must have 14 digits
+    const cpfCnpj = (rawCpfCnpj.length === 11 || rawCpfCnpj.length === 14) ? rawCpfCnpj : '';
     
-    // If no CPF/CNPJ, create local-only invoice (skip Asaas)
+    // If no valid CPF/CNPJ, create local-only invoice (skip Asaas)
     if (!cpfCnpj) {
+      console.log('CPF/CNPJ ausente ou inválido (valor bruto:', rawCpfCnpj, ') — criando fatura local');
       console.log('No CPF/CNPJ — creating local-only invoice');
 
       const paymentMethodLabel = invoiceData.payment_method === 'pix' ? 'PIX' : 
