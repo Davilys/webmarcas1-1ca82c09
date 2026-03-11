@@ -682,16 +682,26 @@ export default function RecursosINPI() {
   const handleApproveResource = async () => {
     if (!currentResourceId) return;
     try {
-      await supabase
+      const { data: updatedResource, error } = await supabase
         .from('inpi_resources')
-        .update({ final_content: draftContent, status: 'approved', approved_at: new Date().toISOString() })
-        .eq('id', currentResourceId);
+        .update({
+          final_content: draftContent,
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', currentResourceId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setSelectedResource(updatedResource);
       setStep('approved');
-      toast.success('Recurso aprovado!');
+      toast.success(resourceType === 'notificacao_extrajudicial' ? 'Notificação aprovada!' : 'Recurso aprovado!');
       fetchResources();
     } catch (error) {
       console.error('Error approving resource:', error);
-      toast.error('Erro ao aprovar recurso');
+      toast.error(error instanceof Error ? error.message : 'Erro ao aprovar recurso');
     }
   };
 
