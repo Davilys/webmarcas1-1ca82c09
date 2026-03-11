@@ -14,7 +14,7 @@ import {
   AlertTriangle, Sparkles, ArrowRight, Brain, Zap,
   BarChart3, Clock, CheckCircle2, XCircle, Trash2, MoreVertical,
   RotateCcw, RefreshCw, Crown, Flame, Target, Sword, BookOpen,
-  FileWarning, Image as ImageIcon
+  FileWarning, Image as ImageIcon, UserCheck, UserMinus
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
