@@ -70,6 +70,7 @@ interface ProcuradorData {
   ncl_class: string;
   titular: string;
   cpf_cnpj_titular: string;
+  endereco_titular: string;
   procurador_antigo: string;
   motivo: string;
 }
