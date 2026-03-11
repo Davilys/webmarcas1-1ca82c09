@@ -64,7 +64,20 @@ interface NotificadoData {
   endereco: string;
 }
 
-type Step = 'list' | 'select-type' | 'select-agent' | 'notificacao-data' | 'upload' | 'processing' | 'review' | 'approved';
+interface ProcuradorData {
+  marca: string;
+  processo_inpi: string;
+  ncl_class: string;
+  titular: string;
+  cpf_cnpj_titular: string;
+  procurador_antigo: string;
+  cpf_procurador_antigo: string;
+  procurador_novo: string;
+  cpf_procurador_novo: string;
+  motivo: string;
+}
+
+type Step = 'list' | 'select-type' | 'select-agent' | 'notificacao-data' | 'procurador-data' | 'upload' | 'processing' | 'review' | 'approved';
 
 const RESOURCE_TYPE_LABELS: Record<string, string> = {
   indeferimento: 'Recurso contra Indeferimento',
