@@ -494,7 +494,7 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
               <div className="w-52 mx-auto mb-3" style={{ height: '2px', background: '#1e3a5f' }} />
               <p className="font-semibold text-base" style={{ color: '#1e3a5f' }}>Davilys Danques de Oliveira Cunha</p>
               <p className="text-sm" style={{ color: '#555' }}>Procurador</p>
-              {!isNotif && (
+              {!isNotif && !isProcuradorPetition && (
                 <p className="text-sm" style={{ color: '#777' }}>CPF 393.239.118-79</p>
               )}
             </div>
