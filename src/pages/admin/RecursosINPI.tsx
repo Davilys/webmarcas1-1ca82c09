@@ -1679,6 +1679,15 @@ export default function RecursosINPI() {
                         className="rounded-xl"
                       />
                     </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Endereço do Titular</Label>
+                      <Input
+                        placeholder="Rua Exemplo, nº 123, Bairro Exemplo, Cidade Exemplo, Estado Exemplo, CEP 00000-000"
+                        value={procuradorData.endereco_titular}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, endereco_titular: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Nome da Marca *</Label>
                       <Input
