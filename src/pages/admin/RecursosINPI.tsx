@@ -1734,8 +1734,8 @@ export default function RecursosINPI() {
                 </Card>
               )}
 
-              {/* Novo Procurador */}
-              <Card className="border-emerald-500/20">
+              {/* Novo Procurador (fixo) */}
+              <Card className="border-emerald-500/20 bg-emerald-500/5">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <UserCheck className="h-5 w-5 text-emerald-500" />
@@ -1743,25 +1743,11 @@ export default function RecursosINPI() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Nome Completo *</Label>
-                      <Input
-                        placeholder="Nome do novo procurador"
-                        value={procuradorData.procurador_novo}
-                        onChange={(e) => setProcuradorData(prev => ({ ...prev, procurador_novo: e.target.value }))}
-                        className="rounded-xl"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>CPF</Label>
-                      <Input
-                        placeholder="000.000.000-00"
-                        value={procuradorData.cpf_procurador_novo}
-                        onChange={(e) => setProcuradorData(prev => ({ ...prev, cpf_procurador_novo: e.target.value }))}
-                        className="rounded-xl"
-                      />
-                    </div>
+                  <div className="p-4 rounded-xl bg-background border border-emerald-500/20">
+                    <p className="font-semibold text-foreground">Davilys Danques de Oliveira Cunha</p>
+                    <p className="text-sm text-muted-foreground mt-1">CPF: 393.239.118-79 | RG: 50.688.779-0</p>
+                    <p className="text-sm text-muted-foreground">Av. Brigadeiro Luís Antônio, Nº 2696 - Centro, São Paulo/SP</p>
+                    <p className="text-xs text-emerald-600 mt-2 font-medium">✓ Procurador institucional — dados preenchidos automaticamente</p>
                   </div>
                 </CardContent>
               </Card>
