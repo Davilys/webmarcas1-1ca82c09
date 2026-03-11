@@ -70,6 +70,7 @@ interface ProcuradorData {
   ncl_class: string;
   titular: string;
   cpf_cnpj_titular: string;
+  endereco_titular: string;
   procurador_antigo: string;
   motivo: string;
 }
@@ -293,7 +294,7 @@ export default function RecursosINPI() {
 
   // Procurador state
   const [procuradorData, setProcuradorData] = useState<ProcuradorData>({
-    marca: '', processo_inpi: '', ncl_class: '', titular: '', cpf_cnpj_titular: '',
+    marca: '', processo_inpi: '', ncl_class: '', titular: '', cpf_cnpj_titular: '', endereco_titular: '',
     procurador_antigo: '', motivo: ''
   });
   useEffect(() => {
@@ -721,7 +722,7 @@ export default function RecursosINPI() {
     setNotificanteData({ nome: '', cpf_cnpj: '', endereco: '', processo_inpi: '', registro_marca: '', marca: '' });
     setNotificadoData({ nome: '', cpf_cnpj: '', endereco: '' });
     setUserInstructions('');
-    setProcuradorData({ marca: '', processo_inpi: '', ncl_class: '', titular: '', cpf_cnpj_titular: '', procurador_antigo: '', motivo: '' });
+    setProcuradorData({ marca: '', processo_inpi: '', ncl_class: '', titular: '', cpf_cnpj_titular: '', endereco_titular: '', procurador_antigo: '', motivo: '' });
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (multiFileInputRef.current) multiFileInputRef.current.value = '';
   };
@@ -1675,6 +1676,15 @@ export default function RecursosINPI() {
                         placeholder="000.000.000-00 ou 00.000.000/0000-00"
                         value={procuradorData.cpf_cnpj_titular}
                         onChange={(e) => setProcuradorData(prev => ({ ...prev, cpf_cnpj_titular: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Endereço do Titular</Label>
+                      <Input
+                        placeholder="Rua Exemplo, nº 123, Bairro Exemplo, Cidade Exemplo, Estado Exemplo, CEP 00000-000"
+                        value={procuradorData.endereco_titular}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, endereco_titular: e.target.value }))}
                         className="rounded-xl"
                       />
                     </div>
