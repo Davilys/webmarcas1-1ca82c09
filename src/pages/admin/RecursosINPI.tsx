@@ -2042,7 +2042,7 @@ export default function RecursosINPI() {
                   </div>
                   
                   <div className="flex gap-3">
-                    <Button variant="outline" onClick={handleAdjustResource} disabled={isAdjusting || !adjustmentNotes.trim()} className="gap-2 rounded-xl">
+                    <Button variant="outline" onClick={handleRequestAdjustment} disabled={isAdjusting || !adjustmentNotes.trim()} className="gap-2 rounded-xl">
                       {isAdjusting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Edit3 className="h-4 w-4" />}
                       Ajustar com IA
                     </Button>
