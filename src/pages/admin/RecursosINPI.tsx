@@ -14,7 +14,7 @@ import {
   AlertTriangle, Sparkles, ArrowRight, Brain, Zap,
   BarChart3, Clock, CheckCircle2, XCircle, Trash2, MoreVertical,
   RotateCcw, RefreshCw, Crown, Flame, Target, Sword, BookOpen,
-  FileWarning, Image as ImageIcon
+  FileWarning, Image as ImageIcon, UserCheck, UserMinus
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -64,13 +64,28 @@ interface NotificadoData {
   endereco: string;
 }
 
-type Step = 'list' | 'select-type' | 'select-agent' | 'notificacao-data' | 'upload' | 'processing' | 'review' | 'approved';
+interface ProcuradorData {
+  marca: string;
+  processo_inpi: string;
+  ncl_class: string;
+  titular: string;
+  cpf_cnpj_titular: string;
+  procurador_antigo: string;
+  cpf_procurador_antigo: string;
+  procurador_novo: string;
+  cpf_procurador_novo: string;
+  motivo: string;
+}
+
+type Step = 'list' | 'select-type' | 'select-agent' | 'notificacao-data' | 'procurador-data' | 'upload' | 'processing' | 'review' | 'approved';
 
 const RESOURCE_TYPE_LABELS: Record<string, string> = {
   indeferimento: 'Recurso contra Indeferimento',
   exigencia_merito: 'Exigência de Mérito',
   oposicao: 'Manifestação à Oposição',
-  notificacao_extrajudicial: 'Notificação Extrajudicial'
+  notificacao_extrajudicial: 'Notificação Extrajudicial',
+  troca_procurador: 'Troca de Procurador',
+  nomeacao_procurador: 'Nomeação de Procurador'
 };
 
 const RESOURCE_TYPE_CONFIG: Record<string, { icon: typeof Gavel; color: string; gradient: string; description: string }> = {
@@ -97,6 +112,18 @@ const RESOURCE_TYPE_CONFIG: Record<string, { icon: typeof Gavel; color: string; 
     color: 'text-purple-500',
     gradient: 'from-purple-500/10 to-purple-600/5 border-purple-500/20 hover:border-purple-500/40',
     description: 'Para notificar pessoa ou empresa que esteja usando sua marca indevidamente. Documento jurídico completo com fundamentação legal.'
+  },
+  troca_procurador: {
+    icon: UserMinus,
+    color: 'text-orange-500',
+    gradient: 'from-orange-500/10 to-orange-600/5 border-orange-500/20 hover:border-orange-500/40',
+    description: 'Para revogar procurador anterior e nomear novo procurador junto ao INPI. Petição completa com fundamentação na LPI.'
+  },
+  nomeacao_procurador: {
+    icon: UserCheck,
+    color: 'text-teal-500',
+    gradient: 'from-teal-500/10 to-teal-600/5 border-teal-500/20 hover:border-teal-500/40',
+    description: 'Para nomear procurador para representar o titular junto ao INPI. Petição com outorga de poderes e dados do constituinte.'
   }
 };
 
@@ -211,6 +238,7 @@ const STEPS_FLOW = [
   { key: 'select-type', label: 'Tipo', icon: Gavel },
   { key: 'select-agent', label: 'Estratégia', icon: Brain },
   { key: 'notificacao-data', label: 'Dados', icon: FileText },
+  { key: 'procurador-data', label: 'Dados', icon: UserCheck },
   { key: 'upload', label: 'Documento', icon: Upload },
   { key: 'processing', label: 'IA Processando', icon: Zap },
   { key: 'review', label: 'Revisão', icon: Edit3 },
@@ -266,7 +294,11 @@ export default function RecursosINPI() {
   });
   const [userInstructions, setUserInstructions] = useState('');
 
-  // Client search effect
+  // Procurador state
+  const [procuradorData, setProcuradorData] = useState<ProcuradorData>({
+    marca: '', processo_inpi: '', ncl_class: '', titular: '', cpf_cnpj_titular: '',
+    procurador_antigo: '', cpf_procurador_antigo: '', procurador_novo: '', cpf_procurador_novo: '', motivo: ''
+  });
   useEffect(() => {
     if (clientSearchTimeoutRef.current) clearTimeout(clientSearchTimeoutRef.current);
     if (!clientSearchQuery || clientSearchQuery.length < 2) {
@@ -425,6 +457,9 @@ export default function RecursosINPI() {
     if (resourceType === 'notificacao_extrajudicial') {
       return processNotificacao();
     }
+    if (resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador') {
+      return processProcurador();
+    }
     if (!file || !resourceType) return;
     setIsProcessing(true);
     setStep('processing');
@@ -545,7 +580,75 @@ export default function RecursosINPI() {
     }
   };
 
-  const handleAdjustResource = async () => {
+  const processProcurador = async () => {
+    if (!procuradorData.titular || !procuradorData.marca) {
+      toast.error('Preencha pelo menos o nome do titular e da marca');
+      return;
+    }
+    setIsProcessing(true);
+    setStep('processing');
+
+    try {
+      const agent = AI_AGENTS[selectedAgent];
+
+      const filesBase64 = await Promise.all(
+        multipleFiles.map(async (f) => ({
+          base64: await fileToBase64(f),
+          type: f.type,
+          name: f.name,
+        }))
+      );
+
+      const { data, error } = await supabase.functions.invoke('process-inpi-resource', {
+        body: {
+          resourceType,
+          agentStrategy: agent.promptExtra,
+          agentName: agent.name,
+          procuradorData,
+          files: filesBase64,
+        }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Erro ao processar petição');
+
+      setExtractedData(data.extracted_data);
+      setDraftContent(data.resource_content);
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: insertedResource, error: insertError } = await supabase
+        .from('inpi_resources')
+        .insert({
+          user_id: user?.id,
+          resource_type: resourceType,
+          process_number: procuradorData.processo_inpi || null,
+          brand_name: procuradorData.marca || null,
+          ncl_class: procuradorData.ncl_class || null,
+          holder: procuradorData.titular,
+          examiner_or_opponent: procuradorData.procurador_novo,
+          draft_content: data.resource_content,
+          status: 'pending_review'
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      setCurrentResourceId(insertedResource.id);
+      setProcessingProgress(100);
+      setTimeout(() => setStep('review'), 500);
+      const label = resourceType === 'troca_procurador' ? 'Troca de Procurador' : 'Nomeação de Procurador';
+      toast.success(`${label} gerada com sucesso pela estratégia ${agent.name}!`);
+    } catch (error) {
+      console.error('Error processing procurador:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar petição');
+      setStep('procurador-data');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+
     if (!adjustmentNotes.trim()) {
       toast.error('Por favor, descreva os ajustes desejados');
       return;
@@ -611,6 +714,7 @@ export default function RecursosINPI() {
     setNotificanteData({ nome: '', cpf_cnpj: '', endereco: '', processo_inpi: '', registro_marca: '', marca: '' });
     setNotificadoData({ nome: '', cpf_cnpj: '', endereco: '' });
     setUserInstructions('');
+    setProcuradorData({ marca: '', processo_inpi: '', ncl_class: '', titular: '', cpf_cnpj_titular: '', procurador_antigo: '', cpf_procurador_antigo: '', procurador_novo: '', cpf_procurador_novo: '', motivo: '' });
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (multiFileInputRef.current) multiFileInputRef.current.value = '';
   };
@@ -645,14 +749,21 @@ export default function RecursosINPI() {
     exigencia_merito: resources.filter(r => r.resource_type === 'exigencia_merito').length,
     oposicao: resources.filter(r => r.resource_type === 'oposicao').length,
     notificacao_extrajudicial: resources.filter(r => r.resource_type === 'notificacao_extrajudicial').length,
+    troca_procurador: resources.filter(r => r.resource_type === 'troca_procurador').length,
+    nomeacao_procurador: resources.filter(r => r.resource_type === 'nomeacao_procurador').length,
   };
-  const maxDispatch = Math.max(dispatchStats.indeferimento, dispatchStats.exigencia_merito, dispatchStats.oposicao, dispatchStats.notificacao_extrajudicial, 1);
+  const maxDispatch = Math.max(...Object.values(dispatchStats), 1);
+
+  const isProcuradorType = resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador';
 
   const getVisibleSteps = () => {
     if (resourceType === 'notificacao_extrajudicial') {
-      return STEPS_FLOW.filter(s => s.key !== 'upload');
+      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'procurador-data');
     }
-    return STEPS_FLOW.filter(s => s.key !== 'notificacao-data');
+    if (isProcuradorType) {
+      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'notificacao-data');
+    }
+    return STEPS_FLOW.filter(s => s.key !== 'notificacao-data' && s.key !== 'procurador-data');
   };
 
   const currentStepIndex = getVisibleSteps().findIndex(s => s.key === step);
@@ -718,8 +829,7 @@ export default function RecursosINPI() {
               ))}
             </motion.div>
 
-            {/* Dispatch Type Summary — Premium Cards */}
-            <motion.div {...fadeIn} transition={{ delay: 0.2 }} className="grid grid-cols-1 md:grid-cols-4 gap-5">
+            <motion.div {...fadeIn} transition={{ delay: 0.2 }} className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {[
                 { 
                   label: 'Indeferimentos', 
@@ -768,6 +878,30 @@ export default function RecursosINPI() {
                   ringBg: 'stroke-purple-500/15',
                   tagBg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
                   approved: resources.filter(r => r.resource_type === 'notificacao_extrajudicial' && r.status === 'approved').length,
+                },
+                { 
+                  label: 'Troca Procurador', 
+                  subtitle: 'Revogação e nomeação',
+                  count: dispatchStats.troca_procurador, 
+                  icon: UserMinus, 
+                  gradient: 'from-orange-500 to-amber-600',
+                  glowColor: 'hsla(25, 95%, 53%, 0.15)',
+                  ringColor: 'stroke-orange-500',
+                  ringBg: 'stroke-orange-500/15',
+                  tagBg: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+                  approved: resources.filter(r => r.resource_type === 'troca_procurador' && r.status === 'approved').length,
+                },
+                { 
+                  label: 'Nomeação Procurador', 
+                  subtitle: 'Outorga de poderes',
+                  count: dispatchStats.nomeacao_procurador, 
+                  icon: UserCheck, 
+                  gradient: 'from-teal-500 to-emerald-600',
+                  glowColor: 'hsla(160, 84%, 39%, 0.15)',
+                  ringColor: 'stroke-teal-500',
+                  ringBg: 'stroke-teal-500/15',
+                  tagBg: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20',
+                  approved: resources.filter(r => r.resource_type === 'nomeacao_procurador' && r.status === 'approved').length,
                 },
               ].map((item, i) => {
                 const pct = stats.total > 0 ? Math.round((item.count / stats.total) * 100) : 0;
@@ -993,7 +1127,7 @@ export default function RecursosINPI() {
                 <h2 className="text-xl font-bold">Qual tipo de recurso deseja gerar?</h2>
                 <p className="text-muted-foreground text-sm mt-1">Selecione o tipo e avance para escolher a estratégia jurídica</p>
               </div>
-              <div className="grid md:grid-cols-4 gap-4">
+              <div className="grid md:grid-cols-3 gap-4">
                 {Object.entries(RESOURCE_TYPE_CONFIG).map(([key, config]) => {
                   const Icon = config.icon;
                   const isSelected = resourceType === key;
@@ -1147,6 +1281,16 @@ export default function RecursosINPI() {
                 {resourceType === 'notificacao_extrajudicial' ? (
                   <Button 
                     onClick={() => setStep('notificacao-data')} 
+                    size="lg" 
+                    className={`flex-1 gap-3 rounded-xl h-14 text-base shadow-xl bg-gradient-to-r ${agent.color} hover:opacity-90 transition-opacity`}
+                  >
+                    <agent.icon className="h-5 w-5" />
+                    Usar {agent.name} e Preencher Dados
+                    <ArrowRight className="h-4 w-4 ml-auto" />
+                  </Button>
+                ) : isProcuradorType ? (
+                  <Button 
+                    onClick={() => setStep('procurador-data')} 
                     size="lg" 
                     className={`flex-1 gap-3 rounded-xl h-14 text-base shadow-xl bg-gradient-to-r ${agent.color} hover:opacity-90 transition-opacity`}
                   >
@@ -1425,6 +1569,288 @@ export default function RecursosINPI() {
                 >
                   <Zap className="h-5 w-5" />
                   Gerar Notificação com {agent.name}
+                  <ArrowRight className="h-4 w-4 ml-auto" />
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* PROCURADOR DATA FORM */}
+          {step === 'procurador-data' && (
+            <motion.div key="procurador-data" {...fadeIn} className="space-y-6">
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-bold">
+                  {resourceType === 'troca_procurador' ? 'Dados para Troca de Procurador' : 'Dados para Nomeação de Procurador'}
+                </h2>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Preencha os dados do titular e do(s) procurador(es) para a IA gerar a petição
+                </p>
+              </div>
+
+              {/* Titular / Cliente */}
+              <Card className="border-teal-500/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-teal-500" />
+                    Dados do Titular / Constituinte
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Client Search */}
+                  <div className="relative" ref={clientDropdownRef}>
+                    <Label className="flex items-center gap-2 mb-2">
+                      <Search className="h-3.5 w-3.5" />
+                      Pesquisar Cliente
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Digite nome, e-mail, CPF/CNPJ ou empresa..."
+                        value={clientSearchQuery}
+                        onChange={(e) => setClientSearchQuery(e.target.value)}
+                        onFocus={() => { if (clientSearchResults.length > 0) setShowClientDropdown(true); }}
+                        className="pl-9 rounded-xl"
+                      />
+                      {isSearchingClients && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                      {clientSearchQuery && !isSearchingClients && (
+                        <button
+                          onClick={() => { setClientSearchQuery(''); setClientSearchResults([]); setShowClientDropdown(false); }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    {showClientDropdown && clientSearchResults.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-xl shadow-xl max-h-64 overflow-y-auto">
+                        {clientSearchResults.map((client) => (
+                          <button
+                            key={client.id}
+                            onClick={() => {
+                              setProcuradorData(prev => ({
+                                ...prev,
+                                titular: client.company_name || client.full_name || '',
+                                cpf_cnpj_titular: client.cpf_cnpj || '',
+                              }));
+                              setClientSearchQuery(client.company_name || client.full_name || '');
+                              setShowClientDropdown(false);
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-accent transition-colors border-b border-border/50 last:border-0"
+                          >
+                            <p className="font-medium text-sm">{client.company_name || client.full_name || 'Sem nome'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {[client.email, client.cpf_cnpj, client.phone].filter(Boolean).join(' • ')}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Selecione um cliente para preencher automaticamente ou preencha manualmente abaixo
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nome / Razão Social do Titular *</Label>
+                      <Input
+                        placeholder="Nome completo ou razão social"
+                        value={procuradorData.titular}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, titular: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CPF / CNPJ do Titular</Label>
+                      <Input
+                        placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                        value={procuradorData.cpf_cnpj_titular}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, cpf_cnpj_titular: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nome da Marca *</Label>
+                      <Input
+                        placeholder="Nome da marca registrada"
+                        value={procuradorData.marca}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, marca: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nº Processo INPI</Label>
+                      <Input
+                        placeholder="Ex: 920123456"
+                        value={procuradorData.processo_inpi}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, processo_inpi: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Classe NCL</Label>
+                      <Input
+                        placeholder="Ex: 35"
+                        value={procuradorData.ncl_class}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, ncl_class: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Procurador Antigo (só para troca) */}
+              {resourceType === 'troca_procurador' && (
+                <Card className="border-orange-500/20">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <UserMinus className="h-5 w-5 text-orange-500" />
+                      Procurador Anterior (a ser revogado)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Nome Completo *</Label>
+                        <Input
+                          placeholder="Nome do procurador anterior"
+                          value={procuradorData.procurador_antigo}
+                          onChange={(e) => setProcuradorData(prev => ({ ...prev, procurador_antigo: e.target.value }))}
+                          className="rounded-xl"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>CPF</Label>
+                        <Input
+                          placeholder="000.000.000-00"
+                          value={procuradorData.cpf_procurador_antigo}
+                          onChange={(e) => setProcuradorData(prev => ({ ...prev, cpf_procurador_antigo: e.target.value }))}
+                          className="rounded-xl"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Novo Procurador */}
+              <Card className="border-emerald-500/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <UserCheck className="h-5 w-5 text-emerald-500" />
+                    {resourceType === 'troca_procurador' ? 'Novo Procurador (a ser nomeado)' : 'Procurador a ser Nomeado'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nome Completo *</Label>
+                      <Input
+                        placeholder="Nome do novo procurador"
+                        value={procuradorData.procurador_novo}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, procurador_novo: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CPF</Label>
+                      <Input
+                        placeholder="000.000.000-00"
+                        value={procuradorData.cpf_procurador_novo}
+                        onChange={(e) => setProcuradorData(prev => ({ ...prev, cpf_procurador_novo: e.target.value }))}
+                        className="rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Instruções / Motivo */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-primary" />
+                    Instruções para o Agente de IA
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    placeholder={resourceType === 'troca_procurador' 
+                      ? "Descreva o motivo da troca de procurador, informações adicionais sobre o caso, e qualquer instrução especial para a elaboração da petição..."
+                      : "Descreva o contexto da nomeação, poderes específicos a serem outorgados, e qualquer informação relevante..."
+                    }
+                    value={procuradorData.motivo}
+                    onChange={(e) => setProcuradorData(prev => ({ ...prev, motivo: e.target.value }))}
+                    rows={5}
+                    className="rounded-xl resize-none"
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Anexar Documentos */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Upload className="h-5 w-5 text-primary" />
+                    Anexar Documentos (Opcional)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Anexe procurações anteriores, documentos do processo ou outros arquivos relevantes.
+                  </p>
+                  <div 
+                    onClick={() => multiFileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 rounded-xl cursor-pointer transition-colors hover:bg-muted/50"
+                  >
+                    <Upload className="h-6 w-6 text-muted-foreground mb-2" />
+                    <p className="text-sm font-medium">Clique para selecionar arquivos</p>
+                    <p className="text-xs text-muted-foreground">PDFs, imagens (JPG, PNG) e documentos</p>
+                  </div>
+                  <input 
+                    ref={multiFileInputRef} 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp" 
+                    multiple 
+                    className="hidden" 
+                    onChange={handleMultiFileSelect} 
+                  />
+                  {multipleFiles.length > 0 && (
+                    <div className="space-y-2">
+                      {multipleFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl border">
+                          {f.type.startsWith('image/') ? (
+                            <ImageIcon className="h-5 w-5 text-blue-500 shrink-0" />
+                          ) : (
+                            <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{f.name}</p>
+                            <p className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeMultiFile(i)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setStep('select-agent')} className="rounded-xl">Voltar</Button>
+                <Button 
+                  onClick={processDocument}
+                  disabled={!procuradorData.titular || !procuradorData.marca || !procuradorData.procurador_novo}
+                  size="lg" 
+                  className={`flex-1 gap-3 rounded-xl h-14 text-base shadow-xl bg-gradient-to-r ${agent.color} hover:opacity-90 transition-opacity`}
+                >
+                  <Zap className="h-5 w-5" />
+                  Gerar {resourceType === 'troca_procurador' ? 'Troca' : 'Nomeação'} com {agent.name}
                   <ArrowRight className="h-4 w-4 ml-auto" />
                 </Button>
               </div>

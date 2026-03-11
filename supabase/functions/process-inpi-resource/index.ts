@@ -10,7 +10,9 @@ const RESOURCE_TYPE_LABELS: Record<string, string> = {
   indeferimento: 'RECURSO CONTRA INDEFERIMENTO',
   exigencia_merito: 'CUMPRIMENTO DE EXIGÊNCIA DE MÉRITO / RECURSO ADMINISTRATIVO',
   oposicao: 'MANIFESTAÇÃO À OPOSIÇÃO',
-  notificacao_extrajudicial: 'NOTIFICAÇÃO EXTRAJUDICIAL'
+  notificacao_extrajudicial: 'NOTIFICAÇÃO EXTRAJUDICIAL',
+  troca_procurador: 'PETIÇÃO DE TROCA DE PROCURADOR',
+  nomeacao_procurador: 'PETIÇÃO DE NOMEAÇÃO DE PROCURADOR'
 };
 
 function buildNotificacaoPrompt(
@@ -168,7 +170,162 @@ FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
 }`;
 }
 
-function buildSystemPrompt(resourceTypeLabel: string, currentDate: string, agentStrategy?: string, agentName?: string): string {
+function buildProcuradorPrompt(
+  currentDate: string,
+  procuradorData: any,
+  resourceType: string,
+  agentStrategy?: string,
+  agentName?: string
+): string {
+  const isTroca = resourceType === 'troca_procurador';
+  const tipoLabel = isTroca ? 'TROCA DE PROCURADOR' : 'NOMEAÇÃO DE PROCURADOR';
+  
+  return `#instruction
+
+Você é um ADVOGADO ESPECIALISTA EM PROPRIEDADE INDUSTRIAL de ELITE,
+com décadas de atuação em REGISTRO DE MARCAS NO INPI.
+Seu papel é elaborar uma PETIÇÃO DE ${tipoLabel} COMPLETA, ROBUSTA E JURIDICAMENTE VIÁVEL
+para ser protocolada junto ao INPI.
+
+⚠️ REGRAS ABSOLUTAS E INVIOLÁVEIS:
+- JAMAIS inventar fatos, decisões ou jurisprudência
+- JAMAIS criar números de processos fictícios
+- O documento DEVE ter no MÍNIMO 1.500 palavras de conteúdo substantivo
+- A argumentação deve ser DENSA, PROFUNDA e ESPECÍFICA ao caso concreto
+- NUNCA termine o documento de forma abrupta ou incompleta
+
+#dados_do_processo
+
+TITULAR/CONSTITUINTE:
+- Nome/Razão Social: ${procuradorData.titular || 'Não informado'}
+- CPF/CNPJ: ${procuradorData.cpf_cnpj_titular || 'Não informado'}
+- Marca: ${procuradorData.marca || 'Não informada'}
+- Processo INPI nº: ${procuradorData.processo_inpi || 'Não informado'}
+- Classe NCL: ${procuradorData.ncl_class || 'Não informada'}
+
+${isTroca ? `PROCURADOR ANTERIOR (A SER REVOGADO):
+- Nome: ${procuradorData.procurador_antigo || 'Não informado'}
+- CPF: ${procuradorData.cpf_procurador_antigo || 'Não informado'}
+` : ''}
+NOVO PROCURADOR (A SER NOMEADO):
+- Nome: ${procuradorData.procurador_novo || 'Não informado'}
+- CPF: ${procuradorData.cpf_procurador_novo || 'Não informado'}
+
+#motivo_e_instrucoes
+${procuradorData.motivo || 'O usuário não forneceu instruções adicionais.'}
+
+#identidade_institucional
+
+O documento deve ser elaborado em nome da WEBMARCAS INTELLIGENCE PI™:
+- CNPJ: 39.528.012/0001-29
+- Endereço: Av. Brigadeiro Luiz Antônio, 2696, Centro — São Paulo/SP — CEP 01402-000
+- Telefone: (11) 9 1112-0225
+- E-mail: juridico@webmarcas.net
+- Site: www.webmarcas.net
+
+#estrutura_obrigatoria
+
+═══════════════════════════════════════════════════════════
+PETIÇÃO DE ${tipoLabel}
+═══════════════════════════════════════════════════════════
+
+EXCELENTÍSSIMO SENHOR PRESIDENTE DA DIRETORIA DE MARCAS,
+PATENTES E DESENHOS INDUSTRIAIS DO INSTITUTO NACIONAL
+DA PROPRIEDADE INDUSTRIAL – INPI
+
+Processo INPI nº: [número do processo]
+Marca: [nome da marca]
+Classe NCL: [classe]
+
+I – QUALIFICAÇÃO DAS PARTES
+(Dados completos do Titular/Constituinte)
+
+II – DO OBJETO DA PETIÇÃO
+(Mínimo 300 palavras)
+${isTroca 
+  ? `- Declarar a REVOGAÇÃO dos poderes outorgados ao procurador anterior
+- Informar os dados completos do procurador revogado
+- Declarar a NOMEAÇÃO e CONSTITUIÇÃO do novo procurador
+- Informar os dados completos do novo procurador
+- Fundamentar na Lei 9.279/96 (LPI), arts. 216 e 217
+- Mencionar a Resolução INPI/PR pertinente sobre representação`
+  : `- Declarar a NOMEAÇÃO e CONSTITUIÇÃO de procurador
+- Informar os dados completos do procurador nomeado
+- Fundamentar na Lei 9.279/96 (LPI), arts. 216 e 217
+- Mencionar a Resolução INPI/PR pertinente sobre representação`
+}
+
+III – DA FUNDAMENTAÇÃO LEGAL
+(Mínimo 400 palavras)
+- Art. 216 da LPI — representação por procurador
+- Art. 217 da LPI — requisitos da procuração
+- Instrução Normativa INPI pertinente
+- Manual de Marcas do INPI — seção sobre representação
+- Código Civil — arts. 653 a 692 (mandato)
+${isTroca ? '- Art. 682 do CC — extinção do mandato por revogação' : ''}
+
+IV – DA OUTORGA DE PODERES
+(Mínimo 300 palavras)
+- Poderes específicos para representar o titular perante o INPI
+- Poderes para protocolar petições, acompanhar processos, receber notificações
+- Poderes para interpor recursos administrativos
+- Poderes para praticar todos os atos necessários à defesa dos interesses do titular
+- Cláusula de substabelecimento (com ou sem reserva de poderes)
+
+V – DOS PEDIDOS
+- Seja recebida e processada a presente petição
+${isTroca 
+  ? `- Seja averbada a REVOGAÇÃO dos poderes do procurador anterior
+- Seja averbada a NOMEAÇÃO do novo procurador
+- Que todas as futuras comunicações e intimações sejam dirigidas ao novo procurador`
+  : `- Seja averbada a NOMEAÇÃO do procurador constituído
+- Que todas as futuras comunicações e intimações sejam dirigidas ao procurador nomeado`
+}
+
+#encerramento_obrigatorio
+
+Nestes termos,
+Pede e espera deferimento.
+
+São Paulo, ${currentDate}.
+
+_______________________________________
+${procuradorData.titular || '[NOME DO TITULAR]'}
+Titular/Constituinte
+${procuradorData.cpf_cnpj_titular ? `CPF/CNPJ: ${procuradorData.cpf_cnpj_titular}` : ''}
+
+${agentStrategy ? `#estrategia_especifica_do_agente
+
+IMPORTANTE: Aplique a estratégia abaixo como CAMADA ADICIONAL sobre a estrutura obrigatória.
+
+${agentStrategy}` : ''}
+
+${agentName ? `#agente_responsavel: ${agentName}` : ''}
+
+#padrao_qualidade
+
+EXIGÊNCIAS MÍNIMAS:
+1. O documento completo deve ter NO MÍNIMO 1.500 palavras
+2. Toda legislação deve ser citada com artigo, inciso e alínea exatos
+3. O texto deve ter qualidade equivalente aos melhores escritórios de PI
+4. A linguagem deve ser jurídica profissional formal
+5. O documento NÃO pode terminar abruptamente
+
+FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
+{
+  "extracted_data": {
+    "process_number": "${procuradorData.processo_inpi || ''}",
+    "brand_name": "${procuradorData.marca || ''}",
+    "ncl_class": "${procuradorData.ncl_class || ''}",
+    "holder": "${procuradorData.titular || ''}",
+    "examiner_or_opponent": "${procuradorData.procurador_novo || ''}",
+    "legal_basis": "Arts. 216 e 217 da Lei 9.279/96; Arts. 653 a 692 do CC"
+  },
+  "resource_content": "CONTEÚDO COMPLETO DA PETIÇÃO COM TODAS AS SEÇÕES (texto extenso, profundo e formatado)"
+}`;
+}
+
+
   return `#instruction
 
 Você é um ADVOGADO ESPECIALISTA EM PROPRIEDADE INDUSTRIAL de ELITE,
@@ -490,6 +647,47 @@ serve(async (req) => {
       userContent.push({ type: "text", text: textInstruction });
 
       // Add attached files
+      if (files && Array.isArray(files)) {
+        for (const file of files) {
+          if (file.type === 'application/pdf') {
+            userContent.push({
+              type: "file",
+              file: {
+                filename: file.name || "documento.pdf",
+                file_data: `data:application/pdf;base64,${file.base64}`
+              }
+            });
+          } else if (file.type?.startsWith('image/')) {
+            userContent.push({
+              type: "image_url",
+              image_url: {
+                url: `data:${file.type};base64,${file.base64}`
+              }
+            });
+          }
+        }
+      }
+    } else if (resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador') {
+      // Procurador flow
+      const { procuradorData, files } = body;
+
+      systemPrompt = buildProcuradorPrompt(
+        currentDate,
+        procuradorData || {},
+        resourceType,
+        agentStrategy,
+        agentName
+      );
+
+      const tipoLabel = resourceType === 'troca_procurador' ? 'TROCA DE PROCURADOR' : 'NOMEAÇÃO DE PROCURADOR';
+      let textInstruction = `Elabore a PETIÇÃO DE ${tipoLabel} COMPLETA e JURIDICAMENTE ROBUSTA conforme as instruções. O documento deve ter no MÍNIMO 1.500 palavras, seguindo rigorosamente TODAS as seções obrigatórias. NÃO simplifique, NÃO encurte.`;
+
+      if (files && files.length > 0) {
+        textInstruction += `\n\nO usuário anexou ${files.length} documento(s). Analise-os para enriquecer a petição.`;
+      }
+
+      userContent.push({ type: "text", text: textInstruction });
+
       if (files && Array.isArray(files)) {
         for (const file of files) {
           if (file.type === 'application/pdf') {
