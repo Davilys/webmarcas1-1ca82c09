@@ -328,7 +328,12 @@ FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
 }`;
 }
 
-
+function buildSystemPrompt(
+  resourceTypeLabel: string,
+  currentDate: string,
+  agentStrategy?: string,
+  agentName?: string
+): string {
   return `#instruction
 
 Você é um ADVOGADO ESPECIALISTA EM PROPRIEDADE INDUSTRIAL de ELITE,
