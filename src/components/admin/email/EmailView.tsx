@@ -13,7 +13,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft, Reply, Forward, Trash2, Star, Clock, Sparkles,
   MoreHorizontal, Archive, Eye, ChevronDown, MailOpen, MailX,
-  AlertTriangle, Copy, Printer
+  AlertTriangle, Copy, Printer, Paperclip, FileText, Download,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -50,7 +51,45 @@ export function EmailView({ email, onBack, onReply, onForward, onUseDraftFromAI 
   const [isStarred, setIsStarred] = useState(email.is_starred);
   const [draftText, setDraftText] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(false);
+  const [hydratedBody, setHydratedBody] = useState<{
+    body_text?: string;
+    body_html?: string;
+    attachments?: Array<{ filename: string; content_type: string; size: number }>;
+  }>({});
   const queryClient = useQueryClient();
+
+  // Auto-hydrate email content if missing
+  useEffect(() => {
+    const hasBody = email.body_text || email.body_html || email.body_fetched_at;
+    if (hasBody) {
+      setHydratedBody({});
+      return;
+    }
+
+    setIsHydrating(true);
+    supabase.functions.invoke('hydrate-email', { body: { email_id: email.id } })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Hydrate error:', error);
+          return;
+        }
+        if (data?.success) {
+          setHydratedBody({
+            body_text: data.body_text,
+            body_html: data.body_html,
+            attachments: data.attachments,
+          });
+          queryClient.invalidateQueries({ queryKey: ['emails'] });
+        }
+      })
+      .finally(() => setIsHydrating(false));
+  }, [email.id, email.body_text, email.body_html, email.body_fetched_at, queryClient]);
+
+  // Use hydrated content or original
+  const displayBodyText = hydratedBody.body_text || email.body_text;
+  const displayBodyHtml = hydratedBody.body_html || email.body_html;
+  const displayAttachments = hydratedBody.attachments || email.attachments || [];
 
   useEffect(() => {
     if (!email.is_read) {
@@ -325,13 +364,51 @@ export function EmailView({ email, onBack, onReply, onForward, onUseDraftFromAI 
                 <Separator />
 
                 {/* Email Body */}
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  {email.body_html ? (
-                    <div dangerouslySetInnerHTML={{ __html: email.body_html }} className="leading-relaxed" />
-                  ) : (
-                    <p className="whitespace-pre-wrap leading-relaxed text-sm text-foreground/90">{email.body_text || '(Sem conteúdo)'}</p>
-                  )}
-                </div>
+                {isHydrating ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+                    <p className="text-sm font-medium">Carregando conteúdo do email...</p>
+                    <p className="text-xs">Sincronizando com o servidor de email</p>
+                  </div>
+                ) : (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    {displayBodyHtml ? (
+                      <div dangerouslySetInnerHTML={{ __html: displayBodyHtml }} className="leading-relaxed" />
+                    ) : displayBodyText ? (
+                      <p className="whitespace-pre-wrap leading-relaxed text-sm text-foreground/90">{displayBodyText}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">(Sem conteúdo)</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Attachments Section */}
+                {displayAttachments.length > 0 && (
+                  <div className="mt-4 p-3 rounded-lg border border-border/50 bg-muted/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Paperclip className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-semibold text-foreground">
+                        {displayAttachments.length} anexo{displayAttachments.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {displayAttachments.map((att, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 p-2 rounded-md border border-border/50 bg-background hover:bg-muted/50 transition-colors"
+                        >
+                          <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{att.filename}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {att.content_type} · {Math.round(att.size / 1024)}KB
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* AI Draft Preview */}
                 <AnimatePresence>

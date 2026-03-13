@@ -42,6 +42,11 @@ export interface Email {
   received_at?: string;
   sent_at?: string;
   folder?: string;
+  snippet?: string;
+  has_attachments?: boolean;
+  attachments?: Array<{ filename: string; content_type: string; size: number }>;
+  body_fetched_at?: string;
+  message_id?: string;
 }
 
 export interface EmailAccount {

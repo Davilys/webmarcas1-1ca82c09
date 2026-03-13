@@ -1301,54 +1301,69 @@ export type Database = {
       email_inbox: {
         Row: {
           account_id: string | null
+          attachments: Json | null
+          body_fetched_at: string | null
           body_html: string | null
           body_text: string | null
           created_at: string | null
           folder: string
           from_email: string
           from_name: string | null
+          has_attachments: boolean | null
           id: string
+          imap_uid: number | null
           is_archived: boolean | null
           is_read: boolean | null
           is_starred: boolean | null
           message_id: string | null
           received_at: string | null
+          snippet: string | null
           subject: string | null
           to_email: string
           to_name: string | null
         }
         Insert: {
           account_id?: string | null
+          attachments?: Json | null
+          body_fetched_at?: string | null
           body_html?: string | null
           body_text?: string | null
           created_at?: string | null
           folder?: string
           from_email: string
           from_name?: string | null
+          has_attachments?: boolean | null
           id?: string
+          imap_uid?: number | null
           is_archived?: boolean | null
           is_read?: boolean | null
           is_starred?: boolean | null
           message_id?: string | null
           received_at?: string | null
+          snippet?: string | null
           subject?: string | null
           to_email: string
           to_name?: string | null
         }
         Update: {
           account_id?: string | null
+          attachments?: Json | null
+          body_fetched_at?: string | null
           body_html?: string | null
           body_text?: string | null
           created_at?: string | null
           folder?: string
           from_email?: string
           from_name?: string | null
+          has_attachments?: boolean | null
           id?: string
+          imap_uid?: number | null
           is_archived?: boolean | null
           is_read?: boolean | null
           is_starred?: boolean | null
           message_id?: string | null
           received_at?: string | null
+          snippet?: string | null
           subject?: string | null
           to_email?: string
           to_name?: string | null
