@@ -21,8 +21,9 @@ import {
   AlertTriangle, BarChart3, TrendingUp, Shield, Activity, Newspaper,
   ExternalLink, Hash, Layers, Radio, Database, Wifi, Pencil, Save, X,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { calcAutoFields } from '@/components/admin/publicacao/helpers';
 // PublicacaoTab moved to its own page at /admin/publicacao
 
 // ─── Types ───────────────────────────────────────────────────────────
