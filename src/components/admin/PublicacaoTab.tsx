@@ -1046,7 +1046,7 @@ export default function PublicacaoTab() {
       return rp?.user_id ? !!clientMap.get(rp.user_id) : false;
     }).forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
     return counts;
-  }, [publicacoes, clientMap, processMap, processes]);
+  }, [publicacoes, clientMap, processMap, processNumberMap]);
 
   // ─── Filtering + Sorting + Pagination ────
   const filtered = useMemo(() => {
