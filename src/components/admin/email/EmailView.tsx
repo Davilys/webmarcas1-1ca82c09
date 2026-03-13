@@ -51,7 +51,45 @@ export function EmailView({ email, onBack, onReply, onForward, onUseDraftFromAI 
   const [isStarred, setIsStarred] = useState(email.is_starred);
   const [draftText, setDraftText] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(false);
+  const [hydratedBody, setHydratedBody] = useState<{
+    body_text?: string;
+    body_html?: string;
+    attachments?: Array<{ filename: string; content_type: string; size: number }>;
+  }>({});
   const queryClient = useQueryClient();
+
+  // Auto-hydrate email content if missing
+  useEffect(() => {
+    const hasBody = email.body_text || email.body_html || email.body_fetched_at;
+    if (hasBody) {
+      setHydratedBody({});
+      return;
+    }
+
+    setIsHydrating(true);
+    supabase.functions.invoke('hydrate-email', { body: { email_id: email.id } })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Hydrate error:', error);
+          return;
+        }
+        if (data?.success) {
+          setHydratedBody({
+            body_text: data.body_text,
+            body_html: data.body_html,
+            attachments: data.attachments,
+          });
+          queryClient.invalidateQueries({ queryKey: ['emails'] });
+        }
+      })
+      .finally(() => setIsHydrating(false));
+  }, [email.id, email.body_text, email.body_html, email.body_fetched_at, queryClient]);
+
+  // Use hydrated content or original
+  const displayBodyText = hydratedBody.body_text || email.body_text;
+  const displayBodyHtml = hydratedBody.body_html || email.body_html;
+  const displayAttachments = hydratedBody.attachments || email.attachments || [];
 
   useEffect(() => {
     if (!email.is_read) {
