@@ -353,6 +353,14 @@ export default function AdminFinanceiro() {
   const paidPct = filteredStats.total > 0 ? (filteredStats.paid / filteredStats.total) * 100 : 0;
   const pendingPct = filteredStats.total > 0 ? (filteredStats.pending / filteredStats.total) * 100 : 0;
 
+  const clientProcesses = processes.filter(p => p.user_id === formData.user_id);
+  const getInstallmentValue = () => {
+    if (!formData.amount) return 0;
+    const total = parseFloat(formData.amount);
+    if (paymentType === 'avista' || installments <= 1) return total;
+    return Math.ceil((total / installments) * 100) / 100;
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6 p-1">
