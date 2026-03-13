@@ -597,10 +597,10 @@ export default function AdminFinanceiro() {
         {/* ── STAT CARDS ─────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { title: 'Total Faturado', value: stats.total, icon: TrendingUp, color: 'text-primary', accent: 'from-primary/20 to-primary/5', border: 'border-primary/20', ring: 'bg-primary/15', count: invoices.length, countLabel: 'faturas' },
-            { title: 'Aguardando',     value: stats.pending, icon: Clock,       color: 'text-amber-500', accent: 'from-amber-500/20 to-amber-500/5', border: 'border-amber-500/20', ring: 'bg-amber-500/15', count: stats.pendingCount, countLabel: 'faturas' },
-            { title: 'Recebido',       value: stats.paid,    icon: CheckCircle, color: 'text-emerald-500', accent: 'from-emerald-500/20 to-emerald-500/5', border: 'border-emerald-500/20', ring: 'bg-emerald-500/15', count: stats.paidCount, countLabel: 'pagas' },
-            { title: 'Vencido',        value: stats.overdue, icon: AlertTriangle, color: 'text-red-500', accent: 'from-red-500/20 to-red-500/5', border: 'border-red-500/20', ring: 'bg-red-500/15', count: stats.overdueCount, countLabel: 'faturas' },
+            { title: 'Total Faturado', value: filteredStats.total, icon: TrendingUp, color: 'text-primary', accent: 'from-primary/20 to-primary/5', border: 'border-primary/20', ring: 'bg-primary/15', count: filteredStats.totalCount, countLabel: 'faturas' },
+            { title: 'Aguardando',     value: filteredStats.pending, icon: Clock,       color: 'text-amber-500', accent: 'from-amber-500/20 to-amber-500/5', border: 'border-amber-500/20', ring: 'bg-amber-500/15', count: filteredStats.pendingCount, countLabel: 'faturas' },
+            { title: 'Recebido',       value: filteredStats.paid,    icon: CheckCircle, color: 'text-emerald-500', accent: 'from-emerald-500/20 to-emerald-500/5', border: 'border-emerald-500/20', ring: 'bg-emerald-500/15', count: filteredStats.paidCount, countLabel: 'pagas' },
+            { title: 'Vencido',        value: filteredStats.overdue, icon: AlertTriangle, color: 'text-red-500', accent: 'from-red-500/20 to-red-500/5', border: 'border-red-500/20', ring: 'bg-red-500/15', count: filteredStats.overdueCount, countLabel: 'faturas' },
           ].map((stat, i) => (
             <motion.div key={stat.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
               <Card className={cn('relative overflow-hidden border transition-all hover:shadow-lg hover:shadow-black/10 hover:-translate-y-0.5', stat.border)}>
