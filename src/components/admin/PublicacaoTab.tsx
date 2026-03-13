@@ -1032,7 +1032,7 @@ export default function PublicacaoTab() {
     const atrasados = withClient.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d < 0; }).length;
     const deferidosMes = withClient.filter(p => p.status === 'deferimento' && p.data_decisao && isAfter(parseISO(p.data_decisao), startOfMonth)).length;
     return { total, urgentes, atrasados, deferidosMes };
-  }, [publicacoes, clientMap]);
+  }, [publicacoes, clientMap, processMap, processNumberMap]);
 
   // ─── Status counts ────
   const statusCounts = useMemo(() => {
