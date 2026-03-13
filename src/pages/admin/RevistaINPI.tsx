@@ -280,9 +280,22 @@ export default function RevistaINPI() {
         .eq('rpi_entry_id', entry.id)
         .maybeSingle();
 
+      // Calculate deadlines based on new dispatch type
+      const autoFields = calcAutoFields({
+        data_publicacao_rpi: entry.publication_date || null,
+        status: newType as any,
+      }, DISPATCH_TYPE_OPTIONS.find(o => o.value === newType)?.label || newType);
+
+      // Get rpi_number from selectedUpload
+      const currentRpiNumber = selectedUpload?.rpi_number || null;
+
       if (existingPub) {
         const { error: pubError } = await supabase.from('publicacoes_marcas').update({
           status: newType,
+          data_publicacao_rpi: entry.publication_date || null,
+          rpi_number: currentRpiNumber,
+          proximo_prazo_critico: autoFields.proximo_prazo_critico || null,
+          descricao_prazo: autoFields.descricao_prazo || null,
           updated_at: new Date().toISOString(),
         }).eq('id', existingPub.id);
         if (pubError) throw pubError;
@@ -297,6 +310,9 @@ export default function RevistaINPI() {
           brand_name_rpi: entry.brand_name || null,
           process_number_rpi: entry.process_number || null,
           data_publicacao_rpi: entry.publication_date || null,
+          rpi_number: currentRpiNumber,
+          proximo_prazo_critico: autoFields.proximo_prazo_critico || null,
+          descricao_prazo: autoFields.descricao_prazo || null,
         });
         if (insertError) throw insertError;
       }
