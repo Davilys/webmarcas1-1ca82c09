@@ -30,6 +30,74 @@ import {
   AlertDialogHeader, AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 
+function AttachmentSection({ emailId, attachments }: { emailId: string; attachments: Array<{ filename: string; content_type: string; size: number }> }) {
+  const [downloading, setDownloading] = useState<number | null>(null);
+
+  const handleDownload = async (idx: number, filename: string) => {
+    setDownloading(idx);
+    try {
+      const { data, error } = await supabase.functions.invoke('download-attachment', {
+        body: { email_id: emailId, attachment_index: idx }
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || 'Erro ao baixar');
+
+      const byteChars = atob(data.data_base64);
+      const byteArray = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+
+      const blob = new Blob([byteArray], { type: data.content_type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`📎 ${filename} baixado com sucesso`);
+    } catch (err: any) {
+      console.error('Download error:', err);
+      toast.error('Erro ao baixar anexo: ' + err.message);
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  return (
+    <div className="mt-4 p-3 rounded-lg border border-border/50 bg-muted/30">
+      <div className="flex items-center gap-2 mb-2">
+        <Paperclip className="h-4 w-4 text-muted-foreground" />
+        <span className="text-xs font-semibold text-foreground">
+          {attachments.length} anexo{attachments.length > 1 ? 's' : ''}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {attachments.map((att, idx) => (
+          <button
+            key={idx}
+            onClick={() => handleDownload(idx, att.filename)}
+            disabled={downloading === idx}
+            className="flex items-center gap-2 p-2 rounded-md border border-border/50 bg-background hover:bg-muted/50 transition-colors text-left group"
+          >
+            <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate">{att.filename}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {att.content_type} · {att.size > 1024 ? `${Math.round(att.size / 1024)}KB` : `${att.size}B`}
+              </p>
+            </div>
+            {downloading === idx ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground flex-shrink-0" />
+            ) : (
+              <Download className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface EmailViewProps {
   email: Email;
   onBack: () => void;
