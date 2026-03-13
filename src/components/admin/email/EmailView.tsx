@@ -13,7 +13,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft, Reply, Forward, Trash2, Star, Clock, Sparkles,
   MoreHorizontal, Archive, Eye, ChevronDown, MailOpen, MailX,
-  AlertTriangle, Copy, Printer
+  AlertTriangle, Copy, Printer, Paperclip, FileText, Download,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
