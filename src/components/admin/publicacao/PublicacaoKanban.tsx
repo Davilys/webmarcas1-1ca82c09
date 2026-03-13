@@ -184,8 +184,8 @@ export function PublicacaoKanban({ publicacoes, processMap, clientMap, adminMap,
                     }
                   }
                   const days = deadlineDate ? differenceInDays(parseISO(deadlineDate), new Date()) : null;
-                  const brandName = resolvedProc?.brand_name || pub.brand_name_rpi || '—';
                   const processNumber = resolvedProc?.process_number || pub.process_number_rpi || null;
+                  const brandName = resolvedProc?.brand_name || pub.brand_name_rpi || (processNumber ? `Processo ${processNumber}` : '—');
                   const rpiNumber = resolveRpiNumber ? resolveRpiNumber(pub) : null;
                   const isOverdue = days !== null && days < 0;
                   const isUrgent = days !== null && days >= 0 && days <= 7;
