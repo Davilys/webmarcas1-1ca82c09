@@ -132,6 +132,10 @@ const STATUS_TO_SERVICE: Record<string, string> = {};
 Object.entries(SERVICE_TO_STATUS).forEach(([svc, st]) => { if (!STATUS_TO_SERVICE[st]) STATUS_TO_SERVICE[st] = svc; });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+function normalizeProcessNumber(value: string | null | undefined): string {
+  return (value || '').replace(/\D/g, '');
+}
+
 function getDaysLeft(dateStr: string | null): number | null {
   if (!dateStr) return null;
   return differenceInDays(parseISO(dateStr), new Date());
@@ -554,12 +558,19 @@ export default function PublicacaoTab() {
       });
 
       const processMap = new Map(processes.map(p => [p.id, p]));
-      const processByNumber = new Map(processes.filter(p => p.process_number).map(p => [p.process_number!, p]));
+      const processByNumber = new Map<string, (typeof processes)[number]>();
+      processes.forEach((proc) => {
+        const key = normalizeProcessNumber(proc.process_number);
+        if (key && !processByNumber.has(key)) processByNumber.set(key, proc);
+      });
 
-      // Build lookup: existing publicações by process_number_rpi for update matching
+      // Build lookups for safe update matching
+      const existingPubByProcessId = new Map<string, Publicacao>();
       const existingPubByProcessNumber = new Map<string, Publicacao>();
-      publicacoes.forEach(p => {
-        if (p.process_number_rpi) existingPubByProcessNumber.set(p.process_number_rpi, p);
+      publicacoes.forEach((p) => {
+        if (p.process_id) existingPubByProcessId.set(p.process_id, p);
+        const key = normalizeProcessNumber(p.process_number_rpi);
+        if (key && !existingPubByProcessNumber.has(key)) existingPubByProcessNumber.set(key, p);
       });
 
       const toInsert: any[] = [];
@@ -585,8 +596,9 @@ export default function PublicacaoTab() {
         let processId = entry.matched_process_id || null;
         let clientId = entry.matched_client_id || null;
 
-        if (!processId && entry.process_number) {
-          const proc = processByNumber.get(entry.process_number);
+        const entryProcessNumber = normalizeProcessNumber(entry.process_number);
+        if (!processId && entryProcessNumber) {
+          const proc = processByNumber.get(entryProcessNumber);
           if (proc) {
             processId = proc.id;
             if (!clientId) clientId = proc.user_id || null;
@@ -595,8 +607,8 @@ export default function PublicacaoTab() {
 
         if (!processId && clientId) {
           const clientProcesses = processesByUserId.get(clientId) || [];
-          if (entry.process_number) {
-            const match = clientProcesses.find(p => p.process_number === entry.process_number);
+          if (entryProcessNumber) {
+            const match = clientProcesses.find(p => normalizeProcessNumber(p.process_number) === entryProcessNumber);
             if (match) processId = match.id;
           }
           if (!processId && clientProcesses.length > 0) {
@@ -639,24 +651,33 @@ export default function PublicacaoTab() {
           process_number_rpi: entry.process_number || null,
         } as any, entry.dispatch_text);
 
-        // ★ REGRA: Mesmo nº de processo → ATUALIZAR card (mover de coluna). Nº diferente → NOVO card.
-        if (entry.process_number && existingPubByProcessNumber.has(entry.process_number)) {
-          const existingPub = existingPubByProcessNumber.get(entry.process_number)!;
-          // Only update status/dates — keep existing process_number_rpi and client linkage
+        // ★ REGRA: mesmo process_id (ou mesmo nº normalizado sem vínculo) atualiza; processo diferente cria novo card.
+        const existingByProcessId = processId ? existingPubByProcessId.get(processId) : null;
+        const existingByProcessNumber = entryProcessNumber ? existingPubByProcessNumber.get(entryProcessNumber) : null;
+        const existingPub = existingByProcessId || (
+          existingByProcessNumber && (
+            !existingByProcessNumber.process_id ||
+            (processId && existingByProcessNumber.process_id === processId) ||
+            (clientId && existingByProcessNumber.client_id === clientId)
+          ) ? existingByProcessNumber : null
+        );
+
+        if (existingPub) {
           const updateData: any = {
             status: pubData.status,
             data_publicacao_rpi: pubData.data_publicacao_rpi,
             proximo_prazo_critico: pubData.proximo_prazo_critico,
             descricao_prazo: pubData.descricao_prazo,
             rpi_entry_id: entry.id,
+            process_id: processId || existingPub.process_id || null,
+            client_id: clientId || existingPub.client_id || null,
+            brand_name_rpi: entry.brand_name || existingPub.brand_name_rpi || null,
+            process_number_rpi: entry.process_number || existingPub.process_number_rpi || null,
             updated_at: new Date().toISOString(),
           };
           if (pubData.data_certificado) updateData.data_certificado = pubData.data_certificado;
           if (pubData.data_renovacao) updateData.data_renovacao = pubData.data_renovacao;
           if (pubData.prazo_oposicao) updateData.prazo_oposicao = pubData.prazo_oposicao;
-          // Update client/process if the existing one didn't have them
-          if (!existingPub.client_id && clientId) updateData.client_id = clientId;
-          if (!existingPub.process_id && processId) updateData.process_id = processId;
           toUpdate.push({ id: existingPub.id, data: updateData });
         } else {
           toInsert.push(pubData);
@@ -977,6 +998,14 @@ export default function PublicacaoTab() {
   // ─── Maps ────
   const clientMap = useMemo(() => new Map(clients.map(c => [c.id, c])), [clients]);
   const processMap = useMemo(() => new Map(processes.map(p => [p.id, p])), [processes]);
+  const processNumberMap = useMemo(() => {
+    const map = new Map<string, (typeof processes)[number]>();
+    processes.forEach((proc) => {
+      const key = normalizeProcessNumber(proc.process_number);
+      if (key && !map.has(key)) map.set(key, proc);
+    });
+    return map;
+  }, [processes]);
   const adminMap = useMemo(() => new Map(admins.map(a => [a.id, a])), [admins]);
 
   // ─── RPI resolution maps ────
@@ -1003,7 +1032,7 @@ export default function PublicacaoTab() {
       const dc = p.client_id ? clientMap.get(p.client_id) : null;
       if (dc) return true;
       const pr = p.process_id ? processMap.get(p.process_id) : null;
-      const prByNum = !pr && (p as any).process_number_rpi ? processes.find(pp => pp.process_number === (p as any).process_number_rpi) : null;
+      const prByNum = !pr && (p as any).process_number_rpi ? processNumberMap.get(normalizeProcessNumber((p as any).process_number_rpi)) : null;
       const rp = pr || prByNum;
       return rp?.user_id ? !!clientMap.get(rp.user_id) : false;
     });
@@ -1012,7 +1041,7 @@ export default function PublicacaoTab() {
     const atrasados = withClient.filter(p => { const d = getDaysLeft(p.proximo_prazo_critico); return d !== null && d < 0; }).length;
     const deferidosMes = withClient.filter(p => p.status === 'deferimento' && p.data_decisao && isAfter(parseISO(p.data_decisao), startOfMonth)).length;
     return { total, urgentes, atrasados, deferidosMes };
-  }, [publicacoes, clientMap]);
+  }, [publicacoes, clientMap, processMap, processNumberMap]);
 
   // ─── Status counts ────
   const statusCounts = useMemo(() => {
@@ -1021,12 +1050,12 @@ export default function PublicacaoTab() {
       const dc = p.client_id ? clientMap.get(p.client_id) : null;
       if (dc) return true;
       const pr = p.process_id ? processMap.get(p.process_id) : null;
-      const prByNum = !pr && (p as any).process_number_rpi ? processes.find(pp => pp.process_number === (p as any).process_number_rpi) : null;
+      const prByNum = !pr && (p as any).process_number_rpi ? processNumberMap.get(normalizeProcessNumber((p as any).process_number_rpi)) : null;
       const rp = pr || prByNum;
       return rp?.user_id ? !!clientMap.get(rp.user_id) : false;
     }).forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
     return counts;
-  }, [publicacoes, clientMap, processMap, processes]);
+  }, [publicacoes, clientMap, processMap, processNumberMap]);
 
   // ─── Filtering + Sorting + Pagination ────
   const filtered = useMemo(() => {
@@ -1036,15 +1065,15 @@ export default function PublicacaoTab() {
       // Try resolving client: direct client_id OR via linked process's user_id
       const directClient = pub.client_id ? clientMap.get(pub.client_id) : null;
       const proc = pub.process_id ? processMap.get(pub.process_id) : null;
-      const procByNumber = !proc && (pub as any).process_number_rpi ? processes.find(p => p.process_number === (pub as any).process_number_rpi) : null;
+      const procByNumber = !proc && (pub as any).process_number_rpi ? processNumberMap.get(normalizeProcessNumber((pub as any).process_number_rpi)) : null;
       const resolvedProc = proc || procByNumber;
       const resolvedClient = directClient || (resolvedProc?.user_id ? clientMap.get(resolvedProc.user_id) : null);
       if (!resolvedClient) return false;
       const client = resolvedClient;
       if (search) {
         const q = search.toLowerCase();
-        const matchName = proc?.brand_name?.toLowerCase().includes(q) || (pub as any).brand_name_rpi?.toLowerCase().includes(q);
-        const matchProc = proc?.process_number?.toLowerCase().includes(q) || (pub as any).process_number_rpi?.toLowerCase().includes(q);
+        const matchName = resolvedProc?.brand_name?.toLowerCase().includes(q) || (pub as any).brand_name_rpi?.toLowerCase().includes(q);
+        const matchProc = resolvedProc?.process_number?.toLowerCase().includes(q) || (pub as any).process_number_rpi?.toLowerCase().includes(q);
         const matchClient = client?.full_name?.toLowerCase().includes(q);
         if (!matchName && !matchProc && !matchClient) return false;
       }
@@ -1113,7 +1142,7 @@ export default function PublicacaoTab() {
     });
 
     return result;
-  }, [publicacoes, search, filterClient, filterStatus, filterPrazo, filterTipo, filterRpi, filterAdmin, filterDateFrom, filterDateTo, processMap, clientMap, sortKey, sortDir, activeKpi, resolveRpiNumber]);
+  }, [publicacoes, search, filterClient, filterStatus, filterPrazo, filterTipo, filterRpi, filterAdmin, filterDateFrom, filterDateTo, processMap, processNumberMap, clientMap, sortKey, sortDir, activeKpi, resolveRpiNumber]);
 
   // Pagination (#10)
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -1381,14 +1410,19 @@ export default function PublicacaoTab() {
         return;
       }
 
-      // Step 1: Match by process_number
-      const processByNumber = new Map(processes.filter(p => p.process_number).map(p => [p.process_number!, p]));
+      // Step 1: Match by process_number (normalized)
+      const processByNumber = new Map<string, (typeof processes)[number]>();
+      processes.forEach((proc) => {
+        const key = normalizeProcessNumber(proc.process_number);
+        if (key && !processByNumber.has(key)) processByNumber.set(key, proc);
+      });
       let linkedByProcess = 0;
       const stillOrphans: typeof allOrphans = [];
 
       for (const pub of allOrphans) {
-        if (pub.process_number_rpi) {
-          const proc = processByNumber.get(pub.process_number_rpi);
+        const key = normalizeProcessNumber(pub.process_number_rpi);
+        if (key) {
+          const proc = processByNumber.get(key);
           if (proc && proc.user_id) {
             const { error } = await supabase.from('publicacoes_marcas').update({ client_id: proc.user_id, process_id: proc.id }).eq('id', pub.id);
             if (!error) { linkedByProcess++; continue; }
