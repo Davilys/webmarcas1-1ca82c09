@@ -14,8 +14,11 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Search, Plus, CreditCard, TrendingUp, Clock, CheckCircle, Wallet,
   QrCode, FileText, Loader2, ExternalLink, Copy, EyeOff, RefreshCw,
-  ArrowUpRight, ArrowDownRight, DollarSign, AlertTriangle, Zap, Filter
+  ArrowUpRight, ArrowDownRight, DollarSign, AlertTriangle, Zap, Filter,
+  Calendar, ChevronLeft, ChevronRight
 } from 'lucide-react';
+import { format, subMonths, addMonths, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useCanViewFinancialValues } from '@/hooks/useCanViewFinancialValues';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
