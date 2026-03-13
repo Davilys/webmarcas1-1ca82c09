@@ -611,9 +611,8 @@ export default function PublicacaoTab() {
             const match = clientProcesses.find(p => normalizeProcessNumber(p.process_number) === entryProcessNumber);
             if (match) processId = match.id;
           }
-          if (!processId && clientProcesses.length > 0) {
-            processId = clientProcesses[0].id;
-          }
+          // Sem correspondência exata de número de processo: não forçar vínculo por cliente
+          if (!processId) clientId = null;
         }
 
         // Resolve client_id from process if possible
