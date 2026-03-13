@@ -670,7 +670,7 @@ export default function PublicacaoTab() {
       // Process updates (with reverse sync for reactivated publications)
       let updated = 0;
       const stageMap: Record<string, string> = {
-        '003': 'protocolado', oposicao: 'oposicao', exigencia_merito: 'protocolado',
+        '003': '003', oposicao: 'oposicao', exigencia_merito: 'exigencia_merito',
         deferimento: 'deferimento', certificado: 'certificados', indeferimento: 'indeferimento',
         arquivado: 'distrato', renovacao: 'renovacao',
       };
