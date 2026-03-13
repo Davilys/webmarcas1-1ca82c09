@@ -812,7 +812,55 @@ export default function PublicacaoTab() {
     createMissing();
   }, [isLoading, processes, publicacoes, queryClient]);
 
-  // ─── Mutations ────
+  // ─── Runtime enrichment: sync missing data from linked brand_processes ───
+  const enrichmentRef = useRef(false);
+  useEffect(() => {
+    if (enrichmentRef.current || isLoading || publicacoes.length === 0 || processes.length === 0) return;
+
+    const processById = new Map(processes.map(p => [p.id, p]));
+    const processByNumber = new Map<string, typeof processes[0]>();
+    processes.forEach(p => {
+      if (p.process_number) processByNumber.set(p.process_number.replace(/\D/g, ''), p);
+    });
+
+    const toUpdate: { id: string; updates: Record<string, any> }[] = [];
+
+    publicacoes.forEach(pub => {
+      let proc = pub.process_id ? processById.get(pub.process_id) : null;
+      if (!proc && (pub as any).process_number_rpi) {
+        proc = processByNumber.get(((pub as any).process_number_rpi || '').replace(/\D/g, '')) || null;
+      }
+      if (!proc) return;
+
+      const updates: Record<string, any> = {};
+      if (!(pub as any).ncl_class && proc.ncl_classes) updates.ncl_class = proc.ncl_classes.join(', ');
+      if (!(pub as any).brand_name_rpi && proc.brand_name) updates.brand_name_rpi = proc.brand_name;
+      if (!(pub as any).process_number_rpi && proc.process_number) updates.process_number_rpi = proc.process_number;
+      if (!pub.process_id && proc.id) updates.process_id = proc.id;
+
+      if (Object.keys(updates).length > 0) {
+        toUpdate.push({ id: pub.id, updates });
+      }
+    });
+
+    if (toUpdate.length === 0) return;
+    enrichmentRef.current = true;
+
+    const runEnrichment = async () => {
+      let enriched = 0;
+      for (const item of toUpdate) {
+        const { error } = await supabase.from('publicacoes_marcas').update(item.updates).eq('id', item.id);
+        if (!error) enriched++;
+      }
+      if (enriched > 0) {
+        queryClient.invalidateQueries({ queryKey: ['publicacoes-marcas'] });
+        console.log(`Enriched ${enriched} publicação cards with process data`);
+      }
+    };
+    runEnrichment();
+  }, [isLoading, publicacoes, processes, queryClient]);
+
+
   const createMutation = useMutation({
     mutationFn: async (data: Partial<Publicacao>) => {
       const computed = calcAutoFields(data);
