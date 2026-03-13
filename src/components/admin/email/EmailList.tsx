@@ -302,8 +302,9 @@ export function EmailList({ folder, onSelectEmail, accountId, accountEmail }: Em
                       )}>
                         {email.subject}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate mt-1">
-                        {email.body_text?.slice(0, 80)}...
+                      <p className="text-xs text-muted-foreground truncate mt-1 flex items-center gap-1">
+                        {email.has_attachments && <Paperclip className="h-3 w-3 flex-shrink-0" />}
+                        {email.snippet || email.body_text?.slice(0, 80) || '(Sem conteúdo)'}
                       </p>
                     </div>
                   </div>
