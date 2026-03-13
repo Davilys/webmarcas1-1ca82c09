@@ -725,7 +725,7 @@ export default function PublicacaoTab() {
   }, [isLoading, rpiEntries, publicacoes, processes, clients, queryClient, submittedRpiEntryIds]);
 
   // ─── Auto-create publicações for brand_processes in juridical stages without a Kanban card ────
-  const autoCreateFromProcessesRef = useRef(false);
+  // (ref declared above at line 514)
   useEffect(() => {
     if (autoCreateFromProcessesRef.current || isLoading || processes.length === 0) return;
 
