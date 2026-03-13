@@ -558,12 +558,19 @@ export default function PublicacaoTab() {
       });
 
       const processMap = new Map(processes.map(p => [p.id, p]));
-      const processByNumber = new Map(processes.filter(p => p.process_number).map(p => [p.process_number!, p]));
+      const processByNumber = new Map<string, (typeof processes)[number]>();
+      processes.forEach((proc) => {
+        const key = normalizeProcessNumber(proc.process_number);
+        if (key && !processByNumber.has(key)) processByNumber.set(key, proc);
+      });
 
-      // Build lookup: existing publicações by process_number_rpi for update matching
+      // Build lookups for safe update matching
+      const existingPubByProcessId = new Map<string, Publicacao>();
       const existingPubByProcessNumber = new Map<string, Publicacao>();
-      publicacoes.forEach(p => {
-        if (p.process_number_rpi) existingPubByProcessNumber.set(p.process_number_rpi, p);
+      publicacoes.forEach((p) => {
+        if (p.process_id) existingPubByProcessId.set(p.process_id, p);
+        const key = normalizeProcessNumber(p.process_number_rpi);
+        if (key && !existingPubByProcessNumber.has(key)) existingPubByProcessNumber.set(key, p);
       });
 
       const toInsert: any[] = [];
