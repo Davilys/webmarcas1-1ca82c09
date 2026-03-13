@@ -328,6 +328,31 @@ export default function AdminFinanceiro() {
     return matchSearch && matchStatus && matchDate;
   });
 
+  // Date-only filtered invoices for stats (no search/status filter)
+  const dateFilteredInvoices = invoices.filter(i => {
+    if (dateFilter === 'all') return true;
+    const invoiceDate = new Date(i.created_at || i.due_date);
+    const today = new Date();
+    if (dateFilter === 'today') return startOfDay(invoiceDate).getTime() === startOfDay(today).getTime();
+    if (dateFilter === 'week') return isWithinInterval(invoiceDate, { start: startOfWeek(today, { weekStartsOn: 1 }), end: endOfWeek(today, { weekStartsOn: 1 }) });
+    if (dateFilter === 'month') return isWithinInterval(invoiceDate, { start: startOfMonth(selectedMonth), end: endOfMonth(selectedMonth) });
+    return true;
+  });
+
+  const filteredStats = {
+    total:        dateFilteredInvoices.reduce((s, i) => s + Number(i.amount), 0),
+    pending:      dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'pending').reduce((s, i) => s + Number(i.amount), 0),
+    paid:         dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'paid').reduce((s, i) => s + Number(i.amount), 0),
+    overdue:      dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'overdue').reduce((s, i) => s + Number(i.amount), 0),
+    pendingCount: dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'pending').length,
+    paidCount:    dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'paid').length,
+    overdueCount: dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'overdue').length,
+    totalCount:   dateFilteredInvoices.length,
+  };
+
+  const paidPct = filteredStats.total > 0 ? (filteredStats.paid / filteredStats.total) * 100 : 0;
+  const pendingPct = filteredStats.total > 0 ? (filteredStats.pending / filteredStats.total) * 100 : 0;
+
   const clientProcesses = processes.filter(p => p.user_id === formData.user_id);
   const getInstallmentValue = () => {
     if (!formData.amount) return 0;
@@ -335,9 +360,6 @@ export default function AdminFinanceiro() {
     if (paymentType === 'avista' || installments <= 1) return total;
     return Math.ceil((total / installments) * 100) / 100;
   };
-
-  const paidPct = stats.total > 0 ? (stats.paid / stats.total) * 100 : 0;
-  const pendingPct = stats.total > 0 ? (stats.pending / stats.total) * 100 : 0;
 
   return (
     <AdminLayout>
@@ -583,10 +605,10 @@ export default function AdminFinanceiro() {
         {/* ── STAT CARDS ─────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { title: 'Total Faturado', value: stats.total, icon: TrendingUp, color: 'text-primary', accent: 'from-primary/20 to-primary/5', border: 'border-primary/20', ring: 'bg-primary/15', count: invoices.length, countLabel: 'faturas' },
-            { title: 'Aguardando',     value: stats.pending, icon: Clock,       color: 'text-amber-500', accent: 'from-amber-500/20 to-amber-500/5', border: 'border-amber-500/20', ring: 'bg-amber-500/15', count: stats.pendingCount, countLabel: 'faturas' },
-            { title: 'Recebido',       value: stats.paid,    icon: CheckCircle, color: 'text-emerald-500', accent: 'from-emerald-500/20 to-emerald-500/5', border: 'border-emerald-500/20', ring: 'bg-emerald-500/15', count: stats.paidCount, countLabel: 'pagas' },
-            { title: 'Vencido',        value: stats.overdue, icon: AlertTriangle, color: 'text-red-500', accent: 'from-red-500/20 to-red-500/5', border: 'border-red-500/20', ring: 'bg-red-500/15', count: stats.overdueCount, countLabel: 'faturas' },
+            { title: 'Total Faturado', value: filteredStats.total, icon: TrendingUp, color: 'text-primary', accent: 'from-primary/20 to-primary/5', border: 'border-primary/20', ring: 'bg-primary/15', count: filteredStats.totalCount, countLabel: 'faturas' },
+            { title: 'Aguardando',     value: filteredStats.pending, icon: Clock,       color: 'text-amber-500', accent: 'from-amber-500/20 to-amber-500/5', border: 'border-amber-500/20', ring: 'bg-amber-500/15', count: filteredStats.pendingCount, countLabel: 'faturas' },
+            { title: 'Recebido',       value: filteredStats.paid,    icon: CheckCircle, color: 'text-emerald-500', accent: 'from-emerald-500/20 to-emerald-500/5', border: 'border-emerald-500/20', ring: 'bg-emerald-500/15', count: filteredStats.paidCount, countLabel: 'pagas' },
+            { title: 'Vencido',        value: filteredStats.overdue, icon: AlertTriangle, color: 'text-red-500', accent: 'from-red-500/20 to-red-500/5', border: 'border-red-500/20', ring: 'bg-red-500/15', count: filteredStats.overdueCount, countLabel: 'faturas' },
           ].map((stat, i) => (
             <motion.div key={stat.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
               <Card className={cn('relative overflow-hidden border transition-all hover:shadow-lg hover:shadow-black/10 hover:-translate-y-0.5', stat.border)}>
@@ -617,12 +639,12 @@ export default function AdminFinanceiro() {
         </div>
 
         {/* ── PROGRESS BAR ───────────────────────── */}
-        {stats.total > 0 && canViewFinancialValues && (
+        {filteredStats.total > 0 && canViewFinancialValues && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
             className="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium text-muted-foreground">Composição do Faturamento</span>
-              <span className="text-xs text-muted-foreground">R$ {fmt(stats.total)} total</span>
+              <span className="text-xs text-muted-foreground">R$ {fmt(filteredStats.total)} total</span>
             </div>
             <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted/60 gap-0.5">
               <motion.div initial={{ width: 0 }} animate={{ width: `${paidPct}%` }} transition={{ duration: 1, ease: 'easeOut', delay: 0.4 }} className="h-full bg-emerald-500 rounded-l-full" />
@@ -632,7 +654,7 @@ export default function AdminFinanceiro() {
             <div className="flex gap-5 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />Recebido {paidPct.toFixed(0)}%</span>
               <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-500 inline-block" />Pendente {pendingPct.toFixed(0)}%</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500/60 inline-block" />Vencido {stats.total > 0 ? ((stats.overdue / stats.total) * 100).toFixed(0) : 0}%</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500/60 inline-block" />Vencido {filteredStats.total > 0 ? ((filteredStats.overdue / filteredStats.total) * 100).toFixed(0) : 0}%</span>
             </div>
           </motion.div>
         )}
