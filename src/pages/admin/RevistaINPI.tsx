@@ -678,6 +678,15 @@ export default function RevistaINPI() {
         pubStatus = dispatchValue;
       }
 
+      // Calculate deadlines using calcAutoFields
+      const dispatchLabel = assignEntry.dispatch_type || '';
+      const autoFieldsAssign = calcAutoFields({
+        data_publicacao_rpi: assignEntry.publication_date || null,
+        status: pubStatus as any,
+      }, dispatchLabel);
+
+      const assignRpiNumber = selectedUpload?.rpi_number || null;
+
       if (existingPub) {
         // Update existing pub with client, process AND brand metadata
         await supabase.from('publicacoes_marcas').update({
@@ -687,6 +696,10 @@ export default function RevistaINPI() {
           brand_name_rpi: assignEntry.brand_name || null,
           process_number_rpi: assignEntry.process_number || null,
           ncl_class: assignEntry.ncl_classes?.join(', ') || null,
+          data_publicacao_rpi: assignEntry.publication_date || null,
+          rpi_number: assignRpiNumber,
+          proximo_prazo_critico: autoFieldsAssign.proximo_prazo_critico || null,
+          descricao_prazo: autoFieldsAssign.descricao_prazo || null,
           updated_at: new Date().toISOString(),
         }).eq('id', existingPub.id);
       } else if (existingByProcessNumber) {
@@ -699,11 +712,14 @@ export default function RevistaINPI() {
           brand_name_rpi: assignEntry.brand_name || null,
           process_number_rpi: assignEntry.process_number || null,
           ncl_class: assignEntry.ncl_classes?.join(', ') || null,
+          data_publicacao_rpi: assignEntry.publication_date || null,
+          rpi_number: assignRpiNumber,
+          proximo_prazo_critico: autoFieldsAssign.proximo_prazo_critico || null,
+          descricao_prazo: autoFieldsAssign.descricao_prazo || null,
           updated_at: new Date().toISOString(),
         }).eq('id', existingByProcessNumber.id);
       } else {
         // ★ CREATE new publicação card — only now that we have a client
-        const deadlineStr = format(deadlineDate, 'yyyy-MM-dd');
         await supabase.from('publicacoes_marcas').insert({
           status: pubStatus,
           tipo_publicacao: 'publicacao_rpi',
@@ -713,17 +729,20 @@ export default function RevistaINPI() {
           brand_name_rpi: assignEntry.brand_name || null,
           process_number_rpi: assignEntry.process_number || null,
           data_publicacao_rpi: assignEntry.publication_date || null,
-          proximo_prazo_critico: deadlineStr,
-          descricao_prazo: 'Prazo padrão - 60 dias',
+          rpi_number: assignRpiNumber,
+          proximo_prazo_critico: autoFieldsAssign.proximo_prazo_critico || format(deadlineDate, 'yyyy-MM-dd'),
+          descricao_prazo: autoFieldsAssign.descricao_prazo || 'Prazo padrão - 60 dias',
         });
       }
 
-      // [SYNC] Update brand_processes pipeline_stage
+      // [SYNC] Update brand_processes pipeline_stage + ncl_classes
       if (resolvedProcessId && assignEntry.dispatch_type) {
         const dispatchValue = DISPATCH_TYPE_OPTIONS.find(o => o.label === assignEntry.dispatch_type || o.value === assignEntry.dispatch_type)?.value || assignEntry.dispatch_type;
         const pipelineStage = PUB_STATUS_TO_PIPELINE[dispatchValue] || dispatchValue;
+        const nclNumeric = assignEntry.ncl_classes?.map(Number).filter(n => !isNaN(n)) || [];
         await supabase.from('brand_processes').update({
           pipeline_stage: pipelineStage,
+          ncl_classes: nclNumeric.length > 0 ? nclNumeric : undefined,
           updated_at: new Date().toISOString(),
         }).eq('id', resolvedProcessId);
       }
