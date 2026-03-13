@@ -115,6 +115,7 @@ const PIPELINE_TO_PUB_STATUS: Record<string, string> = {
   notificacao_extrajudicial: '003',
   deferimento: 'deferimento',
   certificado: 'certificado',
+  certificados: 'certificado',
   renovacao: 'renovacao',
   arquivado: 'arquivado',
   distrato: 'arquivado',
