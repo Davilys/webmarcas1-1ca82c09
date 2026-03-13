@@ -374,6 +374,7 @@ export function EmailCompose({ onClose, replyTo, initialTo, initialName, initial
           body,
           html: `<div style="font-family: Georgia, serif; max-width: 640px; margin: 0 auto; padding: 32px; color: #1a1a1a; line-height: 1.7;">${htmlBody}</div>`,
           attachments: attachments.map(a => ({ url: a.url, filename: a.name })),
+          account_id: accountId || undefined, // Send via user's SMTP when available
         },
       });
       if (response.error) throw response.error;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -157,7 +157,36 @@ export function EmailList({ folder, onSelectEmail, accountId, accountEmail }: Em
       return mappedImap;
     },
     enabled: !!accountId,
+    refetchInterval: 120000, // Auto-refresh every 2 minutes
   });
+
+  // Silent background IMAP sync on mount and every 3 minutes
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!accountId) return;
+
+    // Silent sync (no toast)
+    const silentSync = async () => {
+      try {
+        await supabase.functions.invoke('sync-imap-inbox', {
+          body: { account_id: accountId }
+        });
+        queryClient.invalidateQueries({ queryKey: ['emails'] });
+      } catch (e) {
+        console.error('Silent sync error:', e);
+      }
+    };
+
+    // Sync on mount
+    silentSync();
+
+    // Then every 3 minutes
+    syncIntervalRef.current = setInterval(silentSync, 180000);
+
+    return () => {
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+    };
+  }, [accountId, queryClient]);
 
   const filteredEmails = emails?.filter(email =>
     email.subject.toLowerCase().includes(search.toLowerCase()) ||

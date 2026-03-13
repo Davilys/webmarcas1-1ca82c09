@@ -11,6 +11,34 @@ interface SyncRequest {
   account_id?: string;
 }
 
+// ==== MIME RFC 2047 Decoder ====
+function decodeMimeWords(input: string): string {
+  if (!input || !input.includes("=?")) return input;
+  return input.replace(
+    /=\?([^?]+)\?(Q|B)\?([^?]*)\?=/gi,
+    (_match, _charset, encoding, encoded) => {
+      try {
+        if (encoding.toUpperCase() === "B") {
+          // Base64
+          const bytes = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
+          return new TextDecoder("utf-8").decode(bytes);
+        }
+        // Quoted-Printable
+        const decoded = encoded
+          .replace(/_/g, " ")
+          .replace(/=([0-9A-Fa-f]{2})/g, (_: string, hex: string) =>
+            String.fromCharCode(parseInt(hex, 16))
+          );
+        // Try UTF-8 decode for multi-byte chars
+        const bytes = new Uint8Array([...decoded].map(c => c.charCodeAt(0)));
+        return new TextDecoder("utf-8").decode(bytes);
+      } catch {
+        return encoded;
+      }
+    }
+  ).replace(/\r?\n[ \t]+/g, ""); // unfold headers
+}
+
 async function sendCommand(
   conn: Deno.TcpConn | Deno.TlsConn,
   tag: string,
@@ -64,14 +92,14 @@ function parseEnvelopeHeaders(raw: string): {
   const dateMatch = raw.match(/Date:\s*(.+?)(?:\r\n|\r?\n)/i);
   const messageIdMatch = raw.match(/Message-ID:\s*<?([^>\r\n]+)>?/i);
 
+  const rawSubject = subjectMatch?.[1]?.trim().replace(/\r?\n[ \t]+/g, " ") || "(Sem assunto)";
+
   return {
-    fromName: fromMatch?.[1]?.trim() || "",
+    fromName: decodeMimeWords(fromMatch?.[1]?.trim() || ""),
     from: fromMatch?.[2]?.trim() || "unknown@email.com",
-    toName: toMatch?.[1]?.trim() || "",
+    toName: decodeMimeWords(toMatch?.[1]?.trim() || ""),
     to: toMatch?.[2]?.trim() || "",
-    subject:
-      subjectMatch?.[1]?.trim().replace(/\r?\n[ \t]+/g, " ") ||
-      "(Sem assunto)",
+    subject: decodeMimeWords(rawSubject),
     date: dateMatch?.[1]?.trim() || new Date().toISOString(),
     messageId:
       messageIdMatch?.[1]?.trim() ||
