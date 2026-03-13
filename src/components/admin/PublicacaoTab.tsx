@@ -596,8 +596,9 @@ export default function PublicacaoTab() {
         let processId = entry.matched_process_id || null;
         let clientId = entry.matched_client_id || null;
 
-        if (!processId && entry.process_number) {
-          const proc = processByNumber.get(entry.process_number);
+        const entryProcessNumber = normalizeProcessNumber(entry.process_number);
+        if (!processId && entryProcessNumber) {
+          const proc = processByNumber.get(entryProcessNumber);
           if (proc) {
             processId = proc.id;
             if (!clientId) clientId = proc.user_id || null;
@@ -606,8 +607,8 @@ export default function PublicacaoTab() {
 
         if (!processId && clientId) {
           const clientProcesses = processesByUserId.get(clientId) || [];
-          if (entry.process_number) {
-            const match = clientProcesses.find(p => p.process_number === entry.process_number);
+          if (entryProcessNumber) {
+            const match = clientProcesses.find(p => normalizeProcessNumber(p.process_number) === entryProcessNumber);
             if (match) processId = match.id;
           }
           if (!processId && clientProcesses.length > 0) {
