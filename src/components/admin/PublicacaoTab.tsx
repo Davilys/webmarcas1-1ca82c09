@@ -132,6 +132,10 @@ const STATUS_TO_SERVICE: Record<string, string> = {};
 Object.entries(SERVICE_TO_STATUS).forEach(([svc, st]) => { if (!STATUS_TO_SERVICE[st]) STATUS_TO_SERVICE[st] = svc; });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+function normalizeProcessNumber(value: string | null | undefined): string {
+  return (value || '').replace(/\D/g, '');
+}
+
 function getDaysLeft(dateStr: string | null): number | null {
   if (!dateStr) return null;
   return differenceInDays(parseISO(dateStr), new Date());
