@@ -328,16 +328,30 @@ export default function AdminFinanceiro() {
     return matchSearch && matchStatus && matchDate;
   });
 
-  const clientProcesses = processes.filter(p => p.user_id === formData.user_id);
-  const getInstallmentValue = () => {
-    if (!formData.amount) return 0;
-    const total = parseFloat(formData.amount);
-    if (paymentType === 'avista' || installments <= 1) return total;
-    return Math.ceil((total / installments) * 100) / 100;
+  // Date-only filtered invoices for stats (no search/status filter)
+  const dateFilteredInvoices = invoices.filter(i => {
+    if (dateFilter === 'all') return true;
+    const invoiceDate = new Date(i.created_at || i.due_date);
+    const today = new Date();
+    if (dateFilter === 'today') return startOfDay(invoiceDate).getTime() === startOfDay(today).getTime();
+    if (dateFilter === 'week') return isWithinInterval(invoiceDate, { start: startOfWeek(today, { weekStartsOn: 1 }), end: endOfWeek(today, { weekStartsOn: 1 }) });
+    if (dateFilter === 'month') return isWithinInterval(invoiceDate, { start: startOfMonth(selectedMonth), end: endOfMonth(selectedMonth) });
+    return true;
+  });
+
+  const filteredStats = {
+    total:        dateFilteredInvoices.reduce((s, i) => s + Number(i.amount), 0),
+    pending:      dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'pending').reduce((s, i) => s + Number(i.amount), 0),
+    paid:         dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'paid').reduce((s, i) => s + Number(i.amount), 0),
+    overdue:      dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'overdue').reduce((s, i) => s + Number(i.amount), 0),
+    pendingCount: dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'pending').length,
+    paidCount:    dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'paid').length,
+    overdueCount: dateFilteredInvoices.filter(i => normalizeStatus(i.status) === 'overdue').length,
+    totalCount:   dateFilteredInvoices.length,
   };
 
-  const paidPct = stats.total > 0 ? (stats.paid / stats.total) * 100 : 0;
-  const pendingPct = stats.total > 0 ? (stats.pending / stats.total) * 100 : 0;
+  const paidPct = filteredStats.total > 0 ? (filteredStats.paid / filteredStats.total) * 100 : 0;
+  const pendingPct = filteredStats.total > 0 ? (filteredStats.pending / filteredStats.total) * 100 : 0;
 
   return (
     <AdminLayout>
