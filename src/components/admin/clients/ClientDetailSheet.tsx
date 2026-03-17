@@ -186,6 +186,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
   const [expandedBrandId, setExpandedBrandId] = useState<string | null>(null);
   const [editingBrandData, setEditingBrandData] = useState<any>({});
   const [savingBrand, setSavingBrand] = useState(false);
+  const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
   const [adminUsersList, setAdminUsersList] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
   const [showEmailCompose, setShowEmailCompose] = useState(false);
   const [adminEmailAccount, setAdminEmailAccount] = useState<{ id: string; email_address: string } | null>(null);
@@ -2888,57 +2889,67 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                         </div>
                                       </div>
 
-                                      <Button
-                                        className="w-full"
-                                        disabled={savingBrand || !editingBrandData.brand_name?.trim()}
-                                        onClick={async () => {
-                                          setSavingBrand(true);
-                                          try {
-                                            const nclParsed = editingBrandData.ncl_classes
-                                              ? editingBrandData.ncl_classes.split(',').map((c: string) => parseInt(c.trim(), 10)).filter((n: number) => !isNaN(n))
-                                              : null;
-                                            const { error } = await supabase.from('brand_processes').update({
-                                              brand_name: editingBrandData.brand_name,
-                                              process_number: editingBrandData.process_number || null,
-                                              inpi_protocol: editingBrandData.inpi_protocol || null,
-                                              ncl_classes: nclParsed && nclParsed.length > 0 ? nclParsed : null,
-                                              business_area: editingBrandData.business_area || null,
-                                              status: editingBrandData.status,
-                                              pipeline_stage: editingBrandData.pipeline_stage,
-                                              deposit_date: editingBrandData.deposit_date || null,
-                                              grant_date: editingBrandData.grant_date || null,
-                                              expiry_date: editingBrandData.expiry_date || null,
-                                              next_step: editingBrandData.next_step || null,
-                                              next_step_date: editingBrandData.next_step_date || null,
-                                              notes: editingBrandData.notes || null,
-                                            }).eq('id', brand.id);
-                                            if (error) throw error;
+                                      <div className="flex gap-2">
+                                        <Button
+                                          variant="destructive"
+                                          size="sm"
+                                          className="flex-shrink-0"
+                                          onClick={() => setDeletingBrandId(brand.id)}
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-1" />
+                                          Excluir
+                                        </Button>
+                                        <Button
+                                          className="flex-1"
+                                          disabled={savingBrand || !editingBrandData.brand_name?.trim()}
+                                          onClick={async () => {
+                                            setSavingBrand(true);
+                                            try {
+                                              const nclParsed = editingBrandData.ncl_classes
+                                                ? editingBrandData.ncl_classes.split(',').map((c: string) => parseInt(c.trim(), 10)).filter((n: number) => !isNaN(n))
+                                                : null;
+                                              const { error } = await supabase.from('brand_processes').update({
+                                                brand_name: editingBrandData.brand_name,
+                                                process_number: editingBrandData.process_number || null,
+                                                inpi_protocol: editingBrandData.inpi_protocol || null,
+                                                ncl_classes: nclParsed && nclParsed.length > 0 ? nclParsed : null,
+                                                business_area: editingBrandData.business_area || null,
+                                                status: editingBrandData.status,
+                                                pipeline_stage: editingBrandData.pipeline_stage,
+                                                deposit_date: editingBrandData.deposit_date || null,
+                                                grant_date: editingBrandData.grant_date || null,
+                                                expiry_date: editingBrandData.expiry_date || null,
+                                                next_step: editingBrandData.next_step || null,
+                                                next_step_date: editingBrandData.next_step_date || null,
+                                                notes: editingBrandData.notes || null,
+                                              }).eq('id', brand.id);
+                                              if (error) throw error;
 
-                                            // Sync status to linked publicacoes_marcas (moves card in Publicação Kanban)
-                                            const pubStatusMap: Record<string, string> = {
-                                              '003': '003', oposicao: 'oposicao', exigencia_merito: 'exigencia_merito',
-                                              indeferimento: 'indeferimento', deferimento: 'deferimento',
-                                              certificado: 'certificado', renovacao: 'renovacao', arquivado: 'arquivado',
-                                            };
-                                            const mappedPubStatus = pubStatusMap[editingBrandData.status];
-                                            if (mappedPubStatus) {
-                                              await supabase.from('publicacoes_marcas').update({ status: mappedPubStatus }).eq('process_id', brand.id);
+                                              const pubStatusMap: Record<string, string> = {
+                                                '003': '003', oposicao: 'oposicao', exigencia_merito: 'exigencia_merito',
+                                                indeferimento: 'indeferimento', deferimento: 'deferimento',
+                                                certificado: 'certificado', renovacao: 'renovacao', arquivado: 'arquivado',
+                                              };
+                                              const mappedPubStatus = pubStatusMap[editingBrandData.status];
+                                              if (mappedPubStatus) {
+                                                await supabase.from('publicacoes_marcas').update({ status: mappedPubStatus }).eq('process_id', brand.id);
+                                              }
+
+                                              toast.success('Marca atualizada com sucesso!');
+                                              setExpandedBrandId(null);
+                                              fetchClientData();
+                                              onUpdate();
+                                            } catch (err: any) {
+                                              toast.error('Erro ao salvar: ' + err.message);
+                                            } finally {
+                                              setSavingBrand(false);
                                             }
-
-                                            toast.success('Marca atualizada com sucesso!');
-                                            setExpandedBrandId(null);
-                                            fetchClientData();
-                                            onUpdate();
-                                          } catch (err: any) {
-                                            toast.error('Erro ao salvar: ' + err.message);
-                                          } finally {
-                                            setSavingBrand(false);
-                                          }
-                                        }}
-                                      >
-                                        {savingBrand ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-                                        Salvar Alterações
-                                      </Button>
+                                          }}
+                                        >
+                                          {savingBrand ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                                          Salvar Alterações
+                                        </Button>
+                                      </div>
                                     </div>
                                   </motion.div>
                                 )}
@@ -3211,7 +3222,41 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ─── CREATE INVOICE DIALOG ─── */}
+      {/* ─── DELETE BRAND CONFIRM ─── */}
+      <AlertDialog open={!!deletingBrandId} onOpenChange={(open) => { if (!open) setDeletingBrandId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive"><AlertTriangle className="h-5 w-5" />Excluir Marca</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir esta marca e todos os dados vinculados (publicações, contratos, documentos)? Esta ação é irreversível.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingBrandId(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deletingBrandId) return;
+                try {
+                  // Delete linked publicacoes_marcas first
+                  await supabase.from('publicacoes_marcas').delete().eq('process_id', deletingBrandId);
+                  // Delete the brand process
+                  const { error } = await supabase.from('brand_processes').delete().eq('id', deletingBrandId);
+                  if (error) throw error;
+                  toast.success('Marca excluída com sucesso!');
+                  setDeletingBrandId(null);
+                  setExpandedBrandId(null);
+                  fetchClientData();
+                  onUpdate();
+                } catch (err: any) {
+                  toast.error('Erro ao excluir marca: ' + err.message);
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <CreateInvoiceDialog
         open={showNewInvoiceDialog}
         onOpenChange={setShowNewInvoiceDialog}
