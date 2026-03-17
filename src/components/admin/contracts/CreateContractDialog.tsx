@@ -2306,13 +2306,13 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                       {formData.document_type === 'distrato_multa' && (
                         <>
                           <div className="space-y-2">
-                            <Label>Valor da Multa (R$)</Label>
+                            <Label>Valor da Multa (R$) *</Label>
                             <Input
                               type="number"
                               step="0.01"
                               value={formData.penalty_value}
                               onChange={(e) => setFormData({ ...formData, penalty_value: e.target.value })}
-                              placeholder="398.00"
+                              placeholder="398,00"
                             />
                           </div>
                           <div className="space-y-2">
@@ -2324,6 +2324,58 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                               placeholder="1"
                             />
                           </div>
+                          <div className="space-y-2 col-span-2">
+                            <Label>Data de Cobrança da Multa</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !distratoMultaDueDate && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {distratoMultaDueDate ? format(distratoMultaDueDate, "dd/MM/yyyy", { locale: ptBR }) : "Selecionar data de vencimento"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={distratoMultaDueDate}
+                                  onSelect={setDistratoMultaDueDate}
+                                  disabled={(date) => date < new Date()}
+                                  initialFocus
+                                  className={cn("p-3 pointer-events-auto")}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <p className="text-xs text-muted-foreground">
+                              Se não selecionar, será usado vencimento em 3 dias.
+                            </p>
+                          </div>
+                          {formData.penalty_value && parseFloat(formData.penalty_value) > 0 && (
+                            <div className="col-span-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 space-y-2">
+                              <h4 className="font-semibold text-amber-800 dark:text-amber-200 text-sm">Resumo da Cobrança da Multa</h4>
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <span className="text-muted-foreground">Valor da multa:</span>
+                                <span className="font-bold text-primary">
+                                  {parseInt(formData.penalty_installments) > 1 
+                                    ? `${formData.penalty_installments}x de R$ ${parseFloat(formData.penalty_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                    : `R$ ${parseFloat(formData.penalty_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                  }
+                                </span>
+                                <span className="text-muted-foreground">Vencimento:</span>
+                                <span className="font-medium">
+                                  {distratoMultaDueDate ? format(distratoMultaDueDate, "dd/MM/yyyy", { locale: ptBR }) : 'Em 3 dias (automático)'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                A cobrança será criada automaticamente no Asaas ao salvar.
+                              </p>
+                            </div>
+                          )}
                         </>
                       )}
 
