@@ -890,13 +890,19 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                                selectedTemplate?.name.toLowerCase().includes('manutencao') ||
                                selectedTemplate?.name.toLowerCase().includes('manutenção');
 
+      // Detect distrato com multa
+      const isDistratoMulta = selectedTemplate ? getDocumentTypeFromTemplateName(selectedTemplate.name) === 'distrato_multa' : formData.document_type === 'distrato_multa';
+
       // Calculate contract value: for new clients OR existing clients with standard template, use calculated value
       // For monitoramento, force R$ 59.00
+      // For distrato com multa, use penalty_value
       const contractValue = isMonitoramento
         ? 59.00
-        : (isNewClient 
-          ? getContractValue() 
-          : (isStandardTemplate ? getContractValue() : (formData.contract_value ? parseFloat(formData.contract_value) : null)));
+        : isDistratoMulta && formData.penalty_value
+          ? parseFloat(formData.penalty_value)
+          : (isNewClient 
+            ? getContractValue() 
+            : (isStandardTemplate ? getContractValue() : (formData.contract_value ? parseFloat(formData.contract_value) : null)));
 
       // Calculate custom due date based on payment method
       const customDueDate = paymentMethod === 'avista' && pixPaymentDate 
