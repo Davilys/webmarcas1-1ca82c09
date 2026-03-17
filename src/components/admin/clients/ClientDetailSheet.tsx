@@ -186,6 +186,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
   const [expandedBrandId, setExpandedBrandId] = useState<string | null>(null);
   const [editingBrandData, setEditingBrandData] = useState<any>({});
   const [savingBrand, setSavingBrand] = useState(false);
+  const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
   const [adminUsersList, setAdminUsersList] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
   const [showEmailCompose, setShowEmailCompose] = useState(false);
   const [adminEmailAccount, setAdminEmailAccount] = useState<{ id: string; email_address: string } | null>(null);
