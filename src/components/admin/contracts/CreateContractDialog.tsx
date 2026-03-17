@@ -904,12 +904,14 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
             ? getContractValue() 
             : (isStandardTemplate ? getContractValue() : (formData.contract_value ? parseFloat(formData.contract_value) : null)));
 
-      // Calculate custom due date based on payment method
-      const customDueDate = paymentMethod === 'avista' && pixPaymentDate 
-        ? pixPaymentDate.toISOString().split('T')[0]
-        : paymentMethod === 'boleto3x' && boletoVencimentoDate
-          ? boletoVencimentoDate.toISOString().split('T')[0]
-          : null;
+      // Calculate custom due date based on payment method or distrato multa
+      const customDueDate = isDistratoMulta && distratoMultaDueDate
+        ? distratoMultaDueDate.toISOString().split('T')[0]
+        : paymentMethod === 'avista' && pixPaymentDate 
+          ? pixPaymentDate.toISOString().split('T')[0]
+          : paymentMethod === 'boleto3x' && boletoVencimentoDate
+            ? boletoVencimentoDate.toISOString().split('T')[0]
+            : null;
 
       // Get current admin user to register as contract creator
       const { data: { user: adminUser } } = await supabase.auth.getUser();
