@@ -205,6 +205,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
   const [dragOver, setDragOver] = useState(false);
 
   // UI state
+  const [activeTab, setActiveTab] = useState('overview');
   const [newNote, setNewNote] = useState('');
   const [showNewAppointment, setShowNewAppointment] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -309,6 +310,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
     if (client && open) {
       fetchClientData();
       setShowProcessDetails(false);
+      setActiveTab('overview');
       setSelectedServiceBrandId(client.process_id || null);
       setEditData({ priority: client.priority || 'medium', origin: client.origin || 'site', contract_value: client.contract_value || 0, pipeline_stage: client.pipeline_stage || 'protocolado' });
       setSelectedServiceType(client.pipeline_stage || 'protocolado');
@@ -1610,7 +1612,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
               </div>
             </div>
           ) : (
-          <Tabs defaultValue="overview" className="flex-1 overflow-hidden flex flex-col">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
             {/* Tab bar */}
             <div className="border-b border-border flex-shrink-0 px-1">
               <TabsList className="h-auto bg-transparent p-0 gap-0 w-full justify-start overflow-x-auto flex-nowrap">
@@ -2213,6 +2215,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                           <Select value={editData.pipeline_stage} onValueChange={async (v) => {
                             setEditData(prev => ({ ...prev, pipeline_stage: v }));
                             setSelectedServiceType(v);
+                            setActiveTab('services');
                             const targetProcessId = selectedServiceBrandId || client.process_id;
                             if (targetProcessId) {
                               await supabase.from('brand_processes').update({ pipeline_stage: v }).eq('id', targetProcessId);
