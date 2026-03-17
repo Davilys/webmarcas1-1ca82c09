@@ -310,6 +310,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
     if (client && open) {
       fetchClientData();
       setShowProcessDetails(false);
+      setActiveTab('overview');
       setSelectedServiceBrandId(client.process_id || null);
       setEditData({ priority: client.priority || 'medium', origin: client.origin || 'site', contract_value: client.contract_value || 0, pipeline_stage: client.pipeline_stage || 'protocolado' });
       setSelectedServiceType(client.pipeline_stage || 'protocolado');
