@@ -1611,7 +1611,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
               </div>
             </div>
           ) : (
-          <Tabs defaultValue="overview" className="flex-1 overflow-hidden flex flex-col">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
             {/* Tab bar */}
             <div className="border-b border-border flex-shrink-0 px-1">
               <TabsList className="h-auto bg-transparent p-0 gap-0 w-full justify-start overflow-x-auto flex-nowrap">
