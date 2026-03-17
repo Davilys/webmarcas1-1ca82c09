@@ -283,10 +283,23 @@ function AdminSidebar() {
     return first?.href || '/admin/configuracoes';
   }, [permissions]);
 
+  // Keep a ref of the last valid menu items to prevent flash during refetch
+  const [cachedMenuItems, setCachedMenuItems] = useState<MenuItem[]>(menuItems);
+
   // Filter menu items based on user permissions
   const filteredMenuItems = useMemo(() => {
-    if (!permissions) return []; // Hide all while loading permissions
+    if (!permissions) return cachedMenuItems; // Show cached items while loading/refetching
     return menuItems.filter(item => permissions[item.permissionKey]?.can_view === true);
+  }, [permissions, cachedMenuItems]);
+
+  // Update cache when permissions are loaded
+  useEffect(() => {
+    if (permissions) {
+      const filtered = menuItems.filter(item => permissions[item.permissionKey]?.can_view === true);
+      if (filtered.length > 0) {
+        setCachedMenuItems(filtered);
+      }
+    }
   }, [permissions]);
 
   const handleLogout = async () => {

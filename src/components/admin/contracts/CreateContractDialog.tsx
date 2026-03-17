@@ -2292,16 +2292,18 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                         </div>
                       )}
 
-                      <div className="space-y-2">
-                        <Label>Valor do Documento</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={formData.contract_value}
-                          onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })}
-                          placeholder="0.00"
-                        />
-                      </div>
+                      {formData.document_type !== 'distrato_multa' && (
+                        <div className="space-y-2">
+                          <Label>Valor do Documento</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.contract_value}
+                            onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      )}
 
                       {formData.document_type === 'distrato_multa' && (
                         <>
