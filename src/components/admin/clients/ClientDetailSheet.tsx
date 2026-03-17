@@ -205,6 +205,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
   const [dragOver, setDragOver] = useState(false);
 
   // UI state
+  const [activeTab, setActiveTab] = useState('overview');
   const [newNote, setNewNote] = useState('');
   const [showNewAppointment, setShowNewAppointment] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
