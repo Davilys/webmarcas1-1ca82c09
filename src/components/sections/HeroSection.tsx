@@ -38,25 +38,23 @@ const HeroSection = () => {
     <section id="home" className="relative hero-glow overflow-x-clip overflow-y-visible">
       {/* Background */}
       <div className="absolute inset-0 bg-hero-gradient" />
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/5 rounded-full blur-3xl" />
 
       <div className="container mx-auto px-4 pt-28 pb-10 relative z-10">
-        {/* Two-column: text left, viability right */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8 lg:gap-14 items-start max-w-6xl mx-auto">
+        {/* Two-column: text card left, viability card right */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px] gap-6 lg:gap-8 items-stretch max-w-6xl mx-auto">
           
-          {/* Left Column */}
-          <div className="text-center lg:text-left pt-4">
+          {/* Left Column - Hero Card */}
+          <div className="rounded-3xl bg-card/60 backdrop-blur-sm border border-border/40 p-8 md:p-10 lg:p-12 flex flex-col justify-center animate-fade-in">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 badge-premium mb-5 animate-fade-in">
+            <div className="inline-flex items-center gap-2 badge-premium mb-6 w-fit">
               <Award className="w-4 h-4" />
               <span>{t("hero.badge")}</span>
             </div>
 
-            {/* Heading - larger to fit in 2 lines */}
-            <h1 className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-[3.5rem] xl:text-6xl font-bold leading-[1.1] mb-5 animate-slide-up">
+            {/* Heading */}
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.25rem] xl:text-[3.75rem] font-bold leading-[1.08] mb-5">
               {t("hero.title")}{" "}
-              <span className="inline-block overflow-hidden h-[1.2em] align-bottom relative">
+              <span className="inline-block overflow-hidden h-[1.15em] align-bottom relative">
                 <AnimatePresence mode="wait">
                   <motion.span
                     key={phraseIndex}
@@ -73,12 +71,12 @@ const HeroSection = () => {
             </h1>
 
             {/* Subheading */}
-            <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto lg:mx-0 mb-7 animate-slide-up" style={{ animationDelay: "0.1s" }}>
+            <p className="text-base md:text-lg text-muted-foreground max-w-xl mb-8">
               {t("hero.subtitle")}
             </p>
 
             {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-3 mb-5 animate-slide-up" style={{ animationDelay: "0.2s" }}>
+            <div className="flex flex-col sm:flex-row items-center lg:items-start gap-3 mb-5">
               <Button variant="hero" size="xl" asChild>
                 <a href="#consultar" className="group">
                   {t("hero.cta.check")}
@@ -93,17 +91,19 @@ const HeroSection = () => {
             </div>
 
             {/* Urgency Banner */}
-            <div className="flex items-center justify-center lg:justify-start gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 max-w-md mx-auto lg:mx-0 animate-slide-up" style={{ animationDelay: "0.25s" }}>
-              <Flame className="w-5 h-5 text-destructive" />
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 max-w-md">
+              <Flame className="w-5 h-5 text-destructive shrink-0" />
               <p className="text-sm font-medium text-foreground">
                 {t("hero.urgency")} <span className="font-bold text-destructive">{getNextFridayFormatted()}</span>
               </p>
             </div>
           </div>
 
-          {/* Right Column - Viability Form */}
-          <div className="animate-slide-up" style={{ animationDelay: "0.15s" }}>
-            <ViabilitySearchSection compact />
+          {/* Right Column - Viability Form Card */}
+          <div className="flex items-start">
+            <div className="w-full rounded-3xl bg-card/80 backdrop-blur-md border border-border/40 shadow-xl overflow-hidden">
+              <ViabilitySearchSection compact />
+            </div>
           </div>
         </div>
 
