@@ -1,4 +1,4 @@
-import { ArrowRight, Shield, Clock, CheckCircle, Award, Flame } from "lucide-react";
+import { ArrowRight, Shield, Clock, CheckCircle, Award, Flame, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { getNextFridayFormatted } from "@/lib/dateUtils";
@@ -6,7 +6,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedCounter } from "@/components/admin/dashboard/AnimatedCounter";
 import ViabilitySearchSection from "@/components/sections/ViabilitySearchSection";
-
+import consultant1 from "@/assets/consultants/consultant-1.jpg";
+import consultant2 from "@/assets/consultants/consultant-2.jpg";
+import consultant3 from "@/assets/consultants/consultant-3.jpg";
 const HeroSection = () => {
   const { t } = useLanguage();
   const [phraseIndex, setPhraseIndex] = useState(0);
@@ -90,11 +92,30 @@ const HeroSection = () => {
             </div>
 
             {/* Urgency Banner */}
-            <div className="flex items-center justify-center lg:justify-start gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 max-w-md mx-auto lg:mx-0">
+            <div className="flex items-center justify-center lg:justify-start gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 max-w-md mx-auto lg:mx-0 mb-6">
               <Flame className="w-5 h-5 text-destructive shrink-0" />
               <p className="text-sm font-medium text-foreground">
                 {t("hero.urgency")} <span className="font-bold text-destructive">{getNextFridayFormatted()}</span>
               </p>
+            </div>
+
+            {/* Social Proof */}
+            <div className="flex flex-col sm:flex-row items-center lg:items-start gap-3 rounded-2xl bg-primary p-4 max-w-md mx-auto lg:mx-0">
+              <div className="flex items-center -space-x-3 shrink-0">
+                <img src={consultant1} alt="Consultora" className="w-10 h-10 rounded-full border-2 border-primary object-cover" />
+                <img src={consultant2} alt="Consultor" className="w-10 h-10 rounded-full border-2 border-primary object-cover" />
+                <img src={consultant3} alt="Consultora" className="w-10 h-10 rounded-full border-2 border-primary object-cover" />
+              </div>
+              <div className="text-center sm:text-left">
+                <div className="flex items-center justify-center sm:justify-start gap-0.5 mb-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  ))}
+                </div>
+                <p className="text-xs text-primary-foreground leading-snug">
+                  Consultores disponíveis durante todo processo do registro via WhatsApp.
+                </p>
+              </div>
             </div>
           </div>
 
