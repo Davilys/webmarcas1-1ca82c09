@@ -5,7 +5,6 @@ import SocialProofNotification from "@/components/SocialProofNotification";
 import HeroSection from "@/components/sections/HeroSection";
 import BenefitsSection from "@/components/sections/BenefitsSection";
 import HowItWorksSection from "@/components/sections/HowItWorksSection";
-import ClientLogosSection from "@/components/sections/ClientLogosSection";
 import PricingSection from "@/components/sections/PricingSection";
 import BlockchainBanner from "@/components/sections/BlockchainBanner";
 import TestimonialsSection from "@/components/sections/TestimonialsSection";
@@ -18,7 +17,6 @@ const Index = () => {
       <Header />
       <main className="mobile-compact">
         <HeroSection />
-        <ClientLogosSection />
         <BenefitsSection />
         <HowItWorksSection />
         <PricingSection />

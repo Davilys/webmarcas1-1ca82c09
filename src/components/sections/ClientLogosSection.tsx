@@ -36,16 +36,18 @@ const LogoCard = ({ src, alt }: { src: string; alt: string }) => (
   </div>
 );
 
-const ClientLogosSection = () => {
-  return (
-    <section className="py-12 md:py-16 bg-muted/30 relative overflow-hidden">
-      <div className="container mx-auto px-4 mb-10 text-center">
-        <span className="badge-premium mb-4 inline-flex">Marcas que confiam na WebMarcas</span>
-        <h2 className="font-display text-2xl md:text-3xl lg:text-4xl font-bold text-foreground">
-          Clientes que já{" "}
-          <span className="gradient-text">protegeram suas marcas</span>
-        </h2>
-      </div>
+const ClientLogosSection = ({ embedded }: { embedded?: boolean }) => {
+  const content = (
+    <>
+      {!embedded && (
+        <div className="container mx-auto px-4 mb-10 text-center">
+          <span className="badge-premium mb-4 inline-flex">Marcas que confiam na WebMarcas</span>
+          <h2 className="font-display text-2xl md:text-3xl lg:text-4xl font-bold text-foreground">
+            Clientes que já{" "}
+            <span className="gradient-text">protegeram suas marcas</span>
+          </h2>
+        </div>
+      )}
 
       <div className="space-y-5 -mx-4">
         {/* Row 1 - Left to Right */}
@@ -66,6 +68,14 @@ const ClientLogosSection = () => {
           </div>
         </div>
       </div>
+    </>
+  );
+
+  if (embedded) return <div className="overflow-hidden">{content}</div>;
+
+  return (
+    <section className="py-12 md:py-16 bg-muted/30 relative overflow-hidden">
+      {content}
     </section>
   );
 };

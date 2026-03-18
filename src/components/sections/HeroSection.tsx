@@ -4,6 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedCounter } from "@/components/admin/dashboard/AnimatedCounter";
 import ViabilitySearchSection from "@/components/sections/ViabilitySearchSection";
+import ClientLogosMarquee from "@/components/sections/ClientLogosSection";
 import consultant1 from "@/assets/consultants/consultant-1.jpg";
 import consultant2 from "@/assets/consultants/consultant-2.jpg";
 import consultant3 from "@/assets/consultants/consultant-3.jpg";
@@ -101,7 +102,11 @@ const HeroSection = () => {
           </div>
         </div>
 
-        {/* Trust Badges */}
+        {/* Client Logos Marquee */}
+        <div className="mt-14">
+          <ClientLogosMarquee embedded />
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto mt-16">
           {trustBadges.map((item, index) => (
             <motion.div
