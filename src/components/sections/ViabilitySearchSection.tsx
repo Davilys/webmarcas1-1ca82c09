@@ -551,10 +551,10 @@ const ViabilitySearchSection = ({ compact = false }: { compact?: boolean }) => {
               className="text-center"
             >
               {/* Title */}
-              <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2 leading-tight whitespace-nowrap">
+              <h2 className="hidden sm:block font-display text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2 leading-tight whitespace-nowrap">
                 Consulte a viabilidade da sua <span className="gradient-text">marca</span>
               </h2>
-              <p className="text-sm md:text-base text-muted-foreground mb-8">
+              <p className="hidden sm:block text-sm md:text-base text-muted-foreground mb-8">
                 Pesquisa automática na base oficial do INPI em tempo real.
               </p>
 
