@@ -102,7 +102,11 @@ const HeroSection = () => {
           </div>
         </div>
 
-        {/* Trust Badges */}
+        {/* Client Logos Marquee */}
+        <div className="mt-14">
+          <ClientLogosMarquee embedded />
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto mt-16">
           {trustBadges.map((item, index) => (
             <motion.div
