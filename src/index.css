@@ -363,7 +363,7 @@
 
   /* Section styling - Responsive */
   .section-padding {
-    @apply py-8 md:py-12 lg:py-16;
+    @apply py-12 md:py-20 lg:py-28;
   }
 
   /* Mobile compact spacing */
