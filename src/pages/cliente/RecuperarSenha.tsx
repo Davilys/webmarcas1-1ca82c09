@@ -25,8 +25,12 @@ export default function RecuperarSenha() {
     setIsLoading(true);
 
     try {
+      // Use published URL to ensure link works on the correct domain
+      const siteOrigin = window.location.hostname.includes('lovableproject.com') || window.location.hostname.includes('lovable.app')
+        ? 'https://webmarcas1.lovable.app'
+        : window.location.origin;
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/cliente/redefinir-senha`,
+        redirectTo: `${siteOrigin}/cliente/redefinir-senha`,
       });
 
       if (error) {
