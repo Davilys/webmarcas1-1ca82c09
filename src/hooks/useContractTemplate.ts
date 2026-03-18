@@ -519,7 +519,7 @@ export function replaceContractVariables(
       return `• Assinatura mensal recorrente: R$ 398,00/mês — cobrada automaticamente via cartão de crédito.`;
     }
     if (data.plan === 'corporativo') {
-      return `• Assinatura mensal recorrente: R$ 1.194,00/mês — cobrada automaticamente via cartão de crédito.`;
+      return `• Assinatura mensal recorrente: R$ 1.497,00/mês — cobrada automaticamente via cartão de crédito.\n• O valor será atualizado anualmente com base no salário mínimo vigente.`;
     }
 
     const classCount = data.selectedClasses?.length || 0;

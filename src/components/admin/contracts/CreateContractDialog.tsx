@@ -2184,7 +2184,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                         let priceLabel = '';
                         if (name.includes('padrão') && name.includes('registro')) priceLabel = ' — R$ 699';
                         else if (name.includes('premium') && name.includes('registro')) priceLabel = ' — R$ 398/mês';
-                        else if (name.includes('corporativo') && name.includes('registro')) priceLabel = ' — R$ 1.194/mês';
+                        else if (name.includes('corporativo') && name.includes('registro')) priceLabel = ' — R$ 1.497/mês';
                         return (
                           <SelectItem key={template.id} value={template.id}>
                             {template.name}{priceLabel && <span className="text-muted-foreground">{priceLabel}</span>}
