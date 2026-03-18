@@ -20,43 +20,56 @@ export default function RedefinirSenha() {
   const [isValidSession, setIsValidSession] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Check if user has a valid recovery session
+    let settled = false;
+
+    // Listen for PASSWORD_RECOVERY event FIRST (before checking session)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        settled = true;
+        setIsValidSession(true);
+      } else if (event === 'SIGNED_IN' && !settled) {
+        // Recovery link may fire SIGNED_IN instead of PASSWORD_RECOVERY in some flows
+        settled = true;
+        setIsValidSession(true);
+      }
+    });
+
+    // Check if user already has a valid session (e.g., page reload after recovery)
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Give auth state change a moment to process hash fragments
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // User should have a session from the recovery link
+      if (settled) return; // Already handled by onAuthStateChange
+
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        settled = true;
         setIsValidSession(true);
       } else {
-        setIsValidSession(false);
+        // Wait a bit more for slower connections
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        if (settled) return;
+        
+        const { data: { session: retrySession } } = await supabase.auth.getSession();
+        if (retrySession) {
+          settled = true;
+          setIsValidSession(true);
+        } else {
+          setIsValidSession(false);
+        }
       }
     };
 
     checkSession();
 
-    // Listen for auth state changes (when user clicks recovery link)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsValidSession(true);
-      }
-    });
-
     return () => subscription.unsubscribe();
   }, []);
 
   const validatePassword = (pwd: string): string | null => {
-    if (pwd.length < 8) {
-      return 'A senha deve ter pelo menos 8 caracteres';
-    }
-    if (!/[A-Z]/.test(pwd)) {
-      return 'A senha deve conter pelo menos uma letra maiúscula';
-    }
-    if (!/[a-z]/.test(pwd)) {
-      return 'A senha deve conter pelo menos uma letra minúscula';
-    }
-    if (!/[0-9]/.test(pwd)) {
-      return 'A senha deve conter pelo menos um número';
-    }
+    if (pwd.length < 8) return 'A senha deve ter pelo menos 8 caracteres';
+    if (!/[A-Z]/.test(pwd)) return 'A senha deve conter pelo menos uma letra maiúscula';
+    if (!/[a-z]/.test(pwd)) return 'A senha deve conter pelo menos uma letra minúscula';
+    if (!/[0-9]/.test(pwd)) return 'A senha deve conter pelo menos um número';
     return null;
   };
 
@@ -77,9 +90,7 @@ export default function RedefinirSenha() {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password,
-      });
+      const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
         toast.error('Erro ao redefinir senha: ' + error.message);
@@ -89,7 +100,6 @@ export default function RedefinirSenha() {
       setSuccess(true);
       toast.success('Senha redefinida com sucesso!');
       
-      // Redirect to login after 3 seconds
       setTimeout(() => {
         navigate('/cliente/login');
       }, 3000);
@@ -100,14 +110,14 @@ export default function RedefinirSenha() {
     }
   };
 
-  // Loading state while checking session
+  // Loading state
   if (isValidSession === null) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="py-12 text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-            <p className="mt-4 text-muted-foreground">Verificando...</p>
+            <p className="mt-4 text-muted-foreground">Verificando link de recuperação...</p>
           </CardContent>
         </Card>
       </div>
@@ -133,14 +143,10 @@ export default function RedefinirSenha() {
               Solicite um novo link de recuperação de senha.
             </p>
             <Link to="/cliente/recuperar-senha" className="block">
-              <Button className="w-full">
-                Solicitar Novo Link
-              </Button>
+              <Button className="w-full">Solicitar Novo Link</Button>
             </Link>
             <Link to="/cliente/login" className="block">
-              <Button variant="outline" className="w-full">
-                Voltar ao Login
-              </Button>
+              <Button variant="outline" className="w-full">Voltar ao Login</Button>
             </Link>
           </CardContent>
         </Card>
@@ -161,18 +167,14 @@ export default function RedefinirSenha() {
               <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
             </div>
             <CardTitle className="text-2xl">Senha Redefinida!</CardTitle>
-            <CardDescription>
-              Sua senha foi alterada com sucesso.
-            </CardDescription>
+            <CardDescription>Sua senha foi alterada com sucesso.</CardDescription>
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-sm text-muted-foreground mb-4">
               Você será redirecionado para o login em instantes...
             </p>
             <Link to="/cliente/login">
-              <Button className="w-full">
-                Ir para o Login
-              </Button>
+              <Button className="w-full">Ir para o Login</Button>
             </Link>
           </CardContent>
         </Card>
@@ -180,6 +182,7 @@ export default function RedefinirSenha() {
     );
   }
 
+  // Password reset form
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -188,9 +191,7 @@ export default function RedefinirSenha() {
             <img src={logo} alt="WebMarcas" className="h-12 mx-auto mb-4" />
           </Link>
           <CardTitle className="text-2xl">Redefinir Senha</CardTitle>
-          <CardDescription>
-            Escolha uma nova senha para sua conta
-          </CardDescription>
+          <CardDescription>Escolha uma nova senha para sua conta</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -245,18 +246,10 @@ export default function RedefinirSenha() {
             <div className="bg-muted/50 border rounded-lg p-3 text-xs text-muted-foreground space-y-1">
               <p className="font-medium text-foreground">A senha deve conter:</p>
               <ul className="list-disc list-inside space-y-0.5">
-                <li className={password.length >= 8 ? 'text-green-600' : ''}>
-                  Mínimo de 8 caracteres
-                </li>
-                <li className={/[A-Z]/.test(password) ? 'text-green-600' : ''}>
-                  Uma letra maiúscula
-                </li>
-                <li className={/[a-z]/.test(password) ? 'text-green-600' : ''}>
-                  Uma letra minúscula
-                </li>
-                <li className={/[0-9]/.test(password) ? 'text-green-600' : ''}>
-                  Um número
-                </li>
+                <li className={password.length >= 8 ? 'text-green-600' : ''}>Mínimo de 8 caracteres</li>
+                <li className={/[A-Z]/.test(password) ? 'text-green-600' : ''}>Uma letra maiúscula</li>
+                <li className={/[a-z]/.test(password) ? 'text-green-600' : ''}>Uma letra minúscula</li>
+                <li className={/[0-9]/.test(password) ? 'text-green-600' : ''}>Um número</li>
               </ul>
             </div>
 
