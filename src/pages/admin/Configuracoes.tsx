@@ -241,13 +241,13 @@ function SettingsContent({ active }: { active: string }) {
     premiacao:   <AwardSettings />,
   };
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="popLayout">
       <motion.div
         key={active}
-        initial={{ opacity: 0, x: 20, filter: 'blur(4px)' }}
-        animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-        exit={{ opacity: 0, x: -10, filter: 'blur(2px)' }}
-        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -10 }}
+        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
       >
         {map[active]}
       </motion.div>
