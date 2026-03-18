@@ -17,43 +17,14 @@ const HeroSection = () => {
     const interval = setInterval(() => {
       setPhraseIndex((prev) => (prev + 1) % phrases.length);
     }, 3000);
-    
     return () => clearInterval(interval);
   }, [phrases.length]);
 
   const trustBadges = [
-    { 
-      icon: Shield, 
-      label: t("hero.trust.inpi"),
-      color: "text-blue-600",
-      bgColor: "bg-blue-500/10",
-      gradientFrom: "from-blue-500",
-      gradientTo: "to-cyan-500"
-    },
-    { 
-      icon: Clock, 
-      label: t("hero.trust.protocol"),
-      color: "text-emerald-600",
-      bgColor: "bg-emerald-500/10",
-      gradientFrom: "from-emerald-500",
-      gradientTo: "to-green-500"
-    },
-    { 
-      icon: CheckCircle, 
-      label: t("hero.trust.guarantee"),
-      color: "text-violet-600",
-      bgColor: "bg-violet-500/10",
-      gradientFrom: "from-violet-500",
-      gradientTo: "to-purple-500"
-    },
-    { 
-      icon: Award, 
-      label: t("hero.trust.online"),
-      color: "text-amber-600",
-      bgColor: "bg-amber-500/10",
-      gradientFrom: "from-amber-500",
-      gradientTo: "to-orange-500"
-    },
+    { icon: Shield, label: t("hero.trust.inpi"), color: "text-blue-600", bgColor: "bg-blue-500/10" },
+    { icon: Clock, label: t("hero.trust.protocol"), color: "text-emerald-600", bgColor: "bg-emerald-500/10" },
+    { icon: CheckCircle, label: t("hero.trust.guarantee"), color: "text-violet-600", bgColor: "bg-violet-500/10" },
+    { icon: Award, label: t("hero.trust.online"), color: "text-amber-600", bgColor: "bg-amber-500/10" },
   ];
 
   const stats = [
@@ -64,25 +35,26 @@ const HeroSection = () => {
   ];
 
   return (
-    <section id="home" className="relative min-h-[85vh] flex items-center hero-glow overflow-x-clip overflow-y-visible">
-      {/* Background elements */}
+    <section id="home" className="relative hero-glow overflow-x-clip overflow-y-visible">
+      {/* Background */}
       <div className="absolute inset-0 bg-hero-gradient" />
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/5 rounded-full blur-3xl" />
 
-      <div className="container mx-auto px-4 pt-24 pb-16 relative z-10">
-        {/* Two-column hero layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center max-w-6xl mx-auto">
-          {/* Left Column - Text */}
-          <div className="text-center lg:text-left">
+      <div className="container mx-auto px-4 pt-28 pb-10 relative z-10">
+        {/* Two-column: text left, viability right */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8 lg:gap-14 items-start max-w-6xl mx-auto">
+          
+          {/* Left Column */}
+          <div className="text-center lg:text-left pt-4">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 badge-premium mb-6 animate-fade-in">
+            <div className="inline-flex items-center gap-2 badge-premium mb-5 animate-fade-in">
               <Award className="w-4 h-4" />
               <span>{t("hero.badge")}</span>
             </div>
 
-            {/* Heading */}
-            <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-5 animate-slide-up">
+            {/* Heading - larger to fit in 2 lines */}
+            <h1 className="font-display text-4xl sm:text-5xl md:text-5xl lg:text-[3.5rem] xl:text-6xl font-bold leading-[1.1] mb-5 animate-slide-up">
               {t("hero.title")}{" "}
               <span className="inline-block overflow-hidden h-[1.2em] align-bottom relative">
                 <AnimatePresence mode="wait">
@@ -101,7 +73,7 @@ const HeroSection = () => {
             </h1>
 
             {/* Subheading */}
-            <p className="text-base md:text-lg text-muted-foreground max-w-lg mx-auto lg:mx-0 mb-8 animate-slide-up" style={{ animationDelay: "0.1s" }}>
+            <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto lg:mx-0 mb-7 animate-slide-up" style={{ animationDelay: "0.1s" }}>
               {t("hero.subtitle")}
             </p>
 
@@ -121,58 +93,40 @@ const HeroSection = () => {
             </div>
 
             {/* Urgency Banner */}
-            <div className="flex items-center justify-center lg:justify-start gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 max-w-md mx-auto lg:mx-0 mb-8 animate-slide-up" style={{ animationDelay: "0.25s" }}>
+            <div className="flex items-center justify-center lg:justify-start gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 max-w-md mx-auto lg:mx-0 animate-slide-up" style={{ animationDelay: "0.25s" }}>
               <Flame className="w-5 h-5 text-destructive" />
               <p className="text-sm font-medium text-foreground">
                 {t("hero.urgency")} <span className="font-bold text-destructive">{getNextFridayFormatted()}</span>
               </p>
             </div>
-
-            {/* Trust badges - only on desktop, below text */}
-            <div className="hidden lg:grid grid-cols-4 gap-3 max-w-lg">
-              {trustBadges.map((item, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-                  className="flex flex-col items-center gap-2 p-3 rounded-xl bg-card/60 backdrop-blur-sm border border-border/40 text-center"
-                >
-                  <div className={`p-2 rounded-lg ${item.bgColor}`}>
-                    <item.icon className={`w-5 h-5 ${item.color}`} />
-                  </div>
-                  <span className="text-xs font-medium text-foreground leading-tight">{item.label}</span>
-                </motion.div>
-              ))}
-            </div>
           </div>
 
-          {/* Right Column - Viability Search Form */}
-          <div className="animate-slide-up" style={{ animationDelay: "0.3s" }}>
+          {/* Right Column - Viability Form */}
+          <div className="animate-slide-up" style={{ animationDelay: "0.15s" }}>
             <ViabilitySearchSection compact />
           </div>
         </div>
 
-        {/* Trust badges - mobile only */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto mt-10 lg:hidden">
+        {/* Trust Badges - full width row below */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mt-14">
           {trustBadges.map((item, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl bg-card/60 backdrop-blur-sm border border-border/40 text-center"
+              className="flex flex-col items-center gap-3 p-5 rounded-2xl bg-card/70 backdrop-blur-sm border border-border/40 text-center shadow-sm"
             >
-              <div className={`p-2.5 rounded-lg ${item.bgColor}`}>
+              <div className={`p-3 rounded-xl ${item.bgColor}`}>
                 <item.icon className={`w-6 h-6 ${item.color}`} />
               </div>
-              <span className="text-xs font-medium text-foreground leading-tight">{item.label}</span>
+              <span className="text-sm font-medium text-foreground leading-tight">{item.label}</span>
             </motion.div>
           ))}
         </div>
 
         {/* Stats */}
-        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 max-w-4xl mx-auto">
+        <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 max-w-4xl mx-auto">
           {stats.map((stat, index) => (
             <motion.div 
               key={index} 
