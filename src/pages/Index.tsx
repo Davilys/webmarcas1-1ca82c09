@@ -10,6 +10,7 @@ import BlockchainBanner from "@/components/sections/BlockchainBanner";
 import TestimonialsSection from "@/components/sections/TestimonialsSection";
 import FAQSection from "@/components/sections/FAQSection";
 import CTASection from "@/components/sections/CTASection";
+import BlogPreviewSection from "@/components/sections/BlogPreviewSection";
 
 const Index = () => {
   return (
@@ -22,6 +23,7 @@ const Index = () => {
         <PricingSection />
         <BlockchainBanner />
         <TestimonialsSection />
+        <BlogPreviewSection />
         <FAQSection />
         <CTASection />
       </main>
