@@ -6,6 +6,16 @@ import elenco from "@/assets/clients/elenco.png";
 import turboEdition from "@/assets/clients/turbo-edition.png";
 import agroPet from "@/assets/clients/agro-pet.png";
 import chamelCar from "@/assets/clients/chamel-car.png";
+import ajeumOya from "@/assets/clients/ajeum-oya.png";
+import rox from "@/assets/clients/rox.png";
+import derc from "@/assets/clients/derc.png";
+import equilibrio from "@/assets/clients/equilibrio.png";
+import fiveFit from "@/assets/clients/5fit.png";
+import ecoBioma from "@/assets/clients/eco-bioma.png";
+import msSolar from "@/assets/clients/ms-solar.png";
+import penseVerde from "@/assets/clients/pense-verde.png";
+import duChef from "@/assets/clients/du-chef.png";
+import danadoDeBom from "@/assets/clients/danado-de-bom.png";
 
 const row1Logos = [
   { src: absMoto, alt: "ABS Moto Peças" },
@@ -14,15 +24,21 @@ const row1Logos = [
   { src: elenco, alt: "Elenco" },
   { src: turboEdition, alt: "Turbo Edition" },
   { src: agroPet, alt: "Agro Pet Valente" },
+  { src: ajeumOya, alt: "Ajeum de Oyá" },
+  { src: derc, alt: "DERC" },
+  { src: ecoBioma, alt: "Eco Bioma" },
 ];
 
 const row2Logos = [
   { src: chamelCar, alt: "Chamel Car" },
   { src: velocrossMoto, alt: "Velocross Moto" },
-  { src: absMoto, alt: "ABS Moto Peças" },
-  { src: acaoCupido, alt: "Ação Cupido" },
-  { src: elenco, alt: "Elenco" },
-  { src: turboEdition, alt: "Turbo Edition" },
+  { src: rox, alt: "ROX" },
+  { src: equilibrio, alt: "Equilíbrio" },
+  { src: fiveFit, alt: "5fit" },
+  { src: msSolar, alt: "MS Solar Clean" },
+  { src: penseVerde, alt: "Pense Verde" },
+  { src: duChef, alt: "Du Chef" },
+  { src: danadoDeBom, alt: "Danado de Bom" },
 ];
 
 const LogoCard = ({ src, alt }: { src: string; alt: string }) => (
