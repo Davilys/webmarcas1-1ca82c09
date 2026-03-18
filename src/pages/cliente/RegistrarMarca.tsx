@@ -169,7 +169,19 @@ export default function RegistrarMarca() {
         acceptedAt: new Date().toISOString(),
         leadId: data.leadId,
         contractId: data.contractId,
-        asaas: { paymentId: data.paymentId, invoiceUrl: data.invoiceUrl, pixQrCode: data.pixQrCode },
+        invoiceId: data.invoiceId,
+        asaas: {
+          paymentId: data.paymentId,
+          customerId: data.customerId,
+          asaasCustomerId: data.asaasCustomerId || data.customerId,
+          invoiceUrl: data.invoiceUrl,
+          pixQrCode: data.pixQrCode,
+          dueDate: data.dueDate,
+          installmentCount: data.installmentCount,
+          installmentValue: data.installmentValue,
+          plan: data.plan || plan,
+          isRecurringPlan: data.isRecurringPlan,
+        },
       };
 
       sessionStorage.setItem("orderData", JSON.stringify(orderData));

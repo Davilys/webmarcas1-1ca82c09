@@ -24,6 +24,10 @@ interface AsaasData {
   invoiceUrl: string;
   bankSlipUrl?: string;
   dueDate?: string;
+  installmentCount?: number;
+  installmentValue?: number;
+  plan?: string;
+  isRecurringPlan?: boolean;
   pixQrCode?: {
     encodedImage?: string;
     payload?: string;
@@ -48,6 +52,7 @@ interface OrderData {
   leadId: string;
   contractId: string;
   invoiceId?: string;
+  plan?: string;
   asaas: AsaasData;
 }
 
@@ -250,8 +255,8 @@ export default function ClienteStatusPedido() {
               hasValidPaymentData ? (
                 <CreditCardForm
                   value={orderData.paymentValue}
-                  installmentCount={6}
-                  installmentValue={Math.round((orderData.paymentValue / 6) * 100) / 100}
+                  installmentCount={orderData.asaas?.installmentCount || 6}
+                  installmentValue={orderData.asaas?.installmentValue || Math.round((orderData.paymentValue / 6) * 100) / 100}
                   dueDate={orderData.asaas?.dueDate || new Date().toISOString().split('T')[0]}
                   customerId={orderData.asaas?.asaasCustomerId || orderData.asaas?.customerId || ''}
                   invoiceId={orderData.invoiceId || ''}
@@ -262,6 +267,8 @@ export default function ClienteStatusPedido() {
                   holderPostalCode={orderData.personalData.cep || ''}
                   holderPhone={orderData.personalData.phone}
                   holderAddressNumber={(orderData.personalData as any).addressNumber || 'S/N'}
+                  plan={orderData.plan || orderData.asaas?.plan || 'essencial'}
+                  brandName={orderData.brandData?.brandName || ''}
                   onSuccess={async () => {
                     await handlePaymentConfirmed();
                   }}

@@ -19,6 +19,10 @@ interface AsaasData {
   dueDate: string;
   invoiceUrl?: string;
   bankSlipUrl?: string;
+  installmentCount?: number;
+  installmentValue?: number;
+  plan?: string;
+  isRecurringPlan?: boolean;
   pixQrCode?: {
     encodedImage: string;
     payload: string;
@@ -53,6 +57,7 @@ interface OrderData {
   contractId?: string;
   contractNumber?: string;
   invoiceId?: string;
+  plan?: string;
   asaas?: AsaasData;
 }
 
@@ -367,8 +372,8 @@ const StatusPedido = () => {
                   <div className="mb-6">
                     <CreditCardForm
                       value={orderData.paymentValue}
-                      installmentCount={6}
-                      installmentValue={Math.round((orderData.paymentValue / 6) * 100) / 100}
+                      installmentCount={orderData.asaas?.installmentCount || 6}
+                      installmentValue={orderData.asaas?.installmentValue || Math.round((orderData.paymentValue / 6) * 100) / 100}
                       dueDate={orderData.asaas?.dueDate || new Date().toISOString().split('T')[0]}
                       customerId={orderData.asaas?.asaasCustomerId || orderData.asaas?.customerId || ''}
                       invoiceId={orderData.invoiceId || ''}
@@ -378,6 +383,8 @@ const StatusPedido = () => {
                       holderCpfCnpj={orderData.personalData.cpf}
                       holderPostalCode={orderData.personalData.cep}
                       holderPhone={orderData.personalData.phone}
+                      plan={orderData.plan || orderData.asaas?.plan || 'essencial'}
+                      brandName={orderData.brandData?.brandName || ''}
                       onSuccess={async () => {
                         // Call confirm-payment after successful card payment
                         await handlePaymentConfirmed();

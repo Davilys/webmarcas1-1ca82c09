@@ -40,6 +40,7 @@ interface PaymentRequest {
   classDescriptions?: string[];
   suggestedClasses?: number[];
   suggestedClassDescriptions?: string[];
+  plan?: 'essencial' | 'premium' | 'corporativo';
 }
 
 interface ContractTemplate {
@@ -517,9 +518,11 @@ serve(async (req) => {
     // Create Supabase admin client
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { personalData, brandData, paymentMethod, paymentValue, contractHtml: providedContractHtml, userId, selectedClasses, classDescriptions, suggestedClasses: suggestedClassesFromClient, suggestedClassDescriptions: suggestedClassDescsFromClient }: PaymentRequest = await req.json();
+    const { personalData, brandData, paymentMethod, paymentValue, contractHtml: providedContractHtml, userId, selectedClasses, classDescriptions, suggestedClasses: suggestedClassesFromClient, suggestedClassDescriptions: suggestedClassDescsFromClient, plan }: PaymentRequest = await req.json();
 
-    console.log('Creating Asaas payment for:', personalData.fullName, '| Method:', paymentMethod);
+    const effectivePlan = plan || 'essencial';
+    const isRecurringPlan = effectivePlan === 'premium' || effectivePlan === 'corporativo';
+    console.log('Creating Asaas payment for:', personalData.fullName, '| Method:', paymentMethod, '| Plan:', effectivePlan, '| Recurring:', isRecurringPlan);
 
     // ========================================
     // STEP 0: Fetch the contract template from database
@@ -528,12 +531,20 @@ serve(async (req) => {
     let contractHtml = providedContractHtml;
     let templateId: string | null = null;
 
+    // Select template based on plan
+    const templateNameMap: Record<string, string> = {
+      essencial: 'Contrato Padrão - Registro de Marca INPI',
+      premium: 'Contrato Premium - Registro de Marca INPI',
+      corporativo: 'Contrato Corporativo - Registro de Marca INPI',
+    };
+    const targetTemplateName = templateNameMap[effectivePlan] || templateNameMap.essencial;
+
     // Always fetch the template from database to ensure we use the latest version
     const { data: templateData, error: templateError } = await supabaseAdmin
       .from('contract_templates')
       .select('id, name, content, is_active')
       .eq('is_active', true)
-      .or(`name.ilike.%Contrato Padrão - Registro de Marca INPI%,name.ilike.%Registro de Marca%`)
+      .ilike('name', `%${targetTemplateName}%`)
       .order('created_at', { ascending: false })
       .limit(1);
 
@@ -787,7 +798,8 @@ serve(async (req) => {
     let pixQrCode = null;
 
     // CRITICAL: For credit card, we do NOT create a payment in Asaas here
-    // The payment will be created when the user submits their card data
+    // The payment will be created when the user submits card data via process-credit-card-payment
+    // For recurring plans (premium/corporativo), a SUBSCRIPTION will be created instead
     const isCardPayment = paymentMethod === 'cartao6x';
 
     if (!isCardPayment) {
@@ -864,9 +876,17 @@ serve(async (req) => {
     } else {
       // Credit card - set proper values for internal tracking
       billingType = 'CREDIT_CARD';
-      installmentCount = 6;
-      installmentValue = Math.round((paymentValue / 6) * 100) / 100;
-      console.log('Credit card payment - will be processed when user submits card data');
+      if (isRecurringPlan) {
+        // Recurring: monthly subscription value
+        installmentCount = 1;
+        installmentValue = paymentValue;
+        console.log(`Recurring plan (${effectivePlan}): subscription of R$ ${paymentValue}/mês - will be created as subscription when user submits card data`);
+      } else {
+        // Essencial: 6x installments
+        installmentCount = 6;
+        installmentValue = Math.round((paymentValue / 6) * 100) / 100;
+        console.log('Credit card payment (essencial) - 6x installments, will be processed when user submits card data');
+      }
     }
 
     // ========================================
@@ -1148,6 +1168,8 @@ serve(async (req) => {
       installmentCount,
       installmentValue,
       dueDate: dueDateString,
+      plan: effectivePlan,
+      isRecurringPlan,
       // For card payments: no invoiceUrl or bankSlipUrl
       invoiceUrl: isCardPayment ? null : (paymentData.invoiceUrl || null),
       bankSlipUrl: isCardPayment ? null : (paymentData.bankSlipUrl || null),
