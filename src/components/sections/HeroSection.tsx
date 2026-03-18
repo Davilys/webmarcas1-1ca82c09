@@ -76,7 +76,7 @@ const HeroSection = () => {
             </p>
 
             {/* Social Proof */}
-            <div className="inline-flex flex-col sm:flex-row items-center lg:items-start gap-4 rounded-2xl bg-primary px-5 py-4 mx-auto lg:mx-0">
+            <div className="hidden sm:inline-flex flex-col sm:flex-row items-center lg:items-start gap-4 rounded-2xl bg-primary px-5 py-4 mx-auto lg:mx-0">
               <div className="flex items-center -space-x-3 shrink-0">
                 <img src={consultant1} alt="Consultora" className="w-11 h-11 rounded-full border-2 border-primary-foreground/30 object-cover" />
                 <img src={consultant2} alt="Consultor" className="w-11 h-11 rounded-full border-2 border-primary-foreground/30 object-cover" />
