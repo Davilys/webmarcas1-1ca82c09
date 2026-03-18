@@ -68,6 +68,14 @@ const ClientLogosSection = ({ embedded }: { embedded?: boolean }) => {
           </div>
         </div>
       </div>
+    </>
+  );
+
+  if (embedded) return <div className="overflow-hidden">{content}</div>;
+
+  return (
+    <section className="py-12 md:py-16 bg-muted/30 relative overflow-hidden">
+      {content}
     </section>
   );
 };
