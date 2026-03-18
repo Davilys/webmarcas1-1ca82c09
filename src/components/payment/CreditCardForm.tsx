@@ -41,6 +41,8 @@ const CreditCardForm: React.FC<CreditCardFormProps> = ({
   holderPostalCode,
   holderPhone,
   holderAddressNumber,
+  plan,
+  brandName,
   onSuccess,
   onError,
 }) => {
