@@ -18,7 +18,6 @@ const Index = () => {
       <Header />
       <main className="mobile-compact">
         <HeroSection />
-        <ViabilitySearchSection />
         <BenefitsSection />
         <HowItWorksSection />
         <PricingSection />
