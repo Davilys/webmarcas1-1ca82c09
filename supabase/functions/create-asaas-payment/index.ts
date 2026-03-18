@@ -798,7 +798,8 @@ serve(async (req) => {
     let pixQrCode = null;
 
     // CRITICAL: For credit card, we do NOT create a payment in Asaas here
-    // The payment will be created when the user submits their card data
+    // The payment will be created when the user submits card data via process-credit-card-payment
+    // For recurring plans (premium/corporativo), a SUBSCRIPTION will be created instead
     const isCardPayment = paymentMethod === 'cartao6x';
 
     if (!isCardPayment) {
@@ -875,9 +876,17 @@ serve(async (req) => {
     } else {
       // Credit card - set proper values for internal tracking
       billingType = 'CREDIT_CARD';
-      installmentCount = 6;
-      installmentValue = Math.round((paymentValue / 6) * 100) / 100;
-      console.log('Credit card payment - will be processed when user submits card data');
+      if (isRecurringPlan) {
+        // Recurring: monthly subscription value
+        installmentCount = 1;
+        installmentValue = paymentValue;
+        console.log(`Recurring plan (${effectivePlan}): subscription of R$ ${paymentValue}/mês - will be created as subscription when user submits card data`);
+      } else {
+        // Essencial: 6x installments
+        installmentCount = 6;
+        installmentValue = Math.round((paymentValue / 6) * 100) / 100;
+        console.log('Credit card payment (essencial) - 6x installments, will be processed when user submits card data');
+      }
     }
 
     // ========================================
