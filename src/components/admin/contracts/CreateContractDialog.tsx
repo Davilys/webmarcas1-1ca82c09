@@ -2141,7 +2141,6 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                       setSelectedTemplate(template || null);
                       if (template) {
                         const docType = getDocumentTypeFromTemplateName(template.name);
-                        // Auto-generate subject based on template name
                         const tName = template.name.toLowerCase();
                         let autoSubject = '';
                         if (tName.includes('monitoramento') || tName.includes('manutencao') || tName.includes('manutenção')) {
@@ -2155,16 +2154,28 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                         } else {
                           autoSubject = template.name.toUpperCase();
                         }
-                        // Append brand name if available
                         const brandName = formData.brand_name;
                         if (brandName) {
                           autoSubject += ` - ${brandName.toUpperCase()}`;
+                        }
+                        // Auto-set contract value and payment method based on plan type
+                        let autoValue = '699';
+                        if (tName.includes('corporativo') && tName.includes('registro')) {
+                          autoValue = '1497';
+                          setPaymentMethod('recorrente_cartao');
+                        } else if (tName.includes('premium') && tName.includes('registro')) {
+                          autoValue = '398';
+                          setPaymentMethod('recorrente_cartao');
+                        } else {
+                          autoValue = '699';
+                          setPaymentMethod(null);
                         }
                         setFormData(prev => ({ 
                           ...prev, 
                           document_type: docType,
                           template_id: template.id,
                           subject: autoSubject,
+                          contract_value: autoValue,
                         }));
                       }
                     }}
