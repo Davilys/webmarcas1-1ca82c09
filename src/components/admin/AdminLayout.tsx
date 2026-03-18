@@ -576,7 +576,9 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
           )}
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
-            {children}
+            <AdminErrorBoundary>
+              {children}
+            </AdminErrorBoundary>
           </main>
         </SidebarInset>
 
