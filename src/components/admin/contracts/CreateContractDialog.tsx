@@ -475,6 +475,12 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       case 'avista': return 699 * quantity;
       case 'cartao6x': return 1194 * quantity;
       case 'boleto3x': return 1197 * quantity;
+      case 'recorrente_cartao': {
+        const tName = selectedTemplate?.name.toLowerCase() || '';
+        if (tName.includes('corporativo')) return 1497;
+        if (tName.includes('premium')) return 398 * quantity;
+        return null;
+      }
       default: return null;
     }
   };
