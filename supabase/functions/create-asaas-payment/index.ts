@@ -518,9 +518,11 @@ serve(async (req) => {
     // Create Supabase admin client
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { personalData, brandData, paymentMethod, paymentValue, contractHtml: providedContractHtml, userId, selectedClasses, classDescriptions, suggestedClasses: suggestedClassesFromClient, suggestedClassDescriptions: suggestedClassDescsFromClient }: PaymentRequest = await req.json();
+    const { personalData, brandData, paymentMethod, paymentValue, contractHtml: providedContractHtml, userId, selectedClasses, classDescriptions, suggestedClasses: suggestedClassesFromClient, suggestedClassDescriptions: suggestedClassDescsFromClient, plan }: PaymentRequest = await req.json();
 
-    console.log('Creating Asaas payment for:', personalData.fullName, '| Method:', paymentMethod);
+    const effectivePlan = plan || 'essencial';
+    const isRecurringPlan = effectivePlan === 'premium' || effectivePlan === 'corporativo';
+    console.log('Creating Asaas payment for:', personalData.fullName, '| Method:', paymentMethod, '| Plan:', effectivePlan, '| Recurring:', isRecurringPlan);
 
     // ========================================
     // STEP 0: Fetch the contract template from database
@@ -529,12 +531,20 @@ serve(async (req) => {
     let contractHtml = providedContractHtml;
     let templateId: string | null = null;
 
+    // Select template based on plan
+    const templateNameMap: Record<string, string> = {
+      essencial: 'Contrato Padrão - Registro de Marca INPI',
+      premium: 'Contrato Premium - Registro de Marca INPI',
+      corporativo: 'Contrato Corporativo - Registro de Marca INPI',
+    };
+    const targetTemplateName = templateNameMap[effectivePlan] || templateNameMap.essencial;
+
     // Always fetch the template from database to ensure we use the latest version
     const { data: templateData, error: templateError } = await supabaseAdmin
       .from('contract_templates')
       .select('id, name, content, is_active')
       .eq('is_active', true)
-      .or(`name.ilike.%Contrato Padrão - Registro de Marca INPI%,name.ilike.%Registro de Marca%`)
+      .ilike('name', `%${targetTemplateName}%`)
       .order('created_at', { ascending: false })
       .limit(1);
 
