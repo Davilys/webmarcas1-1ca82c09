@@ -1,4 +1,4 @@
-import { ArrowRight, Shield, Clock, CheckCircle, Award, Flame } from "lucide-react";
+import { ArrowRight, Shield, Clock, CheckCircle, Award, Flame, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { getNextFridayFormatted } from "@/lib/dateUtils";
@@ -6,7 +6,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedCounter } from "@/components/admin/dashboard/AnimatedCounter";
 import ViabilitySearchSection from "@/components/sections/ViabilitySearchSection";
-
+import consultant1 from "@/assets/consultants/consultant-1.jpg";
+import consultant2 from "@/assets/consultants/consultant-2.jpg";
+import consultant3 from "@/assets/consultants/consultant-3.jpg";
 const HeroSection = () => {
   const { t } = useLanguage();
   const [phraseIndex, setPhraseIndex] = useState(0);
