@@ -55,15 +55,20 @@ const LogoCard = ({ src, alt }: { src: string; alt: string }) => (
 const ClientLogosSection = ({ embedded }: { embedded?: boolean }) => {
   const content = (
     <>
-      {!embedded && (
-        <div className="container mx-auto px-4 mb-10 text-center">
-          <span className="badge-premium mb-4 inline-flex">Marcas que confiam na WebMarcas</span>
-          <h2 className="font-display text-2xl md:text-3xl lg:text-4xl font-bold text-foreground">
-            Clientes que já{" "}
-            <span className="gradient-text">protegeram suas marcas</span>
-          </h2>
-        </div>
-      )}
+      <div className="container mx-auto px-4 mb-10 text-center">
+        <h2 className="font-display text-2xl md:text-3xl lg:text-4xl font-bold text-foreground mb-2">
+          <span className="gradient-text">Consulte grátis</span> se sua marca já está registrada
+        </h2>
+        <p className="text-muted-foreground text-base md:text-lg mb-6">
+          Somos a maior empresa de registro de marcas do Brasil!
+        </p>
+        <a
+          href="#precos"
+          className="inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground font-semibold px-8 py-3 text-base hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25"
+        >
+          Saiba Mais
+        </a>
+      </div>
 
       <div className="space-y-5 -mx-4">
         {/* Row 1 - Left to Right */}
