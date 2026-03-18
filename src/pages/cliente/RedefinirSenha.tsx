@@ -20,6 +20,17 @@ export default function RedefinirSenha() {
   const [isValidSession, setIsValidSession] = useState<boolean | null>(null);
 
   useEffect(() => {
+    const canonicalResetUrl = 'https://www.webmarcas.net/cliente/redefinir-senha';
+    const isCanonicalHost = window.location.hostname === 'www.webmarcas.net' || window.location.hostname === 'webmarcas.net';
+    const recoveryPayload = `${window.location.search}${window.location.hash}`;
+    const isRecoveryNavigation = recoveryPayload.includes('type=recovery') || recoveryPayload.includes('access_token=') || recoveryPayload.includes('code=');
+
+    // If recovery opens on Lovable domain, forward to official domain preserving token/hash
+    if (isRecoveryNavigation && !isCanonicalHost) {
+      window.location.replace(`${canonicalResetUrl}${window.location.search}${window.location.hash}`);
+      return;
+    }
+
     let settled = false;
 
     // Listen for PASSWORD_RECOVERY event FIRST (before checking session)
