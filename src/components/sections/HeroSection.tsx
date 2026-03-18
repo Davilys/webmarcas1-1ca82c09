@@ -1,7 +1,5 @@
-import { ArrowRight, Shield, Clock, CheckCircle, Award, Flame, Star } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Shield, Clock, CheckCircle, Award, Star } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getNextFridayFormatted } from "@/lib/dateUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedCounter } from "@/components/admin/dashboard/AnimatedCounter";
@@ -9,6 +7,7 @@ import ViabilitySearchSection from "@/components/sections/ViabilitySearchSection
 import consultant1 from "@/assets/consultants/consultant-1.jpg";
 import consultant2 from "@/assets/consultants/consultant-2.jpg";
 import consultant3 from "@/assets/consultants/consultant-3.jpg";
+
 const HeroSection = () => {
   const { t } = useLanguage();
   const [phraseIndex, setPhraseIndex] = useState(0);
@@ -40,20 +39,20 @@ const HeroSection = () => {
     <section id="home" className="relative hero-glow overflow-x-clip overflow-y-visible">
       <div className="absolute inset-0 bg-hero-gradient" />
 
-      <div className="container mx-auto px-4 pt-28 pb-14 relative z-10">
-        {/* Two-column layout — no cards, transparent background */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] xl:grid-cols-[1fr_440px] gap-8 lg:gap-12 items-start max-w-6xl mx-auto">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-14 relative z-10 max-w-7xl">
+        {/* Two-column hero */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           
-          {/* Left Column — Hero Text */}
-          <div className="flex flex-col justify-center text-center lg:text-left pt-2 lg:pt-6">
+          {/* Left — Text */}
+          <div className="text-center lg:text-left">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 badge-premium mb-6 w-fit mx-auto lg:mx-0">
               <Award className="w-4 h-4" />
               <span>{t("hero.badge")}</span>
             </div>
 
-            {/* Heading — 2 lines max */}
-            <h1 className="font-display text-[2.5rem] sm:text-5xl md:text-[3.5rem] lg:text-[3.5rem] xl:text-[4rem] font-bold leading-[1.08] mb-5">
+            {/* Heading */}
+            <h1 className="font-display text-4xl sm:text-5xl xl:text-6xl font-bold leading-[1.1] mb-6">
               {t("hero.title")}{" "}
               <span className="inline-block overflow-hidden h-[1.15em] align-bottom relative">
                 <AnimatePresence mode="wait">
@@ -71,18 +70,17 @@ const HeroSection = () => {
               </span>
             </h1>
 
-            {/* Subheading */}
-            <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto lg:mx-0 mb-8">
+            {/* Subtitle */}
+            <p className="text-base md:text-lg text-muted-foreground max-w-lg mx-auto lg:mx-0 mb-10">
               {t("hero.subtitle")}
             </p>
 
-
             {/* Social Proof */}
-            <div className="flex flex-col sm:flex-row items-center lg:items-start gap-3 rounded-2xl bg-primary p-4 max-w-md mx-auto lg:mx-0">
+            <div className="inline-flex flex-col sm:flex-row items-center lg:items-start gap-4 rounded-2xl bg-primary px-5 py-4 mx-auto lg:mx-0">
               <div className="flex items-center -space-x-3 shrink-0">
-                <img src={consultant1} alt="Consultora" className="w-10 h-10 rounded-full border-2 border-primary object-cover" />
-                <img src={consultant2} alt="Consultor" className="w-10 h-10 rounded-full border-2 border-primary object-cover" />
-                <img src={consultant3} alt="Consultora" className="w-10 h-10 rounded-full border-2 border-primary object-cover" />
+                <img src={consultant1} alt="Consultora" className="w-11 h-11 rounded-full border-2 border-primary-foreground/30 object-cover" />
+                <img src={consultant2} alt="Consultor" className="w-11 h-11 rounded-full border-2 border-primary-foreground/30 object-cover" />
+                <img src={consultant3} alt="Consultora" className="w-11 h-11 rounded-full border-2 border-primary-foreground/30 object-cover" />
               </div>
               <div className="text-center sm:text-left">
                 <div className="flex items-center justify-center sm:justify-start gap-0.5 mb-1">
@@ -90,21 +88,21 @@ const HeroSection = () => {
                     <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                   ))}
                 </div>
-                <p className="text-xs text-primary-foreground leading-snug">
+                <p className="text-xs text-primary-foreground/90 leading-snug max-w-[220px]">
                   Consultores disponíveis durante todo processo do registro via WhatsApp.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Right Column — Viability Search */}
-          <div className="w-full">
+          {/* Right — Viability Search */}
+          <div className="w-full max-w-md mx-auto lg:max-w-none">
             <ViabilitySearchSection compact />
           </div>
         </div>
 
-        {/* Trust Badges — full width, no card wrapper */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5 max-w-4xl mx-auto mt-16">
+        {/* Trust Badges */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto mt-16">
           {trustBadges.map((item, index) => (
             <motion.div
               key={index}
