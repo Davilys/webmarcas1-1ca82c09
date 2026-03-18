@@ -534,6 +534,151 @@ const ViabilitySearchSection = ({ compact = false }: { compact?: boolean }) => {
     }
   };
 
+  if (compact) {
+    return (
+      <div id="consultar" className="w-full">
+        <AnimatePresence mode="wait">
+        {!result ? (
+          isSearching ? (
+            <INPISearchAnimation key="searching" brandName={brandName} />
+          ) : (
+            <motion.form
+              key="form"
+              onSubmit={handleSearch}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-md shadow-xl p-6 md:p-8"
+            >
+              <h3 className="font-display text-lg md:text-xl font-bold text-foreground mb-1">
+                Consulte a viabilidade da sua <span className="gradient-text">marca</span>
+              </h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Pesquisa automática na base oficial do INPI em tempo real.
+              </p>
+
+              {/* Mini Feature Cards */}
+              <div className="grid grid-cols-3 gap-2 mb-6">
+                {FEATURE_CARDS.map((item, i) => (
+                  <div key={i} className="flex flex-col items-center gap-1.5 rounded-xl border border-border/40 bg-muted/20 px-2 py-3 text-center">
+                    <item.icon className="w-5 h-5 text-primary" strokeWidth={1.5} />
+                    <p className="font-medium text-foreground text-xs leading-tight">{item.label}</p>
+                    <p className="text-[10px] text-muted-foreground leading-snug">{item.sub}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="brandNameCompact" className="block text-sm font-bold text-foreground mb-2">
+                    Nome da Marca <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    id="brandNameCompact"
+                    type="text"
+                    value={brandName}
+                    onChange={(e) => setBrandName(e.target.value)}
+                    placeholder="Ex: WebMarcas, TechFlow, BioVida..."
+                    className="w-full h-12 rounded-xl border border-border/60 bg-muted/30 px-4 text-base text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all disabled:opacity-50"
+                    disabled={isSearching}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="businessAreaCompact" className="block text-sm font-bold text-foreground mb-2">
+                    Ramo de Atividade <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    id="businessAreaCompact"
+                    type="text"
+                    value={businessArea}
+                    onChange={(e) => setBusinessArea(e.target.value)}
+                    placeholder="Ex: Alimentação, Tecnologia..."
+                    className="w-full h-12 rounded-xl border border-border/60 bg-muted/30 px-4 text-base text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all disabled:opacity-50"
+                    disabled={isSearching}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSearching}
+                  className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-base flex items-center justify-center gap-2.5 hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <Search className="w-5 h-5" />
+                  Consultar Viabilidade
+                </button>
+              </div>
+
+              <p className="mt-4 text-center text-xs text-muted-foreground">
+                🔒 Consulta gratuita • Resultado em segundos
+              </p>
+            </motion.form>
+          )
+        ) : (
+          <motion.div
+            key="result-compact"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-md shadow-xl p-6 md:p-8 max-h-[70vh] overflow-y-auto"
+          >
+            {/* Result Header */}
+            {(() => {
+              const styles = getResultStyles(result.level);
+              const Icon = styles.icon;
+              return (
+                <div className={`rounded-xl border p-4 mb-4 ${styles.bgClass}`}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <Icon className={`w-5 h-5 ${styles.iconClass}`} />
+                    <h3 className={`font-display text-lg font-bold ${styles.textClass}`}>{result.title}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{result.description}</p>
+                </div>
+              );
+            })()}
+
+            {/* Commercial Intelligence */}
+            <CommercialIntelligenceModule
+              classes={result.classes}
+              businessArea={businessArea}
+              inpiTotal={result.inpiData?.totalResultados}
+              cnpjMatches={result.cnpjData?.matches}
+              socialMatches={result.internetData?.socialMatches}
+            />
+
+            {/* Action Buttons */}
+            <div className="space-y-2 mt-4">
+              <Button className="w-full" size="lg" onClick={handleRegisterClick}>
+                <ArrowRight className="w-4 h-4 mr-2" />
+                Registrar minha marca agora
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1" onClick={printLaudo}>
+                  <Printer className="w-3.5 h-3.5 mr-1" />
+                  Imprimir
+                </Button>
+                <Button variant="outline" size="sm" className="flex-1" asChild>
+                  <a href="https://wa.me/5511999999999" target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="w-3.5 h-3.5 mr-1" />
+                    Falar com especialista
+                  </a>
+                </Button>
+              </div>
+              <button
+                onClick={() => { setResult(null); setBrandName(""); setBusinessArea(""); }}
+                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5 py-2"
+              >
+                <Search className="w-3.5 h-3.5" />
+                Nova consulta
+              </button>
+            </div>
+          </motion.div>
+        )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
   return (
     <section id="consultar" className="py-12 md:py-16 lg:py-24 relative overflow-hidden">
       <div className="absolute inset-0 bg-hero-gradient opacity-30" />

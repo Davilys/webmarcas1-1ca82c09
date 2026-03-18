@@ -5,6 +5,7 @@ import { getNextFridayFormatted } from "@/lib/dateUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { AnimatedCounter } from "@/components/admin/dashboard/AnimatedCounter";
+import ViabilitySearchSection from "@/components/sections/ViabilitySearchSection";
 
 const HeroSection = () => {
   const { t } = useLanguage();
@@ -70,109 +71,108 @@ const HeroSection = () => {
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/5 rounded-full blur-3xl" />
 
       <div className="container mx-auto px-4 pt-24 pb-16 relative z-10">
-        <div className="max-w-4xl mx-auto text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 badge-premium mb-8 animate-fade-in">
-            <Award className="w-4 h-4" />
-            <span>{t("hero.badge")}</span>
-          </div>
+        {/* Two-column hero layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center max-w-6xl mx-auto">
+          {/* Left Column - Text */}
+          <div className="text-center lg:text-left">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 badge-premium mb-6 animate-fade-in">
+              <Award className="w-4 h-4" />
+              <span>{t("hero.badge")}</span>
+            </div>
 
-          {/* Heading */}
-          <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6 animate-slide-up">
-            {t("hero.title")}{" "}
-            <span className="inline-block overflow-hidden h-[1.2em] align-bottom relative">
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={phraseIndex}
-                  initial={{ y: '100%', opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: '-100%', opacity: 0 }}
-                  transition={{ duration: 0.5, ease: "easeInOut" }}
-                  className="inline-block gradient-text"
-                >
-                  {phrases[phraseIndex]}
-                </motion.span>
-              </AnimatePresence>
-            </span>
-          </h1>
+            {/* Heading */}
+            <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-5 animate-slide-up">
+              {t("hero.title")}{" "}
+              <span className="inline-block overflow-hidden h-[1.2em] align-bottom relative">
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={phraseIndex}
+                    initial={{ y: '100%', opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: '-100%', opacity: 0 }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    className="inline-block gradient-text"
+                  >
+                    {phrases[phraseIndex]}
+                  </motion.span>
+                </AnimatePresence>
+              </span>
+            </h1>
 
-          {/* Subheading */}
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-slide-up" style={{ animationDelay: "0.1s" }}>
-            {t("hero.subtitle")}
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6 animate-slide-up" style={{ animationDelay: "0.2s" }}>
-            <Button variant="hero" size="xl" asChild>
-              <a href="#consultar" className="group">
-                {t("hero.cta.check")}
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </a>
-            </Button>
-            <Button variant="hero-outline" size="xl" asChild>
-              <a href="#precos">
-                {t("hero.cta.register")}
-              </a>
-            </Button>
-          </div>
-
-          {/* Urgency Banner */}
-          <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 max-w-md mx-auto mb-16 animate-slide-up" style={{ animationDelay: "0.25s" }}>
-            <Flame className="w-5 h-5 text-destructive" />
-            <p className="text-sm font-medium text-foreground">
-              {t("hero.urgency")} <span className="font-bold text-destructive">{getNextFridayFormatted()}</span>
+            {/* Subheading */}
+            <p className="text-base md:text-lg text-muted-foreground max-w-lg mx-auto lg:mx-0 mb-8 animate-slide-up" style={{ animationDelay: "0.1s" }}>
+              {t("hero.subtitle")}
             </p>
+
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-3 mb-5 animate-slide-up" style={{ animationDelay: "0.2s" }}>
+              <Button variant="hero" size="xl" asChild>
+                <a href="#consultar" className="group">
+                  {t("hero.cta.check")}
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </a>
+              </Button>
+              <Button variant="hero-outline" size="xl" asChild>
+                <a href="#precos">
+                  {t("hero.cta.register")}
+                </a>
+              </Button>
+            </div>
+
+            {/* Urgency Banner */}
+            <div className="flex items-center justify-center lg:justify-start gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 max-w-md mx-auto lg:mx-0 mb-8 animate-slide-up" style={{ animationDelay: "0.25s" }}>
+              <Flame className="w-5 h-5 text-destructive" />
+              <p className="text-sm font-medium text-foreground">
+                {t("hero.urgency")} <span className="font-bold text-destructive">{getNextFridayFormatted()}</span>
+              </p>
+            </div>
+
+            {/* Trust badges - only on desktop, below text */}
+            <div className="hidden lg:grid grid-cols-4 gap-3 max-w-lg">
+              {trustBadges.map((item, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl bg-card/60 backdrop-blur-sm border border-border/40 text-center"
+                >
+                  <div className={`p-2 rounded-lg ${item.bgColor}`}>
+                    <item.icon className={`w-5 h-5 ${item.color}`} />
+                  </div>
+                  <span className="text-xs font-medium text-foreground leading-tight">{item.label}</span>
+                </motion.div>
+              ))}
+            </div>
           </div>
 
-          {/* Trust badges */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-3xl mx-auto">
-            {trustBadges.map((item, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 30, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ 
-                  duration: 0.5, 
-                  delay: 0.3 + index * 0.1,
-                  type: "spring",
-                  stiffness: 100
-                }}
-                whileHover={{ 
-                  y: -8, 
-                  scale: 1.05,
-                  transition: { duration: 0.2 }
-                }}
-                className="relative flex flex-col items-center gap-4 p-6 rounded-2xl bg-card/80 backdrop-blur-md border border-border/50 overflow-hidden group cursor-pointer shadow-lg hover:shadow-xl transition-shadow"
-              >
-                {/* Gradiente de fundo sutil */}
-                <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 bg-gradient-to-br ${item.gradientFrom} ${item.gradientTo}`} />
-                
-                {/* Circulo decorativo */}
-                <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-10 group-hover:opacity-20 transition-opacity bg-gradient-to-br ${item.gradientFrom} ${item.gradientTo}`} />
-                
-                {/* Container do icone com animacao */}
-                <motion.div 
-                  className={`p-4 rounded-2xl ${item.bgColor} relative`}
-                  whileHover={{ rotate: 10, scale: 1.1 }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                >
-                  <item.icon className={`w-8 h-8 ${item.color}`} />
-                  
-                  {/* Brilho animado no icone */}
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-white/0 via-white/30 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </motion.div>
-                
-                {/* Texto */}
-                <span className="text-sm font-medium text-foreground text-center relative z-10">
-                  {item.label}
-                </span>
-              </motion.div>
-            ))}
+          {/* Right Column - Viability Search Form */}
+          <div className="animate-slide-up" style={{ animationDelay: "0.3s" }}>
+            <ViabilitySearchSection compact />
           </div>
         </div>
 
+        {/* Trust badges - mobile only */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto mt-10 lg:hidden">
+          {trustBadges.map((item, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl bg-card/60 backdrop-blur-sm border border-border/40 text-center"
+            >
+              <div className={`p-2.5 rounded-lg ${item.bgColor}`}>
+                <item.icon className={`w-6 h-6 ${item.color}`} />
+              </div>
+              <span className="text-xs font-medium text-foreground leading-tight">{item.label}</span>
+            </motion.div>
+          ))}
+        </div>
+
         {/* Stats */}
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 max-w-4xl mx-auto">
+        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 max-w-4xl mx-auto">
           {stats.map((stat, index) => (
             <motion.div 
               key={index} 
@@ -181,7 +181,7 @@ const HeroSection = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.5 + index * 0.1 }}
             >
-              <div className="font-display text-3xl sm:text-5xl md:text-6xl font-bold gradient-text mb-2">
+              <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold gradient-text mb-2">
                 <AnimatedCounter 
                   value={stat.value} 
                   suffix={stat.suffix}
