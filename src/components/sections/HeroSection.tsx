@@ -99,7 +99,7 @@ const HeroSection = () => {
           </div>
 
           {/* Right Column — Viability Search */}
-          <div className="w-full rounded-2xl bg-card/80 backdrop-blur-md border border-border/40 shadow-xl overflow-hidden">
+          <div className="w-full">
             <ViabilitySearchSection compact />
           </div>
         </div>
