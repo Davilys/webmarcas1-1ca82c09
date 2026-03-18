@@ -26,7 +26,7 @@ export default function RecuperarSenha() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://www.webmarcas.net/cliente/redefinir-senha',
+        redirectTo: 'https://webmarcas1.lovable.app/cliente/redefinir-senha',
       });
 
       if (error) {
