@@ -140,6 +140,16 @@ export function ContractRenderer({
         return;
       }
 
+      // Signatory names - all uppercase, letters/spaces/accented only
+      if (/^[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ\s]+$/.test(trimmedLine) && trimmedLine.length > 3) {
+        elements.push(
+          <p key={index} className="text-[10px] text-center font-semibold mb-1" style={{ color: '#1f2937' }}>
+            {trimmedLine}
+          </p>
+        );
+        return;
+      }
+
       // Regular paragraphs
       elements.push(
         <p key={index} className="text-sm mb-3 leading-relaxed" style={{ color: '#1f2937' }}>

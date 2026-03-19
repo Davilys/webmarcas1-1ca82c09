@@ -113,6 +113,11 @@ function generateContractHTML(
         return `<p style="font-size: 11px; color: #1f2937; margin-top: 24px; margin-bottom: 24px;">${trimmed}</p>`;
       }
       
+      // Signatory names - all uppercase, letters/spaces/accented only
+      if (/^[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ\s]+$/.test(trimmed) && trimmed.length > 3) {
+        return `<p style="font-size: 10px; text-align: center; color: #1f2937; font-weight: 600; margin-bottom: 4px;">${trimmed}</p>`;
+      }
+
       // Regular paragraphs
       return `<p style="font-size: 11px; color: #1f2937; margin-bottom: 12px; line-height: 1.6;">${trimmed}</p>`;
     }).join('\n');
