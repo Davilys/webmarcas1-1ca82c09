@@ -472,16 +472,27 @@ export default function RecursosINPI() {
     if (resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador') {
       return processProcurador();
     }
-    if (!file || !resourceType) return;
+    if (multipleFiles.length === 0 || !resourceType) {
+      toast.error('Anexe pelo menos um documento para continuar');
+      return;
+    }
     setIsProcessing(true);
     setStep('processing');
 
     try {
-      const fileBase64 = await fileToBase64(file);
       const agent = AI_AGENTS[selectedAgent];
 
+      // Convert all files to base64
+      const filesBase64 = await Promise.all(
+        multipleFiles.map(async (f) => ({
+          base64: await fileToBase64(f),
+          type: f.type,
+          name: f.name,
+        }))
+      );
+
       const { data, error } = await supabase.functions.invoke('process-inpi-resource', {
-        body: { fileBase64, fileType: file.type, resourceType, agentStrategy: agent.promptExtra, agentName: agent.name }
+        body: { files: filesBase64, resourceType, agentStrategy: agent.promptExtra, agentName: agent.name }
       });
 
       if (error) throw error;
