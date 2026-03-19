@@ -246,7 +246,7 @@ const PricingSection = () => {
 
               <div className="text-center mb-6">
                 <div className="text-4xl md:text-5xl font-display font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent mb-1">
-                  R$1.497<span className="text-lg">/mês</span>
+                  R$1.194<span className="text-lg">/mês</span>
                 </div>
                 <span className="text-muted-foreground text-sm">assinatura mensal · marcas ilimitadas</span>
               </div>
