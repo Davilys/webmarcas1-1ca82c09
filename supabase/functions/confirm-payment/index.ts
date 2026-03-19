@@ -146,7 +146,7 @@ serve(async (req) => {
       .eq('id', userId)
       .single();
 
-    if (existingProfile) {
+    if (existingProfileById) {
       // Update existing profile
       await supabaseAdmin
         .from('profiles')
