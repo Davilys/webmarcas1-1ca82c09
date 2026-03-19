@@ -416,14 +416,28 @@ export default function RecursosINPI() {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      if (selectedFile.type !== 'application/pdf') {
-        toast.error('Por favor, selecione um arquivo PDF');
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files);
+      const invalidFiles = newFiles.filter(f => 
+        !['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'].includes(f.type)
+      );
+      if (invalidFiles.length > 0) {
+        toast.error('Formatos aceitos: PDF, JPG, PNG, GIF, WEBP');
         return;
       }
-      setFile(selectedFile);
-      setStep('upload');
+      const currentCount = multipleFiles.length;
+      const maxFiles = 10;
+      const remaining = maxFiles - currentCount;
+      if (remaining <= 0) {
+        toast.error('Máximo de 10 arquivos atingido');
+        return;
+      }
+      const filesToAdd = newFiles.slice(0, remaining);
+      setMultipleFiles(prev => [...prev, ...filesToAdd]);
+      if (filesToAdd.length < newFiles.length) {
+        toast.warning(`Apenas ${filesToAdd.length} arquivo(s) adicionado(s). Máximo de 10 arquivos.`);
+      }
     }
   };
 
