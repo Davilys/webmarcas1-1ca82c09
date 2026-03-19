@@ -111,6 +111,10 @@ function replaceContractVariables(
           : '';
         return `• Pagamento parcelado via Boleto Bancário: 3x de R$ ${installment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.${totalSuffix}`;
       }
+      case 'recorrente_cartao':
+        return `• Pagamento mensal recorrente via Cartão de Crédito: R$ ${paymentValue ? paymentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}/mês.`;
+      case 'recorrente_boleto':
+        return `• Pagamento mensal recorrente via Boleto Bancário: R$ ${paymentValue ? paymentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}/mês.`;
       default:
         return `• Forma de pagamento a ser definida.`;
     }
