@@ -837,17 +837,66 @@ serve(async (req) => {
       const jsonStr = jsonMatch[1] || content;
       parsedResult = JSON.parse(jsonStr.trim());
     } catch (parseError) {
-      console.log('Could not parse JSON, using raw content');
+      console.log('Could not parse JSON, cleaning raw content');
+      
+      // Strip introductory/explanatory text that the AI sometimes adds before the actual resource
+      let cleanedContent = content;
+      
+      // Remove introductory paragraphs before the actual resource starts
+      const resourceStartPatterns = [
+        /RECURSO ADMINISTRATIVO/,
+        /EXCELENTÍSSIMO SENHOR/,
+        /NOTIFICAÇÃO EXTRAJUDICIAL/,
+        /PETIÇÃO DE/,
+        /MANIFESTAÇÃO/,
+      ];
+      
+      for (const pattern of resourceStartPatterns) {
+        const match = cleanedContent.match(pattern);
+        if (match && match.index && match.index > 0) {
+          // Check if there's unwanted intro text before the resource
+          const beforeResource = cleanedContent.substring(0, match.index);
+          // If the text before contains typical AI intro patterns, strip it
+          if (/para elaborar|extraímos|abaixo|apresento|análise detalhada|dados extraídos|informações necessárias/i.test(beforeResource)) {
+            cleanedContent = cleanedContent.substring(match.index);
+          }
+          break;
+        }
+      }
+      
+      // Remove embedded JSON/code blocks (extracted data dumps)
+      cleanedContent = cleanedContent.replace(/```json[\s\S]*?```/g, '');
+      cleanedContent = cleanedContent.replace(/```plaintext/g, '');
+      cleanedContent = cleanedContent.replace(/```/g, '');
+      
+      // Remove "Dados Extraídos" section headers and their JSON content
+      cleanedContent = cleanedContent.replace(/Dados Extraídos\s*\{[\s\S]*?\}\s*\}/g, '');
+      cleanedContent = cleanedContent.replace(/\{\s*"extracted_?data"[\s\S]*?\}\s*\}/g, '');
+      
+      // Clean up multiple blank lines
+      cleanedContent = cleanedContent.replace(/\n{3,}/g, '\n\n').trim();
+      
+      // Try to extract extracted_data from the raw content if JSON blocks exist
+      let extractedData = {
+        process_number: '',
+        brand_name: '',
+        ncl_class: '',
+        holder: '',
+        examiner_or_opponent: '',
+        legal_basis: ''
+      };
+      
+      try {
+        const dataMatch = content.match(/\{\s*"extracted_?data"\s*:\s*(\{[\s\S]*?\})\s*\}/);
+        if (dataMatch) {
+          const innerJson = JSON.parse(`{"extracted_data":${dataMatch[1]}}`);
+          extractedData = innerJson.extracted_data || extractedData;
+        }
+      } catch {}
+      
       parsedResult = {
-        extracted_data: {
-          process_number: '',
-          brand_name: '',
-          ncl_class: '',
-          holder: '',
-          examiner_or_opponent: '',
-          legal_basis: ''
-        },
-        resource_content: content
+        extracted_data: extractedData,
+        resource_content: cleanedContent
       };
     }
 
