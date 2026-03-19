@@ -2183,12 +2183,21 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                         if (brandName) {
                           autoSubject += ` - ${brandName.toUpperCase()}`;
                         }
+                        // Auto-fill contract value based on plan type
+                        const tNameCheck = template.name.toLowerCase();
+                        let autoValue = '699';
+                        if (tNameCheck.includes('corporativo') && tNameCheck.includes('registro')) autoValue = '1621';
+                        else if (tNameCheck.includes('premium') && tNameCheck.includes('registro')) autoValue = '398';
+                        
                         setFormData(prev => ({ 
                           ...prev, 
                           document_type: docType,
                           template_id: template.id,
                           subject: autoSubject,
+                          contract_value: autoValue,
                         }));
+                        // Reset payment method when template changes
+                        setPaymentMethod(null);
                       }
                     }}
                   >
