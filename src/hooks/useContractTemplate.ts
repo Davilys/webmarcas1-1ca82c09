@@ -363,8 +363,8 @@ export function useContractTemplate(
     setError(null);
 
     try {
-      // For premium/corporativo plans, use built-in templates directly
-      if (plan === 'premium' || plan === 'corporativo') {
+      // For plans with built-in templates, use them directly to avoid DB mismatch
+      if (plan === 'premium' || plan === 'corporativo' || plan === 'essencial') {
         const defaultTemplate = getDefaultTemplateForPlan(plan);
         setTemplate({
           id: `default-${plan}`,
