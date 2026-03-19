@@ -54,7 +54,7 @@ const PLAN_OPTIONS: PlanOption[] = [
     id: "corporativo",
     title: "Plano Corporativo",
     subtitle: "Marcas ilimitadas para seu CPF/CNPJ",
-    price: "R$ 1.194,00",
+    price: "R$ 1.621,00",
     priceDetail: "/mês · cobrança recorrente",
     icon: Infinity,
     badge: "Ilimitado",

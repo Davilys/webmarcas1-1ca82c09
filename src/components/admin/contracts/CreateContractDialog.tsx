@@ -229,7 +229,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
   ]);
 
   // Payment method - matching public form (null = no charge)
-  const [paymentMethod, setPaymentMethod] = useState<'avista' | 'cartao6x' | 'boleto3x' | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'avista' | 'cartao6x' | 'boleto3x' | 'recorrente_cartao' | 'recorrente_boleto' | null>(null);
   
   // Optional payment dates for PIX and Boleto (Admin can customize)
   const [pixPaymentDate, setPixPaymentDate] = useState<Date | undefined>(undefined);
@@ -467,6 +467,11 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     return brandQuantity;
   };
 
+  // Detect plan type from selected template
+  const isPremiumTemplate = selectedTemplate?.name.toLowerCase().includes('premium') && selectedTemplate?.name.toLowerCase().includes('registro');
+  const isCorporativoTemplate = selectedTemplate?.name.toLowerCase().includes('corporativo') && selectedTemplate?.name.toLowerCase().includes('registro');
+  const isRecurringTemplate = isPremiumTemplate || isCorporativoTemplate;
+
   // Get contract value based on payment method - multiplied by quantity
   const getContractValue = (): number | null => {
     if (!paymentMethod) return null;
@@ -475,6 +480,11 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       case 'avista': return 699 * quantity;
       case 'cartao6x': return 1194 * quantity;
       case 'boleto3x': return 1197 * quantity;
+      case 'recorrente_cartao':
+      case 'recorrente_boleto':
+        if (isCorporativoTemplate) return 1621;
+        if (isPremiumTemplate) return 398 * quantity;
+        return null;
       default: return null;
     }
   };
@@ -486,6 +496,11 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       case 'avista': return 699;
       case 'cartao6x': return 1194;
       case 'boleto3x': return 1197;
+      case 'recorrente_cartao':
+      case 'recorrente_boleto':
+        if (isCorporativoTemplate) return 1621;
+        if (isPremiumTemplate) return 398;
+        return null;
       default: return null;
     }
   };
@@ -500,6 +515,14 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       case 'avista': return `PIX à vista - R$ ${(699 * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${suffix}`;
       case 'cartao6x': return `Cartão 6x de R$ ${(199 * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = R$ ${(1194 * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${suffix}`;
       case 'boleto3x': return `Boleto 3x de R$ ${(399 * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = R$ ${(1197 * qty).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${suffix}`;
+      case 'recorrente_cartao': {
+        const val = isCorporativoTemplate ? 1621 : 398;
+        return `Cartão Recorrente - R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês`;
+      }
+      case 'recorrente_boleto': {
+        const val = isCorporativoTemplate ? 1621 : 398;
+        return `Boleto Recorrente - R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês`;
+      }
       default: return 'Nenhuma (sem cobrança)';
     }
   };
@@ -2160,12 +2183,21 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                         if (brandName) {
                           autoSubject += ` - ${brandName.toUpperCase()}`;
                         }
+                        // Auto-fill contract value based on plan type
+                        const tNameCheck = template.name.toLowerCase();
+                        let autoValue = '699';
+                        if (tNameCheck.includes('corporativo') && tNameCheck.includes('registro')) autoValue = '1621';
+                        else if (tNameCheck.includes('premium') && tNameCheck.includes('registro')) autoValue = '398';
+                        
                         setFormData(prev => ({ 
                           ...prev, 
                           document_type: docType,
                           template_id: template.id,
                           subject: autoSubject,
+                          contract_value: autoValue,
                         }));
+                        // Reset payment method when template changes
+                        setPaymentMethod(null);
                       }
                     }}
                   >
@@ -2723,112 +2755,188 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                     <div>
                       <Label className="font-medium">Forma de Pagamento *</Label>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Selecione a forma de pagamento para este contrato.
+                        {isRecurringTemplate 
+                          ? `Plano ${isCorporativoTemplate ? 'Corporativo' : 'Premium'} — cobrança mensal recorrente.`
+                          : 'Selecione a forma de pagamento para este contrato.'}
                       </p>
                     </div>
                     
                     <div className="space-y-3">
-                      {/* PIX à vista */}
-                      <div
-                        onClick={() => setPaymentMethod('avista')}
-                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          paymentMethod === 'avista'
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-4 h-4 rounded-full border-2 ${
-                              paymentMethod === 'avista' 
-                                ? 'border-primary bg-primary' 
-                                : 'border-muted-foreground'
-                            }`}>
-                              {paymentMethod === 'avista' && (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <div className="w-2 h-2 bg-white rounded-full" />
+                      {isRecurringTemplate ? (
+                        <>
+                          {/* Cartão Recorrente */}
+                          <div
+                            onClick={() => setPaymentMethod('recorrente_cartao')}
+                            className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                              paymentMethod === 'recorrente_cartao'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-4 h-4 rounded-full border-2 ${
+                                  paymentMethod === 'recorrente_cartao' 
+                                    ? 'border-primary bg-primary' 
+                                    : 'border-muted-foreground'
+                                }`}>
+                                  {paymentMethod === 'recorrente_cartao' && (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <div className="w-2 h-2 bg-white rounded-full" />
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            <div>
-                              <p className="font-medium">PIX à Vista</p>
-                              <p className="text-sm text-muted-foreground">Pagamento instantâneo</p>
+                                <div>
+                                  <p className="font-medium">Cartão de Crédito — Recorrente</p>
+                                  <p className="text-sm text-muted-foreground">Cobrança mensal automática</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-bold text-primary">R$ {isCorporativoTemplate ? '1.621,00' : '398,00'}</p>
+                                <p className="text-xs text-muted-foreground">/mês</p>
+                              </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-primary">R$ 699,00</p>
-                            <p className="text-xs text-green-600 font-medium">43% OFF</p>
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* Cartão 6x */}
-                      <div
-                        onClick={() => setPaymentMethod('cartao6x')}
-                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          paymentMethod === 'cartao6x'
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-4 h-4 rounded-full border-2 ${
-                              paymentMethod === 'cartao6x' 
-                                ? 'border-primary bg-primary' 
-                                : 'border-muted-foreground'
-                            }`}>
-                              {paymentMethod === 'cartao6x' && (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <div className="w-2 h-2 bg-white rounded-full" />
+                          {/* Boleto Recorrente */}
+                          <div
+                            onClick={() => setPaymentMethod('recorrente_boleto')}
+                            className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                              paymentMethod === 'recorrente_boleto'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-4 h-4 rounded-full border-2 ${
+                                  paymentMethod === 'recorrente_boleto' 
+                                    ? 'border-primary bg-primary' 
+                                    : 'border-muted-foreground'
+                                }`}>
+                                  {paymentMethod === 'recorrente_boleto' && (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <div className="w-2 h-2 bg-white rounded-full" />
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            <div>
-                              <p className="font-medium">Cartão de Crédito</p>
-                              <p className="text-sm text-muted-foreground">Parcelamento sem juros</p>
+                                <div>
+                                  <p className="font-medium">Boleto Bancário — Recorrente</p>
+                                  <p className="text-sm text-muted-foreground">Boleto mensal automático</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-bold">R$ {isCorporativoTemplate ? '1.621,00' : '398,00'}</p>
+                                <p className="text-xs text-muted-foreground">/mês</p>
+                              </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold">6x de R$ 199,00</p>
-                            <p className="text-xs text-muted-foreground">Total: R$ 1.194,00</p>
+                        </>
+                      ) : (
+                        <>
+                          {/* PIX à vista */}
+                          <div
+                            onClick={() => setPaymentMethod('avista')}
+                            className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                              paymentMethod === 'avista'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-4 h-4 rounded-full border-2 ${
+                                  paymentMethod === 'avista' 
+                                    ? 'border-primary bg-primary' 
+                                    : 'border-muted-foreground'
+                                }`}>
+                                  {paymentMethod === 'avista' && (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <div className="w-2 h-2 bg-white rounded-full" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="font-medium">PIX à Vista</p>
+                                  <p className="text-sm text-muted-foreground">Pagamento instantâneo</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-bold text-primary">R$ 699,00</p>
+                                <p className="text-xs text-green-600 font-medium">43% OFF</p>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
 
-                      {/* Boleto 3x */}
-                      <div
-                        onClick={() => setPaymentMethod('boleto3x')}
-                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          paymentMethod === 'boleto3x'
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-4 h-4 rounded-full border-2 ${
-                              paymentMethod === 'boleto3x' 
-                                ? 'border-primary bg-primary' 
-                                : 'border-muted-foreground'
-                            }`}>
-                              {paymentMethod === 'boleto3x' && (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <div className="w-2 h-2 bg-white rounded-full" />
+                          {/* Cartão 6x */}
+                          <div
+                            onClick={() => setPaymentMethod('cartao6x')}
+                            className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                              paymentMethod === 'cartao6x'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-4 h-4 rounded-full border-2 ${
+                                  paymentMethod === 'cartao6x' 
+                                    ? 'border-primary bg-primary' 
+                                    : 'border-muted-foreground'
+                                }`}>
+                                  {paymentMethod === 'cartao6x' && (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <div className="w-2 h-2 bg-white rounded-full" />
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            <div>
-                              <p className="font-medium">Boleto Bancário</p>
-                              <p className="text-sm text-muted-foreground">Parcelamento em 3x</p>
+                                <div>
+                                  <p className="font-medium">Cartão de Crédito</p>
+                                  <p className="text-sm text-muted-foreground">Parcelamento sem juros</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold">6x de R$ 199,00</p>
+                                <p className="text-xs text-muted-foreground">Total: R$ 1.194,00</p>
+                              </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold">3x de R$ 399,00</p>
-                            <p className="text-xs text-muted-foreground">Total: R$ 1.197,00</p>
+
+                          {/* Boleto 3x */}
+                          <div
+                            onClick={() => setPaymentMethod('boleto3x')}
+                            className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                              paymentMethod === 'boleto3x'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-4 h-4 rounded-full border-2 ${
+                                  paymentMethod === 'boleto3x' 
+                                    ? 'border-primary bg-primary' 
+                                    : 'border-muted-foreground'
+                                }`}>
+                                  {paymentMethod === 'boleto3x' && (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <div className="w-2 h-2 bg-white rounded-full" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="font-medium">Boleto Bancário</p>
+                                  <p className="text-sm text-muted-foreground">Parcelamento em 3x</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-bold">3x de R$ 399,00</p>
+                                <p className="text-xs text-muted-foreground">Total: R$ 1.197,00</p>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
+                        </>
+                      )}
                     </div>
 
                     <div className="bg-muted/50 rounded-lg p-3 text-sm">

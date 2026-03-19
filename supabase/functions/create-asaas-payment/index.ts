@@ -111,6 +111,10 @@ function replaceContractVariables(
           : '';
         return `• Pagamento parcelado via Boleto Bancário: 3x de R$ ${installment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = Total: R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.${totalSuffix}`;
       }
+      case 'recorrente_cartao':
+        return `• Pagamento mensal recorrente via Cartão de Crédito: R$ ${paymentValue ? paymentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}/mês.`;
+      case 'recorrente_boleto':
+        return `• Pagamento mensal recorrente via Boleto Bancário: R$ ${paymentValue ? paymentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}/mês.`;
       default:
         return `• Forma de pagamento a ser definida.`;
     }
@@ -786,11 +790,53 @@ serve(async (req) => {
     let paymentData: Record<string, unknown> = {};
     let pixQrCode = null;
 
-    // CRITICAL: For credit card, we do NOT create a payment in Asaas here
+    // CRITICAL: For credit card (non-recurring), we do NOT create a payment in Asaas here
     // The payment will be created when the user submits their card data
     const isCardPayment = paymentMethod === 'cartao6x';
+    const isRecurringPayment = paymentMethod === 'recorrente_cartao' || paymentMethod === 'recorrente_boleto';
 
-    if (!isCardPayment) {
+    if (isRecurringPayment) {
+      // Create SUBSCRIPTION in Asaas for recurring plans (Premium/Corporativo)
+      const subscriptionBillingType = paymentMethod === 'recorrente_cartao' ? 'CREDIT_CARD' : 'BOLETO';
+      
+      const nextDue = new Date();
+      nextDue.setDate(nextDue.getDate() + 3);
+      const nextDueString = nextDue.toISOString().split('T')[0];
+
+      const subscriptionPayload = {
+        customer: customerId,
+        billingType: subscriptionBillingType,
+        nextDueDate: nextDueString,
+        value: paymentValue,
+        cycle: 'MONTHLY',
+        description: `Assinatura mensal - Registro de marca: ${brandData.brandName}`,
+        externalReference: `marca_${brandData.brandName.replace(/\s+/g, '_')}_sub_${Date.now()}`,
+      };
+
+      console.log('Creating subscription with payload:', JSON.stringify(subscriptionPayload));
+
+      const subResponse = await fetch(`${ASAAS_API_URL}/subscriptions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'access_token': ASAAS_API_KEY,
+        },
+        body: JSON.stringify(subscriptionPayload),
+      });
+
+      const subData = await subResponse.json();
+      console.log('Subscription creation response:', JSON.stringify(subData));
+
+      if (subData.errors) {
+        throw new Error(`Error creating subscription: ${JSON.stringify(subData.errors)}`);
+      }
+
+      paymentId = subData.id as string;
+      billingType = subscriptionBillingType;
+      installmentCount = 1;
+      installmentValue = paymentValue;
+      console.log('Created subscription:', paymentId);
+    } else if (!isCardPayment) {
       // PIX or Boleto - create payment now
       if (paymentMethod === 'boleto3x') {
         billingType = 'BOLETO';

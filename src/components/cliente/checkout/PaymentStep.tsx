@@ -38,13 +38,6 @@ export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1, pl
     trackInitiateCheckout();
   }, []);
 
-  // Auto-select for recurring plans
-  useEffect(() => {
-    if (isRecurring) {
-      setSelected('recorrente_cartao');
-    }
-  }, [isRecurring]);
-
   const qty = Math.max(classCount, 1);
 
   const baseRecurring = plan === 'premium' ? 398 : plan === 'corporativo' ? 1621 : 0;
@@ -53,18 +46,32 @@ export function PaymentStep({ selectedMethod, onNext, onBack, classCount = 1, pl
 
   const paymentOptions: PaymentOption[] = useMemo(() => {
     if (isRecurring) {
-      return [{
-        id: "recorrente_cartao",
-        title: "Cartão de Crédito — Recorrente",
-        subtitle: `${planLabel} · cobrança mensal automática`,
-        price: `R$ ${recurringValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        totalLabel: "Mensal",
-        priceValue: recurringValue,
-        icon: CreditCard,
-        badge: "Assinatura",
-        badgeColor: "bg-primary/10 text-primary border-primary/20",
-        features: ["Cobrança automática mensal", "Cancelamento a qualquer momento", "Sem taxa de adesão"],
-      }];
+      return [
+        {
+          id: "recorrente_cartao",
+          title: "Cartão de Crédito — Recorrente",
+          subtitle: `${planLabel} · cobrança mensal automática`,
+          price: `R$ ${recurringValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          totalLabel: "Mensal",
+          priceValue: recurringValue,
+          icon: CreditCard,
+          badge: "Assinatura",
+          badgeColor: "bg-primary/10 text-primary border-primary/20",
+          features: ["Cobrança automática mensal", "Cancelamento a qualquer momento", "Sem taxa de adesão"],
+        },
+        {
+          id: "recorrente_boleto",
+          title: "Boleto Bancário — Recorrente",
+          subtitle: `${planLabel} · cobrança mensal via boleto`,
+          price: `R$ ${recurringValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          totalLabel: "Mensal",
+          priceValue: recurringValue,
+          icon: FileText,
+          badge: "Boleto Mensal",
+          badgeColor: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+          features: ["Boleto gerado automaticamente", "Vencimento todo dia 10", "Sem taxa de adesão"],
+        },
+      ];
     }
 
     return [
