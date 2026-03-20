@@ -48,7 +48,7 @@ serve(async (req) => {
       );
     }
 
-    const { currentContent, adjustmentInstructions } = await req.json();
+    const { currentContent, adjustmentInstructions, resourceType, extractedData: passedData } = await req.json();
 
     if (!currentContent || !adjustmentInstructions) {
       return new Response(
@@ -147,12 +147,42 @@ INSTRUÇÕES FINAIS:
       );
     }
 
-    const trimmed = adjustedContent.trim();
+    let trimmed = adjustedContent.trim();
     console.log('Adjusted content length:', trimmed.length, 'chars (original:', currentContent.length, 'chars)');
 
     // Warn if adjusted is significantly shorter than original
     if (trimmed.length < currentContent.length * 0.7) {
       console.warn('WARNING: Adjusted content is significantly shorter than original!');
+    }
+
+    // ═══ ENFORCE MANDATORY OPENING BLOCK ═══
+    // Re-apply the deterministic header to prevent AI from stripping it
+    if (passedData && resourceType) {
+      const RESOURCE_TYPE_LABELS: Record<string, string> = {
+        indeferimento: 'RECURSO CONTRA INDEFERIMENTO',
+        exigencia_merito: 'CUMPRIMENTO DE EXIGÊNCIA DE MÉRITO / RECURSO ADMINISTRATIVO',
+        oposicao: 'MANIFESTAÇÃO À OPOSIÇÃO',
+        notificacao_extrajudicial: 'NOTIFICAÇÃO EXTRAJUDICIAL',
+        troca_procurador: 'PETIÇÃO DE TROCA DE PROCURADOR',
+        nomeacao_procurador: 'PETIÇÃO DE NOMEAÇÃO DE PROCURADOR'
+      };
+      const label = RESOURCE_TYPE_LABELS[resourceType] || 'RECURSO ADMINISTRATIVO';
+      const d = passedData;
+      const brandUpper = (d.brand_name || 'N/I').toUpperCase();
+      const processNum = (d.process_number || 'N/I').replace(/[^\d./-]/g, '').trim() || 'N/I';
+      const brandLine = d.brand_name || 'N/I';
+      const nclClass = d.ncl_class || 'N/I';
+      const holder = d.holder || 'N/I';
+      const opponent = d.examiner_or_opponent || 'N/I';
+
+      const header = `RECURSO ADMINISTRATIVO – ${label}\n\nMARCA: ${brandUpper}\n\nEXCELENTÍSSIMO SENHOR PRESIDENTE DA DIRETORIA DE MARCAS,\nPATENTES E DESENHOS INDUSTRIAIS DO INSTITUTO NACIONAL\nDA PROPRIEDADE INDUSTRIAL – INPI\n\nProcesso INPI nº: ${processNum}\nMarca: ${brandLine}\nClasse NCL (12ª Ed.): ${nclClass}\nTitular/Requerente: ${holder}\nOponente: ${opponent}\nProcurador: Davilys Danques de Oliveira Cunha – CPF 393.239.118-79`;
+
+      // Find section I in adjusted content
+      const sectionMatch = trimmed.match(/\n?\s*(I\s*[–—\-\.]\s*)/);
+      if (sectionMatch && sectionMatch.index !== undefined) {
+        const body = trimmed.substring(sectionMatch.index).trim();
+        trimmed = `${header}\n\n${body}`;
+      }
     }
 
     return new Response(

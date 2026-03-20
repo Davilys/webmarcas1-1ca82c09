@@ -134,6 +134,112 @@ function cleanAIContent(raw: string): string {
 }
 
 // ═══════════════════════════════════════════════════════════
+// HELPER: Build mandatory opening block deterministically
+// ═══════════════════════════════════════════════════════════
+function buildMandatoryOpeningBlock(
+  resourceTypeLabel: string,
+  data: {
+    process_number?: string;
+    brand_name?: string;
+    ncl_class?: string;
+    holder?: string;
+    examiner_or_opponent?: string;
+  }
+): string {
+  const brandUpper = (data.brand_name || 'N/I').toUpperCase();
+  const processNum = (data.process_number || 'N/I').replace(/[^\d./-]/g, '').trim() || 'N/I';
+  const brandLine = data.brand_name
+    ? `${data.brand_name}${/nominativ|mist|figurativ/i.test(data.ncl_class || '') ? '' : ' (nominativa)'}`
+    : 'N/I';
+  const nclClass = data.ncl_class || 'N/I';
+  const holder = data.holder || 'N/I';
+  const opponent = data.examiner_or_opponent || 'N/I';
+
+  return `RECURSO ADMINISTRATIVO – ${resourceTypeLabel}
+
+MARCA: ${brandUpper}
+
+EXCELENTÍSSIMO SENHOR PRESIDENTE DA DIRETORIA DE MARCAS,
+PATENTES E DESENHOS INDUSTRIAIS DO INSTITUTO NACIONAL
+DA PROPRIEDADE INDUSTRIAL – INPI
+
+Processo INPI nº: ${processNum}
+Marca: ${brandLine}
+Classe NCL (12ª Ed.): ${nclClass}
+Titular/Requerente: ${holder}
+Oponente: ${opponent}
+Procurador: Davilys Danques de Oliveira Cunha – CPF 393.239.118-79`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPER: Extract body starting from Section I
+// ═══════════════════════════════════════════════════════════
+function extractBodyFromSectionI(content: string): string {
+  // Find the first section marker (I – ..., I. ..., I - ...)
+  const sectionMatch = content.match(/\n\s*(I\s*[–—\-\.]\s*)/);
+  if (sectionMatch && sectionMatch.index !== undefined) {
+    return content.substring(sectionMatch.index).trim();
+  }
+  // Fallback: try to find "SÍNTESE" or "HISTÓRICO"
+  const fallback = content.match(/\n\s*(I\s*[–—\-\.]\s*SÍNTESE|SÍNTESE DOS FATOS)/i);
+  if (fallback && fallback.index !== undefined) {
+    return content.substring(fallback.index).trim();
+  }
+  // Last resort: return as-is
+  return content;
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPER: Enforce mandatory opening on final content
+// ═══════════════════════════════════════════════════════════
+function enforceMandatoryOpening(
+  content: string,
+  resourceTypeLabel: string,
+  data: {
+    process_number?: string;
+    brand_name?: string;
+    ncl_class?: string;
+    holder?: string;
+    examiner_or_opponent?: string;
+  }
+): string {
+  const header = buildMandatoryOpeningBlock(resourceTypeLabel, data);
+  const body = extractBodyFromSectionI(content);
+  return `${header}\n\n${body}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPER: Try to extract metadata from AI-generated text as fallback
+// ═══════════════════════════════════════════════════════════
+function enrichExtractedData(
+  data: { process_number?: string; brand_name?: string; ncl_class?: string; holder?: string; examiner_or_opponent?: string },
+  content: string
+): typeof data {
+  const enriched = { ...data };
+  if (!enriched.process_number || enriched.process_number === 'N/I') {
+    const m = content.match(/Processo\s*(?:INPI\s*)?n[ºo°]?\s*:?\s*([\d.\/-]+)/i);
+    if (m) enriched.process_number = m[1].trim();
+  }
+  if (!enriched.brand_name || enriched.brand_name === 'N/I') {
+    const m = content.match(/Marca:\s*([^\n(]+)/i);
+    if (m) enriched.brand_name = m[1].trim();
+  }
+  if (!enriched.ncl_class || enriched.ncl_class === 'N/I') {
+    const m = content.match(/Classe\s*NCL[^:]*:\s*([^\n]+)/i);
+    if (m) enriched.ncl_class = m[1].trim();
+  }
+  if (!enriched.holder || enriched.holder === 'N/I') {
+    const m = content.match(/(?:Titular|Requerente)[^:]*:\s*([^\n]+)/i);
+    if (m) enriched.holder = m[1].trim();
+  }
+  if (!enriched.examiner_or_opponent || enriched.examiner_or_opponent === 'N/I') {
+    const m = content.match(/(?:Oponente|Citante)[^:]*:\s*([^\n]+)/i);
+    if (m) enriched.examiner_or_opponent = m[1].trim();
+  }
+  return enriched;
+}
+
+// ═══════════════════════════════════════════════════════════
 // AGENT IDENTITY STRINGS (for two-pass prompts)
 // ═══════════════════════════════════════════════════════════
 function getAgentIdentity(agentName?: string, agentStrategy?: string): string {
@@ -757,11 +863,13 @@ Agora elabore as SEÇÕES V a VIII + encerramento. Mantenha o MESMO tom, estilo 
 
     if (pass2Result.error) {
       console.error('PASS 2 failed:', pass2Result.status, pass2Result.error?.substring(0, 300));
-      // Return pass 1 content anyway rather than losing everything
+      // Return pass 1 content with enforced header
+      const enriched = enrichExtractedData(extractedData, pass1Content);
+      const normalizedPartial = enforceMandatoryOpening(pass1Content, resourceTypeLabel, enriched);
       return new Response(JSON.stringify({
         success: true,
-        extracted_data: extractedData,
-        resource_content: pass1Content,
+        extracted_data: enriched,
+        resource_content: normalizedPartial,
         resource_type: resourceType,
         resource_type_label: resourceTypeLabel,
         partial: true
@@ -772,16 +880,19 @@ Agora elabore as SEÇÕES V a VIII + encerramento. Mantenha o MESMO tom, estilo 
     console.log('PASS 2 complete:', pass2Content.length, 'chars');
 
     // ─────────────────────────────────────────────────────
-    // CONCATENATE both passes
+    // CONCATENATE both passes + ENFORCE mandatory opening
     // ─────────────────────────────────────────────────────
-    const fullContent = pass1Content + '\n\n' + pass2Content;
+    const rawFullContent = pass1Content + '\n\n' + pass2Content;
+    const enriched = enrichExtractedData(extractedData, rawFullContent);
+    const fullContent = enforceMandatoryOpening(rawFullContent, resourceTypeLabel, enriched);
+    
     console.log('=== TWO-PASS GENERATION COMPLETE ===');
     console.log('Total length:', fullContent.length, 'chars (~', Math.round(fullContent.split(/\s+/).length), 'words)');
 
     return new Response(
       JSON.stringify({
         success: true,
-        extracted_data: extractedData,
+        extracted_data: enriched,
         resource_content: fullContent,
         resource_type: resourceType,
         resource_type_label: resourceTypeLabel
