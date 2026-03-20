@@ -156,7 +156,13 @@ EXIGÊNCIAS MÍNIMAS:
 7. NÃO incluir "Pede deferimento" nem "Termos em que" no encerramento
 8. O encerramento deve ter APENAS: data, nome "Davilys Danques de Oliveira Cunha" e "Procurador"
 
-FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
+FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+Responda EXCLUSIVAMENTE com um objeto JSON válido (sem markdown, sem texto antes ou depois do JSON).
+O campo "resource_content" DEVE conter o TEXTO JURÍDICO REAL E COMPLETO da notificação (mínimo 2.000 palavras REAIS).
+⚠️ NÃO coloque placeholder, resumo ou frase descritiva — coloque o DOCUMENTO JURÍDICO INTEIRO com todas as seções.
+Se o campo resource_content tiver menos de 1.500 palavras, sua resposta será REJEITADA.
+
 {
   "extracted_data": {
     "process_number": "${notificanteData.processo_inpi || ''}",
@@ -166,7 +172,7 @@ FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
     "examiner_or_opponent": "${notificadoData.nome || ''}",
     "legal_basis": "Arts. 129, 130, 189 e 190 da Lei 9.279/96; Arts. 186, 927 e 944 do CC; Art. 5º, XXIX da CF/88"
   },
-  "resource_content": "CONTEÚDO COMPLETO DA NOTIFICAÇÃO EXTRAJUDICIAL COM TODAS AS SEÇÕES (texto extenso, profundo e formatado)"
+  "resource_content": "AQUI_INSERIR_TEXTO_REAL_COMPLETO_DA_NOTIFICACAO_EXTRAJUDICIAL_TODAS_SECOES_I_A_VI"
 }`;
 }
 
