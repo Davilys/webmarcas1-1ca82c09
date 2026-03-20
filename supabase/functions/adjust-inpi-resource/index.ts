@@ -48,7 +48,7 @@ serve(async (req) => {
       );
     }
 
-    const { currentContent, adjustmentInstructions } = await req.json();
+    const { currentContent, adjustmentInstructions, resourceType, extractedData: passedData } = await req.json();
 
     if (!currentContent || !adjustmentInstructions) {
       return new Response(
