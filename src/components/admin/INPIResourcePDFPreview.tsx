@@ -253,44 +253,27 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
       pdf.line(margin, yPos + 1.5, pageWidth - margin, yPos + 1.5);
       yPos += 8;
 
-      // ── Document Title Badge (centered) ──
+      // ── Document Title (left-aligned, bold, navy) ──
       const typeLabel = getResourceTypeLabel(resourceType);
-      const badgeTitle = isNotif
+      const fullTitle = isNotif
         ? 'NOTIFICAÇÃO EXTRAJUDICIAL'
         : isProcuradorPetition
           ? documentTitleUpper
-          : 'RECURSO ADMINISTRATIVO';
+          : `RECURSO ADMINISTRATIVO – ${typeLabel}`;
 
-      // Draw navy badge
-      pdf.setFontSize(11);
+      pdf.setFontSize(12);
       pdf.setFont('helvetica', 'bold');
-      const badgeTextWidth = pdf.getTextWidth(badgeTitle);
-      const badgePadX = 12;
-      const badgeW = badgeTextWidth + badgePadX * 2;
-      const badgeH = 9;
-      const badgeX = (pageWidth - badgeW) / 2;
-      pdf.setFillColor(30, 58, 95);
-      pdf.roundedRect(badgeX, yPos - 1, badgeW, badgeH, 1.5, 1.5, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.text(badgeTitle, pageWidth / 2, yPos + 5, { align: 'center' });
-      yPos += badgeH + 5;
+      pdf.setTextColor(30, 58, 95);
+      pdf.text(fullTitle, margin, yPos + 5);
+      yPos += 10;
 
-      // Marca line centered
+      // Marca line (left-aligned)
       if (resource.brand_name) {
-        pdf.setFontSize(12);
+        pdf.setFontSize(11);
         pdf.setTextColor(30, 58, 95);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`Marca: ${resource.brand_name}`, pageWidth / 2, yPos, { align: 'center' });
-        yPos += 6;
-      }
-
-      // Process number centered
-      if (resource.process_number) {
-        pdf.setFontSize(10);
-        pdf.setTextColor(80, 80, 80);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`Processo INPI nº ${resource.process_number}`, pageWidth / 2, yPos, { align: 'center' });
-        yPos += 6;
+        pdf.text(`MARCA: ${resource.brand_name.toUpperCase()}`, margin, yPos);
+        yPos += 8;
       }
       yPos += 4;
 
