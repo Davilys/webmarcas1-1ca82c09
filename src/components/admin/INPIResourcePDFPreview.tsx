@@ -71,6 +71,11 @@ const stripClosingFromContent = (text: string, resourceType?: string): string =>
   return cleaned.trim();
 };
 
+const isMetadataLine = (text: string): boolean => {
+  const trimmed = text.trim();
+  return /^(Processo\s*(INPI\s*)?n[ºo°]|Marca:|Classe\s*NCL|Titular|Requerente:|Oponente:|Procurador:|Examinador:)/i.test(trimmed);
+};
+
 const isHeadingLine = (text: string): boolean => {
   const trimmed = text.trim();
   if (trimmed.length >= 100) return false;
