@@ -331,8 +331,8 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
         }
       }
 
-      // ── Closing / Signature Block ──
-      if (yPos > pageHeight - 90) { pdf.addPage(); yPos = margin; }
+      // ── Closing / Signature Block — needs ~100mm space ──
+      if (yPos > pageHeight - 110) { pdf.addPage(); yPos = margin; }
       
       yPos += 10;
       pdf.setFontSize(11);
