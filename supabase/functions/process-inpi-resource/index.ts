@@ -535,14 +535,16 @@ V – DA INEXISTÊNCIA DE CONFUSÃO OU ASSOCIAÇÃO INDEVIDA
 - Demonstrar que elementos comuns são de uso corrente/genérico e não geram exclusividade
 
 VI – DOS PRECEDENTES E JURISPRUDÊNCIA APLICÁVEL
-(Mínimo 500 palavras)
-- Citar no MÍNIMO 6 precedentes jurisprudenciais REAIS e PERTINENTES
-- Cada precedente deve ter: número completo, tribunal, turma, relator, e trecho da EMENTA
+(Mínimo 500 palavras — APENAS COMO REFORÇO COMPLEMENTAR)
+⚠️ ATENÇÃO: Jurisprudência é REFORÇO, não argumento principal. A fundamentação principal DEVE ser legal (LPI) e normativa (Manual INPI).
+- Citar APENAS precedentes da LISTA PRÉ-VALIDADA ou que você tenha CERTEZA ABSOLUTA da existência
+- Se não tiver certeza de um precedente → NÃO CITAR → substituir por fundamentação legal/técnica
+- Cada precedente DEVE ter: tribunal, número completo, relator, síntese FIEL da tese
 - Explicar POR QUE cada precedente se aplica ao caso concreto
-- Demonstrar que existe TENDÊNCIA JURISPRUDENCIAL favorável à tese
-- Citar decisões do próprio INPI que sejam favoráveis (precedentes administrativos)
 - Organizar precedentes por TESE: separar por argumento (especialidade, conjunto marcário, convivência)
-- Citar decisões recentes (2020-2025) para demonstrar atualidade da tese
+- NUNCA inventar número de processo, relator ou ementa
+- NUNCA atribuir teses a tribunais sem confirmação
+- Se a seção ficar curta por falta de precedentes verificáveis, COMPENSAR com argumentação legal e doutrinária mais densa
 
 VII – DA CONCLUSÃO E DEMONSTRAÇÃO DE REGISTRABILIDADE
 (Mínimo 300 palavras)
