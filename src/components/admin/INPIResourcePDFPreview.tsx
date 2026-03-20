@@ -235,32 +235,34 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
       pdf.line(margin, yPos + 1.5, pageWidth - margin, yPos + 1.5);
       yPos += 8;
 
-      // ── Document Title Badge ──
-      pdf.setFontSize(11);
-      const badgeWidth = pdf.getTextWidth(documentTitleUpper) + 16;
-      const badgeX = (pageWidth - badgeWidth) / 2;
-      pdf.setFillColor(30, 58, 95);
-      pdf.roundedRect(badgeX, yPos - 4, badgeWidth, 10, 1, 1, 'F');
-      pdf.setTextColor(255, 255, 255);
+      // ── Document Title (left-aligned) ──
+      const typeLabel = getResourceTypeLabel(resourceType);
+      const fullTitle = isNotif
+        ? 'NOTIFICAÇÃO EXTRAJUDICIAL'
+        : isProcuradorPetition
+          ? documentTitleUpper
+          : typeLabel
+            ? `RECURSO ADMINISTRATIVO – ${typeLabel}`
+            : 'RECURSO ADMINISTRATIVO';
+
+      pdf.setFontSize(13);
+      pdf.setTextColor(30, 58, 95);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(documentTitleUpper, pageWidth / 2, yPos + 2.5, { align: 'center' });
-      yPos += 12;
+      const titleLines = pdf.splitTextToSize(fullTitle, contentWidth);
+      for (const tl of titleLines) {
+        pdf.text(tl, margin, yPos);
+        yPos += 7;
+      }
+      yPos += 2;
 
       if (resource.brand_name) {
         pdf.setFontSize(12);
         pdf.setTextColor(30, 58, 95);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`Marca: ${resource.brand_name}`, pageWidth / 2, yPos, { align: 'center' });
-        yPos += 6;
+        pdf.text(`MARCA: ${resource.brand_name.toUpperCase()}`, margin, yPos);
+        yPos += 8;
       }
-      if (resource.process_number) {
-        pdf.setFontSize(10);
-        pdf.setTextColor(100, 100, 100);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`Processo INPI nº ${resource.process_number}`, pageWidth / 2, yPos, { align: 'center' });
-        yPos += 6;
-      }
-      yPos += 6;
+      yPos += 4;
 
       // ── Content Body ──
       pdf.setFont('helvetica', 'normal');
