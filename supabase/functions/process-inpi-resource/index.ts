@@ -156,7 +156,13 @@ EXIGÊNCIAS MÍNIMAS:
 7. NÃO incluir "Pede deferimento" nem "Termos em que" no encerramento
 8. O encerramento deve ter APENAS: data, nome "Davilys Danques de Oliveira Cunha" e "Procurador"
 
-FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
+FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+Responda EXCLUSIVAMENTE com um objeto JSON válido (sem markdown, sem texto antes ou depois do JSON).
+O campo "resource_content" DEVE conter o TEXTO JURÍDICO REAL E COMPLETO da notificação (mínimo 2.000 palavras REAIS).
+⚠️ NÃO coloque placeholder, resumo ou frase descritiva — coloque o DOCUMENTO JURÍDICO INTEIRO com todas as seções.
+Se o campo resource_content tiver menos de 1.500 palavras, sua resposta será REJEITADA.
+
 {
   "extracted_data": {
     "process_number": "${notificanteData.processo_inpi || ''}",
@@ -166,7 +172,7 @@ FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
     "examiner_or_opponent": "${notificadoData.nome || ''}",
     "legal_basis": "Arts. 129, 130, 189 e 190 da Lei 9.279/96; Arts. 186, 927 e 944 do CC; Art. 5º, XXIX da CF/88"
   },
-  "resource_content": "CONTEÚDO COMPLETO DA NOTIFICAÇÃO EXTRAJUDICIAL COM TODAS AS SEÇÕES (texto extenso, profundo e formatado)"
+  "resource_content": "AQUI_INSERIR_TEXTO_REAL_COMPLETO_DA_NOTIFICACAO_EXTRAJUDICIAL_TODAS_SECOES_I_A_VI"
 }`;
 }
 
@@ -313,7 +319,12 @@ EXIGÊNCIAS MÍNIMAS:
 4. A linguagem deve ser jurídica profissional formal
 5. O documento NÃO pode terminar abruptamente
 
-FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
+FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+Responda EXCLUSIVAMENTE com um objeto JSON válido (sem markdown, sem texto antes ou depois do JSON).
+O campo "resource_content" DEVE conter o TEXTO JURÍDICO REAL E COMPLETO da petição (mínimo 1.500 palavras REAIS).
+⚠️ NÃO coloque placeholder, resumo ou frase descritiva — coloque o DOCUMENTO JURÍDICO INTEIRO com todas as seções.
+
 {
   "extracted_data": {
     "process_number": "${procuradorData.processo_inpi || ''}",
@@ -323,7 +334,7 @@ FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
     "examiner_or_opponent": "Davilys Danques de Oliveira Cunha",
     "legal_basis": "Arts. 216 e 217 da Lei 9.279/96; Arts. 653 a 692 do CC"
   },
-  "resource_content": "CONTEÚDO COMPLETO DA PETIÇÃO COM TODAS AS SEÇÕES (texto extenso, profundo e formatado)"
+  "resource_content": "AQUI_INSERIR_TEXTO_REAL_COMPLETO_DA_PETICAO_TODAS_SECOES"
 }`;
 }
 
@@ -608,17 +619,24 @@ EXIGÊNCIAS MÍNIMAS DE QUALIDADE — VERIFICAÇÃO OBRIGATÓRIA:
 12. O recurso NÃO pode terminar abruptamente — deve ter TODAS as 8 seções completas
 13. A credibilidade do recurso depende da VERACIDADE JURÍDICA — uma jurisprudência incorreta COMPROMETE toda a peça
 
-FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
+FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+Responda EXCLUSIVAMENTE com um objeto JSON válido (sem markdown, sem texto antes ou depois do JSON).
+O campo "resource_content" DEVE conter o TEXTO JURÍDICO REAL E COMPLETO do recurso administrativo (mínimo 3.000 palavras REAIS).
+⚠️ ATENÇÃO CRÍTICA: NÃO coloque placeholder, resumo ou frase descritiva como "CONTEÚDO COMPLETO DO RECURSO...".
+Coloque o DOCUMENTO JURÍDICO INTEIRO com TODAS as 8 seções (I a VIII) desenvolvidas integralmente.
+Se o campo resource_content tiver menos de 2.500 palavras REAIS, sua resposta será REJEITADA automaticamente.
+
 {
   "extracted_data": {
-    "process_number": "número do processo",
-    "brand_name": "nome da marca",
-    "ncl_class": "classe NCL com descrição completa dos produtos/serviços",
+    "process_number": "número do processo extraído do documento",
+    "brand_name": "nome da marca extraído do documento",
+    "ncl_class": "classe NCL com descrição completa",
     "holder": "nome do titular completo",
-    "examiner_or_opponent": "oponente (não incluir nome do examinador)",
-    "legal_basis": "fundamento legal completo utilizado pelo INPI (artigo, inciso, alínea)"
+    "examiner_or_opponent": "oponente identificado no documento",
+    "legal_basis": "fundamento legal utilizado pelo INPI"
   },
-  "resource_content": "CONTEÚDO COMPLETO DO RECURSO COM TODAS AS 8 SEÇÕES DESENVOLVIDAS (texto extenso, profundo e formatado)"
+  "resource_content": "AQUI_INSERIR_TEXTO_REAL_COMPLETO_DO_RECURSO_ADMINISTRATIVO_TODAS_8_SECOES_I_A_VIII"
 }`;
 }
 
@@ -836,14 +854,22 @@ serve(async (req) => {
 
     console.log('Calling AI with prompt for:', resourceType, ', agent:', agentName || 'default');
 
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Use Lovable AI Gateway for better PDF/file support
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const aiUrl = LOVABLE_API_KEY 
+      ? 'https://ai-gateway.lovable.dev/v1/chat/completions'
+      : 'https://api.openai.com/v1/chat/completions';
+    const aiKey = LOVABLE_API_KEY || OPENAI_API_KEY;
+    const aiModel = LOVABLE_API_KEY ? 'openai/gpt-5' : 'gpt-4o';
+
+    const aiResponse = await fetch(aiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${aiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: aiModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent }
@@ -961,11 +987,29 @@ serve(async (req) => {
 
     const resourceTypeLabel = RESOURCE_TYPE_LABELS[resourceType] || 'RECURSO ADMINISTRATIVO';
 
+    // Validate that the AI didn't return placeholder text
+    let finalContent = parsedResult.resource_content || content;
+    const placeholderPatterns = [
+      /^CONTEÚDO COMPLETO/i,
+      /^AQUI_INSERIR/i,
+      /^AQUI VOCÊ DEVE/i,
+      /TODAS AS \d+ SEÇÕES DESENVOLVIDAS/i,
+      /texto extenso, profundo e formatado/i,
+    ];
+    const isPlaceholder = placeholderPatterns.some(p => p.test(finalContent.trim()));
+    if (isPlaceholder || finalContent.trim().length < 500) {
+      console.error('AI returned placeholder or too-short content, length:', finalContent.length);
+      return new Response(
+        JSON.stringify({ error: 'A IA retornou um conteúdo incompleto. Por favor, tente novamente com o mesmo documento.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         extracted_data: parsedResult.extracted_data || {},
-        resource_content: parsedResult.resource_content || content,
+        resource_content: finalContent,
         resource_type: resourceType,
         resource_type_label: resourceTypeLabel
       }),
