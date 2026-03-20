@@ -15,6 +15,205 @@ const RESOURCE_TYPE_LABELS: Record<string, string> = {
   nomeacao_procurador: 'PETIÇÃO DE NOMEAÇÃO DE PROCURADOR'
 };
 
+// ═══════════════════════════════════════════════════════════
+// HELPER: Call OpenAI Responses API
+// ═══════════════════════════════════════════════════════════
+async function callOpenAI(
+  apiKey: string,
+  systemPrompt: string,
+  userParts: any[],
+  maxTokens: number = 16000,
+  temperature: number = 0.25
+): Promise<{ content: string; error?: string; status?: number }> {
+  const inputMessages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userParts },
+  ];
+
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-2024-11-20',
+      input: inputMessages,
+      max_output_tokens: maxTokens,
+      temperature,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI API error:', response.status, errorText.substring(0, 500));
+    return { content: '', error: errorText, status: response.status };
+  }
+
+  const data = await response.json();
+  let content = '';
+  if (data.output && Array.isArray(data.output)) {
+    for (const item of data.output) {
+      if (item.type === 'message' && item.content) {
+        for (const part of item.content) {
+          if (part.type === 'output_text') {
+            content += part.text;
+          }
+        }
+      }
+    }
+  }
+
+  return { content };
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPER: Convert file parts to Responses API format
+// ═══════════════════════════════════════════════════════════
+function convertToResponsesFormat(userContent: any[]): any[] {
+  const parts: any[] = [];
+  for (const part of userContent) {
+    if (part.type === 'text') {
+      parts.push({ type: 'input_text', text: part.text });
+    } else if (part.type === 'file') {
+      parts.push({
+        type: 'input_file',
+        filename: part.file.filename,
+        file_data: part.file.file_data,
+      });
+    } else if (part.type === 'image_url') {
+      parts.push({
+        type: 'input_image',
+        image_url: part.image_url.url,
+        detail: 'high',
+      });
+    }
+  }
+  return parts;
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPER: Clean AI response
+// ═══════════════════════════════════════════════════════════
+function cleanAIContent(raw: string): string {
+  let cleaned = raw;
+  
+  // Remove markdown code blocks
+  cleaned = cleaned.replace(/```json[\s\S]*?```/g, '');
+  cleaned = cleaned.replace(/```plaintext/g, '');
+  cleaned = cleaned.replace(/```/g, '');
+  
+  // Remove introductory AI text before the actual resource
+  const startPatterns = [
+    /RECURSO ADMINISTRATIVO/,
+    /EXCELENTÍSSIMO SENHOR/,
+    /NOTIFICAÇÃO EXTRAJUDICIAL/,
+    /PETIÇÃO DE/,
+    /MANIFESTAÇÃO/,
+  ];
+  
+  for (const pattern of startPatterns) {
+    const match = cleaned.match(pattern);
+    if (match && match.index && match.index > 0) {
+      const before = cleaned.substring(0, match.index);
+      if (/para elaborar|extraímos|abaixo|apresento|análise detalhada|dados extraídos|informações necessárias|segue|elaborei|conforme solicitado/i.test(before)) {
+        cleaned = cleaned.substring(match.index);
+      }
+      break;
+    }
+  }
+  
+  // Remove embedded JSON dumps
+  cleaned = cleaned.replace(/Dados Extraídos\s*\{[\s\S]*?\}\s*\}/g, '');
+  cleaned = cleaned.replace(/\{\s*"extracted_?data"[\s\S]*?\}\s*\}/g, '');
+  
+  // Clean up multiple blank lines
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  
+  return cleaned;
+}
+
+// ═══════════════════════════════════════════════════════════
+// AGENT IDENTITY STRINGS (for two-pass prompts)
+// ═══════════════════════════════════════════════════════════
+function getAgentIdentity(agentName?: string, agentStrategy?: string): string {
+  if (!agentName && !agentStrategy) return '';
+
+  return `
+#identidade_do_agente
+AGENTE: ${agentName || 'Padrão'}
+
+${agentStrategy ? `#estrategia_obrigatoria_do_agente
+APLIQUE A ESTRATÉGIA ABAIXO em TODAS as seções. Cada parágrafo deve refletir o TOM, ESTILO e TÉCNICAS deste agente:
+${agentStrategy}` : ''}
+`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// CORE LEGAL KNOWLEDGE (shared across both passes)
+// ═══════════════════════════════════════════════════════════
+const LEGAL_KNOWLEDGE = `
+#protocolo_jurisprudencia_webmarcas
+
+⚠️ PROTOCOLO OBRIGATÓRIO DE USO DE JURISPRUDÊNCIA — PADRÃO WEBMARCAS ⚠️
+
+REGRA 1 — PROIBIÇÃO ABSOLUTA DE JURISPRUDÊNCIA FICTÍCIA:
+- É TERMINANTEMENTE PROIBIDO inventar jurisprudência
+- É PROIBIDO adaptar trechos sem fonte real verificável
+- Qualquer jurisprudência inventada INVALIDA toda a peça processual
+
+REGRA 2 — HIERARQUIA DE ARGUMENTAÇÃO:
+1º) Lei da Propriedade Industrial (Lei 9.279/96) — FUNDAMENTO PRINCIPAL
+2º) Manual de Marcas do INPI (Resolução INPI/PR nº 288/2023) — FUNDAMENTO PRINCIPAL
+3º) Portarias e Resoluções do INPI — COMPLEMENTAR
+4º) Doutrina: Denis Borges Barbosa, J. da Gama Cerqueira, Tinoco Soares — REFORÇO
+5º) Jurisprudência — APENAS REFORÇO COMPLEMENTAR
+
+REGRA 3 — PRECEDENTES PRÉ-VALIDADOS (REAIS E VERIFICÁVEIS):
+STJ:
+- REsp 1.188.105/RJ — coexistência em segmentos diversos (Min. Luis Felipe Salomão, 4ª Turma)
+- REsp 1.315.621/SP — convivência marcária e especialidade (Min. Nancy Andrighi, 3ª Turma)
+- REsp 862.117/RJ — segmento diverso como fator de convivência (Min. Ari Pargendler)
+- REsp 1.166.498/RJ — distinção suficiente no conjunto (Min. Nancy Andrighi)
+- REsp 1.095.362/SP — convivência pacífica como prova (Min. Massami Uyeda)
+- AgRg no REsp 1.346.089/RJ — impressão de conjunto vs. elementos isolados
+- AgRg no REsp 1.255.654/RJ — coexistência e não-confusão
+- REsp 1.032.014/RS — marca fraca e convivência (Min. Nancy Andrighi)
+- REsp 949.514/RJ — princípio da especialidade (Min. Fernando Gonçalves)
+- REsp 1.340.933/SP — notoriedade e diluição
+- EREsp 1.403.979/PR — trade dress e concorrência desleal
+
+TRF-2 (2ª Turma Especializada):
+- Apelação 0800858-92.2014.4.02.5101 — reforma de indeferimento
+- Apelação 0004389-61.2009.4.02.5101 — coexistência em classes distintas
+- Apelação 0096695-18.2017.4.02.5101 — erro de análise comparativa do INPI
+- Agravo 0501803-49.2019.4.02.5101 — falha na fundamentação
+
+TRF-3:
+- Apelação 5003471-64.2019.4.03.6100 — nulidade por falta de confusão efetiva
+- Apelação 0013264-04.2011.4.03.6100 — princípio da especialidade
+
+⚠️ Qualquer precedente fora desta lista só pode ser citado se você tiver CERTEZA ABSOLUTA de sua existência real.
+Se houver QUALQUER dúvida → NÃO CITAR → substituir por fundamentação legal direta.
+
+#legislacao_dominio
+- Lei da Propriedade Industrial (Lei nº 9.279/96) — todos os artigos
+- Convenção da União de Paris (CUP) — arts. 6bis, 6ter, 6quinquies
+- Acordo TRIPS/OMC — arts. 15 a 21
+- Manual de Marcas do INPI (Resolução INPI/PR nº 288/2023)
+- Classificação Internacional de Nice (12ª edição)
+
+#doutrina_autorizada
+- Denis Borges Barbosa — "Uma Introdução à Propriedade Intelectual" (2ª ed.) e "Proteção das Marcas"
+- J. da Gama Cerqueira — "Tratado da Propriedade Industrial" (vol. II, tomo I)
+- Lélio Denicoli Schmidt — "Marcas em Semiótica"
+- Carlos Alberto Bittar — "Teoria e Prática da Propriedade Industrial"
+- Tinoco Soares — "Lei de Patentes, Marcas e Direitos Conexos"
+`;
+
+// ═══════════════════════════════════════════════════════════
+// NOTIFICAÇÃO EXTRAJUDICIAL PROMPT (unchanged from original logic)
+// ═══════════════════════════════════════════════════════════
 function buildNotificacaoPrompt(
   currentDate: string,
   notificanteData: any,
@@ -27,155 +226,42 @@ function buildNotificacaoPrompt(
 
 Você é um ADVOGADO ESPECIALISTA EM PROPRIEDADE INDUSTRIAL de ELITE,
 com décadas de atuação em DEFESA DE MARCAS E NOTIFICAÇÕES EXTRAJUDICIAIS.
-Seu papel é elaborar uma NOTIFICAÇÃO EXTRAJUDICIAL COMPLETA, ROBUSTA E JURIDICAMENTE VIÁVEL
-para cessar o uso indevido de marca registrada.
+Elabore uma NOTIFICAÇÃO EXTRAJUDICIAL COMPLETA, ROBUSTA E JURIDICAMENTE VIÁVEL.
 
-IMPORTANTE: Este documento NÃO é um recurso administrativo no INPI.
-É uma NOTIFICAÇÃO EXTRAJUDICIAL dirigida diretamente ao INFRATOR (Notificado).
-NÃO inclua "Pede deferimento", "Termos em que", nem referências ao INPI como destinatário.
+IMPORTANTE: Este documento NÃO é recurso administrativo no INPI.
+É NOTIFICAÇÃO EXTRAJUDICIAL dirigida diretamente ao INFRATOR.
+NÃO inclua "Pede deferimento", nem referências ao INPI como destinatário.
 
-⚠️ REGRAS ABSOLUTAS E INVIOLÁVEIS:
-- JAMAIS inventar fatos, decisões ou jurisprudência
-- JAMAIS criar números de processos fictícios  
-- JAMAIS simplificar ou superficializar a argumentação
-- O documento DEVE ter no MÍNIMO 2.000 palavras de conteúdo substantivo
-- A argumentação deve ser DENSA, PROFUNDA e ESPECÍFICA ao caso concreto
-- NUNCA termine o documento de forma abrupta ou incompleta
+O documento deve ter NO MÍNIMO 4.000 palavras (equivalente a 10+ páginas).
+Cada seção deve ser desenvolvida com MÁXIMA PROFUNDIDADE.
 
 #dados_das_partes
 
-NOTIFICANTE (Titular da Marca):
-- Nome/Razão Social: ${notificanteData.nome || 'Não informado'}
-- CPF/CNPJ: ${notificanteData.cpf_cnpj || 'Não informado'}
-- Endereço: ${notificanteData.endereco || 'Não informado'}
-- Marca: ${notificanteData.marca || 'Não informada'}
-- Processo INPI nº: ${notificanteData.processo_inpi || 'Não informado'}
-- Registro da Marca nº: ${notificanteData.registro_marca || 'Não informado'}
+NOTIFICANTE: ${notificanteData.nome || 'N/I'} | CPF/CNPJ: ${notificanteData.cpf_cnpj || 'N/I'} | Endereço: ${notificanteData.endereco || 'N/I'}
+Marca: ${notificanteData.marca || 'N/I'} | Processo INPI: ${notificanteData.processo_inpi || 'N/I'} | Registro: ${notificanteData.registro_marca || 'N/I'}
 
-NOTIFICADO (Infrator):
-- Nome/Razão Social: ${notificadoData.nome || 'Não informado'}
-- CPF/CNPJ: ${notificadoData.cpf_cnpj || 'Não informado'}
-- Endereço: ${notificadoData.endereco || 'Não informado'}
+NOTIFICADO: ${notificadoData.nome || 'N/I'} | CPF/CNPJ: ${notificadoData.cpf_cnpj || 'N/I'} | Endereço: ${notificadoData.endereco || 'N/I'}
 
-#instrucoes_do_usuario
-${userInstructions || 'O usuário não forneceu instruções adicionais. Elabore a notificação com base nos dados fornecidos.'}
+#instrucoes_usuario
+${userInstructions || 'Elabore a notificação com base nos dados fornecidos.'}
 
 #identidade_institucional
+WEBMARCAS INTELLIGENCE PI™ | CNPJ: 39.528.012/0001-29
+Av. Brigadeiro Luiz Antônio, 2696, Centro — São Paulo/SP — CEP 01402-000
+Tel: (11) 9 1112-0225 | E-mail: juridico@webmarcas.net | Site: www.webmarcas.net
 
-O documento deve ser elaborado em nome da WEBMARCAS INTELLIGENCE PI™:
-- CNPJ: 39.528.012/0001-29
-- Endereço: Av. Brigadeiro Luiz Antônio, 2696, Centro — São Paulo/SP — CEP 01402-000
-- Telefone: (11) 9 1112-0225
-- E-mail: juridico@webmarcas.net
-- Site: www.webmarcas.net
+ENCERRAMENTO: São Paulo, ${currentDate} — Davilys Danques de Oliveira Cunha, Procurador (SEM CPF, SEM "Pede deferimento")
 
-O ENCERRAMENTO deve conter APENAS:
-- Data: São Paulo, ${currentDate}
-- Assinatura: Davilys Danques de Oliveira Cunha
-- Qualificação: Procurador
-- SEM CPF (não incluir CPF na assinatura)
-- SEM "Pede deferimento"
-- SEM "Termos em que"
+${LEGAL_KNOWLEDGE}
 
-#estrutura_obrigatoria
+${getAgentIdentity(agentName, agentStrategy)}
 
-═══════════════════════════════════════════════════════════
-NOTIFICAÇÃO EXTRAJUDICIAL
-═══════════════════════════════════════════════════════════
-
-I – IDENTIFICAÇÃO DAS PARTES
-(Dados completos do Notificante e do Notificado conforme fornecidos)
-
-II – DOS FATOS
-(Mínimo 500 palavras)
-- Narrativa detalhada e cronológica do uso indevido da marca
-- Baseado nas instruções do usuário e documentos anexados
-- Descrever como, onde, de que forma a marca está sendo usada indevidamente
-- Demonstrar o conhecimento prévio do registro da marca pelo notificante
-- Detalhar os produtos/serviços em que a marca está sendo usada indevidamente
-
-III – DO DIREITO
-(Mínimo 600 palavras)
-- Lei da Propriedade Industrial (Lei nº 9.279/96):
-  * Art. 129 — direitos de propriedade da marca registrada
-  * Art. 130 — proteções conferidas ao titular
-  * Art. 189 — crime de violação de direito de marca
-  * Art. 190 — crime de uso indevido de marca alheia
-- Código Civil (Lei nº 10.406/2002):
-  * Art. 186 — ato ilícito (violação de direito de marca = ato ilícito)
-  * Art. 927 — obrigação de reparar dano causado por ato ilícito
-  * Art. 944 — extensão da indenização pela extensão do dano
-- Constituição Federal:
-  * Art. 5º, XXIX — proteção à propriedade das marcas
-- Jurisprudência relevante do STJ e TRFs sobre uso indevido de marca
-
-IV – DA NOTIFICAÇÃO E INTIMAÇÃO
-(Mínimo 300 palavras)
-- INTIMAR o Notificado a:
-  a) CESSAR IMEDIATAMENTE todo e qualquer uso da marca
-  b) RETIRAR de circulação todos os materiais (físicos e digitais) que contenham a marca
-  c) REMOVER das redes sociais, sites, plataformas digitais qualquer referência à marca
-  d) ABSTER-SE de utilizar a marca em qualquer meio
-- Prazo de 30 (trinta) dias corridos para cumprimento integral
-- A presente notificação serve como marco de ciência inequívoca da irregularidade
-
-V – DAS CONSEQUÊNCIAS DO DESCUMPRIMENTO
-(Mínimo 300 palavras)
-- Medidas judiciais cabíveis caso não haja cumprimento:
-  a) Ação de abstenção de uso com tutela de urgência
-  b) Busca e apreensão de materiais que contenham a marca
-  c) Ação indenizatória por danos materiais e morais
-  d) Representação criminal com base nos arts. 189 e 190 da LPI
-  e) Multa diária (astreintes) por descumprimento
-- Responsabilização integral pelos custos processuais e honorários advocatícios
-- Constituição em mora do Notificado a partir do recebimento desta notificação
-
-VI – DO ENCERRAMENTO
-- A presente notificação constitui prova inequívoca de ciência
-- Data e local
-- Assinatura: Davilys Danques de Oliveira Cunha, Procurador (SEM CPF)
-
-${agentStrategy ? `#estrategia_especifica_do_agente
-
-IMPORTANTE: Aplique a estratégia abaixo como CAMADA ADICIONAL sobre a estrutura obrigatória.
-A estratégia do agente deve ENRIQUECER e APROFUNDAR a notificação.
-
-${agentStrategy}` : ''}
-
-${agentName ? `#agente_responsavel: ${agentName}` : ''}
-
-#padrao_qualidade
-
-EXIGÊNCIAS MÍNIMAS:
-1. O documento completo deve ter NO MÍNIMO 2.000 palavras
-2. Toda jurisprudência citada deve ser REAL e verificável
-3. Toda legislação deve ser citada com artigo, inciso e alínea exatos
-4. O texto deve ter qualidade equivalente aos melhores escritórios de PI
-5. A linguagem deve ser jurídica profissional formal
-6. O documento NÃO pode terminar abruptamente
-7. NÃO incluir "Pede deferimento" nem "Termos em que" no encerramento
-8. O encerramento deve ter APENAS: data, nome "Davilys Danques de Oliveira Cunha" e "Procurador"
-
-FORMATO DE RESPOSTA OBRIGATÓRIO:
-
-Responda EXCLUSIVAMENTE com um objeto JSON válido (sem markdown, sem texto antes ou depois do JSON).
-O campo "resource_content" DEVE conter o TEXTO JURÍDICO REAL E COMPLETO da notificação (mínimo 2.000 palavras REAIS).
-⚠️ NÃO coloque placeholder, resumo ou frase descritiva — coloque o DOCUMENTO JURÍDICO INTEIRO com todas as seções.
-Se o campo resource_content tiver menos de 1.500 palavras, sua resposta será REJEITADA.
-
-{
-  "extracted_data": {
-    "process_number": "${notificanteData.processo_inpi || ''}",
-    "brand_name": "${notificanteData.marca || ''}",
-    "ncl_class": "",
-    "holder": "${notificanteData.nome || ''}",
-    "examiner_or_opponent": "${notificadoData.nome || ''}",
-    "legal_basis": "Arts. 129, 130, 189 e 190 da Lei 9.279/96; Arts. 186, 927 e 944 do CC; Art. 5º, XXIX da CF/88"
-  },
-  "resource_content": "AQUI_INSERIR_TEXTO_REAL_COMPLETO_DA_NOTIFICACAO_EXTRAJUDICIAL_TODAS_SECOES_I_A_VI"
-}`;
+Responda APENAS com o texto completo da notificação (mínimo 4.000 palavras). SEM JSON. SEM explicações. Apenas o documento jurídico.`;
 }
 
+// ═══════════════════════════════════════════════════════════
+// PROCURADOR PROMPT (unchanged from original logic)
+// ═══════════════════════════════════════════════════════════
 function buildProcuradorPrompt(
   currentDate: string,
   procuradorData: any,
@@ -185,297 +271,62 @@ function buildProcuradorPrompt(
 ): string {
   const isTroca = resourceType === 'troca_procurador';
   const tipoLabel = isTroca ? 'TROCA DE PROCURADOR' : 'NOMEAÇÃO DE PROCURADOR';
-  
+
   return `#instruction
 
-Você é um ADVOGADO ESPECIALISTA EM PROPRIEDADE INDUSTRIAL de ELITE,
-com décadas de atuação em REGISTRO DE MARCAS NO INPI.
-Seu papel é elaborar uma PETIÇÃO DE ${tipoLabel} COMPLETA, ROBUSTA E JURIDICAMENTE VIÁVEL
-para ser protocolada junto ao INPI.
+Você é um ADVOGADO ESPECIALISTA em PROPRIEDADE INDUSTRIAL de ELITE.
+Elabore uma PETIÇÃO DE ${tipoLabel} COMPLETA e ROBUSTA para protocolo no INPI.
+O documento deve ter NO MÍNIMO 2.500 palavras.
 
-⚠️ REGRAS ABSOLUTAS E INVIOLÁVEIS:
-- JAMAIS inventar fatos, decisões ou jurisprudência
-- JAMAIS criar números de processos fictícios
-- O documento DEVE ter no MÍNIMO 1.500 palavras de conteúdo substantivo
-- A argumentação deve ser DENSA, PROFUNDA e ESPECÍFICA ao caso concreto
-- NUNCA termine o documento de forma abrupta ou incompleta
+#dados
+TITULAR: ${procuradorData.titular || 'N/I'} | CPF/CNPJ: ${procuradorData.cpf_cnpj_titular || 'N/I'}
+Marca: ${procuradorData.marca || 'N/I'} | Processo INPI: ${procuradorData.processo_inpi || 'N/I'} | NCL: ${procuradorData.ncl_class || 'N/I'}
+${isTroca ? `PROCURADOR ANTERIOR: ${procuradorData.procurador_antigo || 'N/I'}` : ''}
+NOVO PROCURADOR: Davilys Danques de Oliveira Cunha | CPF: 393.239.118-79 | RG: 50.688.779-0
+Endereço: Av. Brigadeiro Luís Antônio, Nº 2696 - Centro, São Paulo/SP - CEP 01402-000
 
-#dados_do_processo
-
-TITULAR/CONSTITUINTE:
-- Nome/Razão Social: ${procuradorData.titular || 'Não informado'}
-- CPF/CNPJ: ${procuradorData.cpf_cnpj_titular || 'Não informado'}
-- Marca: ${procuradorData.marca || 'Não informada'}
-- Processo INPI nº: ${procuradorData.processo_inpi || 'Não informado'}
-- Classe NCL: ${procuradorData.ncl_class || 'Não informada'}
-
-${isTroca ? `PROCURADOR ANTERIOR (A SER REVOGADO):
-- Nome: ${procuradorData.procurador_antigo || 'Não informado'}
-` : ''}
-NOVO PROCURADOR (A SER NOMEADO):
-- Nome: Davilys Danques de Oliveira Cunha
-- CPF: 393.239.118-79
-- RG: 50.688.779-0
-- Nacionalidade: Brasileiro, casado
-- Endereço: Av. Brigadeiro Luís Antônio, Nº 2696 - Centro, São Paulo/SP - CEP 01402-000
-
-#motivo_e_instrucoes
-${procuradorData.motivo || 'O usuário não forneceu instruções adicionais.'}
+MOTIVO: ${procuradorData.motivo || 'N/I'}
 
 #identidade_institucional
+WEBMARCAS INTELLIGENCE PI™ | CNPJ: 39.528.012/0001-29
 
-O documento deve ser elaborado em nome da WEBMARCAS INTELLIGENCE PI™:
-- CNPJ: 39.528.012/0001-29
-- Endereço: Av. Brigadeiro Luiz Antônio, 2696, Centro — São Paulo/SP — CEP 01402-000
-- Telefone: (11) 9 1112-0225
-- E-mail: juridico@webmarcas.net
-- Site: www.webmarcas.net
+${getAgentIdentity(agentName, agentStrategy)}
 
-#estrutura_obrigatoria
-
-═══════════════════════════════════════════════════════════
-PETIÇÃO DE ${tipoLabel}
-═══════════════════════════════════════════════════════════
-
-EXCELENTÍSSIMO SENHOR PRESIDENTE DA DIRETORIA DE MARCAS,
-PATENTES E DESENHOS INDUSTRIAIS DO INSTITUTO NACIONAL
-DA PROPRIEDADE INDUSTRIAL – INPI
-
-Processo INPI nº: [número do processo]
-Marca: [nome da marca]
-Classe NCL: [classe]
-
-I – QUALIFICAÇÃO DAS PARTES
-(Dados completos do Titular/Constituinte)
-
-II – DO OBJETO DA PETIÇÃO
-(Mínimo 300 palavras)
-${isTroca 
-  ? `- Declarar a REVOGAÇÃO dos poderes outorgados ao procurador anterior
-- Informar os dados completos do procurador revogado
-- Declarar a NOMEAÇÃO e CONSTITUIÇÃO do novo procurador
-- Informar os dados completos do novo procurador
-- Fundamentar na Lei 9.279/96 (LPI), arts. 216 e 217
-- Mencionar a Resolução INPI/PR pertinente sobre representação`
-  : `- Declarar a NOMEAÇÃO e CONSTITUIÇÃO de procurador
-- Informar os dados completos do procurador nomeado
-- Fundamentar na Lei 9.279/96 (LPI), arts. 216 e 217
-- Mencionar a Resolução INPI/PR pertinente sobre representação`
+Responda APENAS com o texto completo da petição. SEM JSON. SEM explicações. Apenas o documento jurídico.`;
 }
 
-III – DA FUNDAMENTAÇÃO LEGAL
-(Mínimo 400 palavras)
-- Art. 216 da LPI — representação por procurador
-- Art. 217 da LPI — requisitos da procuração
-- Instrução Normativa INPI pertinente
-- Manual de Marcas do INPI — seção sobre representação
-- Código Civil — arts. 653 a 692 (mandato)
-${isTroca ? '- Art. 682 do CC — extinção do mandato por revogação' : ''}
-
-IV – DA OUTORGA DE PODERES
-(Mínimo 300 palavras)
-- Poderes específicos para representar o titular perante o INPI
-- Poderes para protocolar petições, acompanhar processos, receber notificações
-- Poderes para interpor recursos administrativos
-- Poderes para praticar todos os atos necessários à defesa dos interesses do titular
-- Cláusula de substabelecimento (com ou sem reserva de poderes)
-
-V – DOS PEDIDOS
-- Seja recebida e processada a presente petição
-${isTroca 
-  ? `- Seja averbada a REVOGAÇÃO dos poderes do procurador anterior
-- Seja averbada a NOMEAÇÃO do novo procurador
-- Que todas as futuras comunicações e intimações sejam dirigidas ao novo procurador`
-  : `- Seja averbada a NOMEAÇÃO do procurador constituído
-- Que todas as futuras comunicações e intimações sejam dirigidas ao procurador nomeado`
-}
-
-#encerramento_obrigatorio
-
-Nestes termos,
-Pede e espera deferimento.
-
-São Paulo, ${currentDate}.
-
-_______________________________________
-${procuradorData.titular || '[NOME DO TITULAR]'}
-Titular/Constituinte
-${procuradorData.cpf_cnpj_titular ? `CPF/CNPJ: ${procuradorData.cpf_cnpj_titular}` : ''}
-
-${agentStrategy ? `#estrategia_especifica_do_agente
-
-IMPORTANTE: Aplique a estratégia abaixo como CAMADA ADICIONAL sobre a estrutura obrigatória.
-
-${agentStrategy}` : ''}
-
-${agentName ? `#agente_responsavel: ${agentName}` : ''}
-
-#padrao_qualidade
-
-EXIGÊNCIAS MÍNIMAS:
-1. O documento completo deve ter NO MÍNIMO 1.500 palavras
-2. Toda legislação deve ser citada com artigo, inciso e alínea exatos
-3. O texto deve ter qualidade equivalente aos melhores escritórios de PI
-4. A linguagem deve ser jurídica profissional formal
-5. O documento NÃO pode terminar abruptamente
-
-FORMATO DE RESPOSTA OBRIGATÓRIO:
-
-Responda EXCLUSIVAMENTE com um objeto JSON válido (sem markdown, sem texto antes ou depois do JSON).
-O campo "resource_content" DEVE conter o TEXTO JURÍDICO REAL E COMPLETO da petição (mínimo 1.500 palavras REAIS).
-⚠️ NÃO coloque placeholder, resumo ou frase descritiva — coloque o DOCUMENTO JURÍDICO INTEIRO com todas as seções.
-
-{
-  "extracted_data": {
-    "process_number": "${procuradorData.processo_inpi || ''}",
-    "brand_name": "${procuradorData.marca || ''}",
-    "ncl_class": "${procuradorData.ncl_class || ''}",
-    "holder": "${procuradorData.titular || ''}",
-    "examiner_or_opponent": "Davilys Danques de Oliveira Cunha",
-    "legal_basis": "Arts. 216 e 217 da Lei 9.279/96; Arts. 653 a 692 do CC"
-  },
-  "resource_content": "AQUI_INSERIR_TEXTO_REAL_COMPLETO_DA_PETICAO_TODAS_SECOES"
-}`;
-}
-
-function buildSystemPrompt(
+// ═══════════════════════════════════════════════════════════
+// TWO-PASS SYSTEM: PASS 1 — Sections I to IV
+// ═══════════════════════════════════════════════════════════
+function buildPass1SystemPrompt(
   resourceTypeLabel: string,
   currentDate: string,
-  agentStrategy?: string,
-  agentName?: string
+  agentName?: string,
+  agentStrategy?: string
 ): string {
   return `#instruction
 
-Você é um ADVOGADO ESPECIALISTA EM PROPRIEDADE INDUSTRIAL de ELITE,
-com décadas de atuação exclusiva em REGISTRO DE MARCAS NO INPI.
-Seu papel é analisar documentos oficiais do INPI e elaborar
-RECURSOS ADMINISTRATIVOS DE ALTÍSSIMO NÍVEL JURÍDICO,
-equivalentes aos produzidos pelos melhores escritórios do Brasil
-(Dannemann Siemsen, Guerra IP, David Do Nascimento).
+Você é um ADVOGADO ESPECIALISTA EM PROPRIEDADE INDUSTRIAL de ELITE.
+Você está elaborando a PRIMEIRA PARTE (Seções I a IV) de um RECURSO ADMINISTRATIVO
+de ALTÍSSIMO NÍVEL JURÍDICO, no padrão dos melhores escritórios de PI do Brasil.
 
-Você NÃO é um assistente genérico. Você é um advogado real,
-experiente, técnico, estratégico e extremamente criterioso.
-Cada recurso que você elabora deve ser APTO PARA PROTOCOLO IMEDIATO NO INPI.
-
-⚠️ REGRAS ABSOLUTAS E INVIOLÁVEIS:
+⚠️ REGRAS ABSOLUTAS:
 - JAMAIS inventar fatos, decisões ou jurisprudência
-- JAMAIS criar números de processos fictícios
 - JAMAIS simplificar ou superficializar a argumentação
-- JAMAIS produzir textos genéricos que poderiam servir para qualquer caso
-- JAMAIS alterar dados extraídos do documento enviado
-- Cada recurso DEVE ter no MÍNIMO 3.000 palavras de conteúdo substantivo
+- CADA seção DEVE ter a extensão MÍNIMA especificada
 - A argumentação deve ser DENSA, PROFUNDA e ESPECÍFICA ao caso concreto
-- NUNCA termine o recurso de forma abrupta ou incompleta
+- DESENVOLVA cada argumento em MÚLTIPLOS PARÁGRAFOS com fundamentação robusta
+- O recurso TOTAL terá entre 10 e 20 páginas — esta é a PRIMEIRA METADE
 
-#protocolo_jurisprudencia_webmarcas
+#tipo_recurso: ${resourceTypeLabel}
 
-⚠️ PROTOCOLO OBRIGATÓRIO DE USO DE JURISPRUDÊNCIA — PADRÃO WEBMARCAS ⚠️
+${LEGAL_KNOWLEDGE}
 
-REGRA 1 — PROIBIÇÃO ABSOLUTA DE JURISPRUDÊNCIA FICTÍCIA:
-- É TERMINANTEMENTE PROIBIDO inventar jurisprudência
-- É PROIBIDO adaptar trechos sem fonte real verificável
-- É PROIBIDO usar frases genéricas atribuídas a tribunais
-- É PROIBIDO citar precedentes sem confirmação jurídica da sua existência
-- Qualquer jurisprudência inventada INVALIDA toda a peça processual
+${getAgentIdentity(agentName, agentStrategy)}
 
-REGRA 2 — VALIDAÇÃO OBRIGATÓRIA ANTES DE CITAR:
-Antes de incluir QUALQUER jurisprudência no recurso, você DEVE garantir que:
-- O processo existe de fato e é real
-- O tribunal está correto (STJ, STF, TRF-2, TRF-3, etc.)
-- O número do processo está válido e completo
-- A tese jurídica corresponde ao conteúdo real da decisão
-- Se houver QUALQUER dúvida sobre a veracidade → NÃO UTILIZAR
+#estrutura_obrigatoria_parte_1
 
-REGRA 3 — FORMATO CORRETO DE CITAÇÃO:
-Sempre apresentar no padrão:
-- Tribunal — Número completo do processo — Relator (se disponível) — Síntese FIEL da tese
-- Exemplo: "STJ – REsp 1.188.105/RJ – Rel. Min. Luis Felipe Salomão, 4ª Turma – Entendimento consolidado de que marcas em segmentos diversos podem coexistir"
-
-REGRA 4 — PERTINÊNCIA AO CASO INPI:
-Só utilizar jurisprudência que tenha relação DIRETA com:
-- Direito marcário e propriedade industrial
-- Artigos da Lei 9.279/96 (LPI)
-- Uso efetivo de marca
-- Boa-fé do titular
-- Princípio da especialidade
-- EVITAR jurisprudência irrelevante ou desconectada do caso concreto
-
-REGRA 5 — HIERARQUIA DE ARGUMENTAÇÃO:
-Em recursos ao INPI, a PRIORIDADE MÁXIMA de fundamentação é:
-1º) Lei da Propriedade Industrial (Lei 9.279/96) — FUNDAMENTO PRINCIPAL
-2º) Manual de Marcas do INPI — FUNDAMENTO PRINCIPAL
-3º) Portarias e Resoluções do INPI — FUNDAMENTO COMPLEMENTAR
-4º) Doutrina especializada (Barbosa, Cerqueira, Tinoco) — REFORÇO DOUTRINÁRIO
-5º) Jurisprudência — APENAS COMO REFORÇO COMPLEMENTAR, NUNCA como argumento principal
-
-REGRA 6 — SEGURANÇA ABSOLUTA:
-Se houver QUALQUER dúvida sobre a veracidade de um precedente:
-→ NÃO UTILIZAR
-→ Substituir por fundamentação legal direta (LPI)
-→ Substituir por argumentação técnica baseada no Manual de Marcas
-→ Substituir por prova documental
-
-REGRA 7 — LISTA DE PRECEDENTES PRÉ-VALIDADOS:
-Utilize PREFERENCIALMENTE os precedentes abaixo, que são REAIS e VERIFICÁVEIS.
-Cite APENAS estes ou outros que você tenha CERTEZA ABSOLUTA da existência:
-
-#especializacao_completa
-
-Você domina INTEGRALMENTE e aplica com maestria:
-
-LEGISLAÇÃO (FUNDAMENTO PRINCIPAL — SEMPRE PRIORIZAR):
-- Lei da Propriedade Industrial (Lei nº 9.279/96) — todos os artigos relevantes
-- Convenção da União de Paris (CUP) — arts. 6bis, 6ter, 6quinquies
-- Acordo TRIPS/OMC — arts. 15 a 21
-- Protocolo de Madri (quando aplicável)
-
-DOUTRINA (REFORÇO — citar quando pertinente):
-- Denis Borges Barbosa — "Uma Introdução à Propriedade Intelectual" e "Proteção das Marcas"
-- J. da Gama Cerqueira — "Tratado da Propriedade Industrial" (obra clássica)
-- Lélio Denicoli Schmidt — "Marcas em Semiótica"
-- Carlos Alberto Bittar — "Teoria e Prática da Propriedade Industrial"
-- Tinoco Soares — "Lei de Patentes, Marcas e Direitos Conexos"
-
-NORMATIVA INPI (FUNDAMENTO PRINCIPAL — SEMPRE PRIORIZAR):
-- Manual de Marcas do INPI (Resolução INPI/PR nº 288/2023 e atualizações)
-- Diretrizes de Análise de Marcas — Capítulos sobre confusão, coexistência, especialidade
-- Classificação Internacional de Nice (12ª edição) — com detalhamento de cada classe e subclasse
-- Tabela de Retribuições vigente do INPI
-
-JURISPRUDÊNCIA PRÉ-VALIDADA (REFORÇO COMPLEMENTAR — usar com cautela):
-
-STJ — Precedentes verificados:
-- REsp 1.188.105/RJ — coexistência de marcas em segmentos diversos (Rel. Min. Luis Felipe Salomão, 4ª Turma)
-- REsp 1.315.621/SP — convivência marcária e princípio da especialidade (Rel. Min. Nancy Andrighi, 3ª Turma)
-- REsp 862.117/RJ — segmento de mercado diverso como fator de convivência (Rel. Min. Ari Pargendler)
-- REsp 1.166.498/RJ — distinção suficiente no conjunto marcário (Rel. Min. Nancy Andrighi)
-- REsp 1.095.362/SP — convivência pacífica no mercado como prova (Rel. Min. Massami Uyeda)
-- AgRg no REsp 1.346.089/RJ — impressão de conjunto vs. elementos isolados
-- AgRg no REsp 1.255.654/RJ — coexistência e não-confusão
-- REsp 1.032.014/RS — marca fraca e convivência (Rel. Min. Nancy Andrighi)
-- REsp 949.514/RJ — princípio da especialidade (Rel. Min. Fernando Gonçalves)
-- REsp 1.340.933/SP — notoriedade e diluição
-- EREsp 1.403.979/PR — trade dress e concorrência desleal
-
-TRF-2 (2ª Turma Especializada):
-- Apelação 0800858-92.2014.4.02.5101 — reforma de indeferimento por análise superficial
-- Apelação 0004389-61.2009.4.02.5101 — coexistência de marcas semelhantes em classes distintas
-- Apelação 0096695-18.2017.4.02.5101 — erro de análise comparativa do INPI
-- Agravo 0501803-49.2019.4.02.5101 — falha na fundamentação do indeferimento
-
-TRF-3:
-- Apelação 5003471-64.2019.4.03.6100 — nulidade por falta de confusão efetiva
-- Apelação 0013264-04.2011.4.03.6100 — princípio da especialidade aplicado
-
-⚠️ QUALQUER precedente fora desta lista só pode ser citado se você tiver CERTEZA ABSOLUTA de sua existência real.
-
-#tipo_recurso_atual
-TIPO: ${resourceTypeLabel}
-
-#estrutura_obrigatoria_detalhada
-
-O recurso DEVE seguir RIGOROSAMENTE esta estrutura com PROFUNDIDADE em cada seção.
-ATENÇÃO: O recurso COMPLETO deve ter NO MÍNIMO 3.000 palavras. Desenvolva CADA seção com profundidade.
+COMECE O DOCUMENTO COM:
 
 ═══════════════════════════════════════════════════════════
 RECURSO ADMINISTRATIVO – ${resourceTypeLabel}
@@ -486,99 +337,153 @@ EXCELENTÍSSIMO SENHOR PRESIDENTE DA DIRETORIA DE MARCAS,
 PATENTES E DESENHOS INDUSTRIAIS DO INSTITUTO NACIONAL
 DA PROPRIEDADE INDUSTRIAL – INPI
 
-Processo INPI nº: [número extraído]
-Marca: [nome + natureza (nominativa/mista/figurativa)]
-Classe NCL (12ª Ed.): [classe + especificação completa dos produtos/serviços]
-Titular/Requerente: [nome completo]
-Oponente: [quando identificável no documento]
+Processo INPI nº: [extraído]
+Marca: [extraído + natureza]
+Classe NCL (12ª Ed.): [extraído + especificação completa]
+Titular/Requerente: [extraído]
+Oponente/Citante: [quando identificável]
 Procurador: Davilys Danques de Oliveira Cunha – CPF 393.239.118-79
 
-══════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════
 
 I – SÍNTESE DOS FATOS E DO HISTÓRICO PROCESSUAL
-(Mínimo 400 palavras)
-- Narrar cronologicamente TODO o histórico do processo
-- Explicar detalhadamente o que ocorreu com base EXCLUSIVA no PDF
-- Identificar o fundamento legal utilizado pelo INPI (artigo, inciso, alínea)
-- Contextualizar a decisão dentro do panorama administrativo do INPI
-- Demonstrar compreensão completa do caso concreto
-- Transcrever trechos relevantes do despacho do INPI quando possível
+(MÍNIMO 800 palavras — NÃO ENCURTE)
+- Narrar CRONOLOGICAMENTE todo o histórico do processo em detalhes minuciosos
+- Transcrever trechos relevantes do despacho/decisão do INPI
+- Explicar detalhadamente o fundamento usado pelo INPI (artigo, inciso, alínea)
+- Contextualizar a decisão no panorama administrativo do INPI
+- Identificar TODOS os fatos relevantes do caso
+- Descrever a marca, seu significado, sua origem e sua importância para o titular
+- Narrar tentativas anteriores de registro se houver
+- Detalhar a especificação de produtos/serviços
 
 II – DA TEMPESTIVIDADE E LEGITIMIDADE
-(100-200 palavras)
-- Demonstrar que o recurso é tempestivo (prazo de 60 dias - art. 212 LPI)
-- Confirmar a legitimidade do recorrente
-- Citar o art. 212 e parágrafos da Lei 9.279/96
-- Mencionar o recolhimento da retribuição federal (GRU código 271)
+(MÍNIMO 300 palavras)
+- Demonstrar tempestividade (prazo art. 212 LPI)
+- Confirmar legitimidade do recorrente com citação legal completa
+- Citar art. 212 e parágrafos da Lei 9.279/96 com transcrição do dispositivo
+- Mencionar recolhimento da GRU código 271
+- Demonstrar capacidade postulatória do procurador constituído
+- Citar a IN INPI aplicável sobre representação
 
 III – FUNDAMENTAÇÃO JURÍDICA APROFUNDADA
-(Mínimo 600 palavras)
-- Analisar DETALHADAMENTE cada fundamento utilizado pelo INPI na decisão
+(MÍNIMO 1.500 palavras — SEÇÃO MAIS IMPORTANTE — DESENVOLVA EXTENSIVAMENTE)
+- Analisar DETALHADAMENTE CADA fundamento utilizado pelo INPI na decisão
 - Demonstrar com precisão POR QUE a decisão está equivocada
-- Citar TEXTUALMENTE os artigos da LPI aplicáveis (transcrever o dispositivo legal)
-- Aplicar a doutrina de Denis Borges Barbosa, Gama Cerqueira e Tinoco Soares
-- Demonstrar que a interpretação do INPI é restritiva ou equivocada
-- Analisar CADA inciso do art. 124 que o INPI invocou e REFUTAR com argumentos sólidos
+- Transcrever TEXTUALMENTE cada artigo da LPI aplicável com análise de cada inciso
+- Aplicar doutrina de Denis Borges Barbosa com citação de obra e páginas
+- Aplicar doutrina de J. da Gama Cerqueira com citação específica
+- Aplicar Tinoco Soares quando pertinente
 - Demonstrar como o Manual de Marcas do INPI fundamenta a tese do recurso
-- Citar páginas e capítulos específicos do Manual de Marcas
+- Citar capítulos e seções específicos do Manual de Marcas (5.10, 5.11, etc.)
+- Analisar CADA inciso do art. 124 invocado pelo INPI e REFUTAR com argumentos sólidos
+- Desenvolver sub-argumentos em parágrafos densos
+- Fazer análise comparativa com casos análogos deferidos pelo INPI
+- Demonstrar que a interpretação do INPI é restritiva ou contra a própria normativa
 
 IV – ANÁLISE TÉCNICA DO CONJUNTO MARCÁRIO
-(Mínimo 500 palavras)
-- Aplicar o critério de "IMPRESSÃO DE CONJUNTO" (não comparação elemento a elemento)
-- Análise FONÉTICA detalhada: pronúncia, número de sílabas, sonoridade, acento tônico, cadência
-- Análise VISUAL detalhada: grafismo, tipografia, elementos figurativos, cores, disposição espacial
-- Análise IDEOLÓGICA/CONCEITUAL: significado semântico, campo conceitual, associação mental, evocação
-- Análise de MERCADO: segmentos diferentes, canais de venda, público-alvo, faixa de preço
-- Referenciar o Manual de Marcas do INPI sobre critérios de confusão (Capítulo 5, Seção 5.10 e seguintes)
-- Aplicar a "Teoria da Distância" (Abstandslehre) conforme doutrina e jurisprudência
-- Quando aplicável, análise de TRADE DRESS (art. 124, XIX da LPI)
-- Tabela comparativa: coluna 1 = marca do requerente, coluna 2 = marca citada, demonstrando diferenças
+(MÍNIMO 1.200 palavras — DESENVOLVA EXTENSIVAMENTE)
+- IMPRESSÃO DE CONJUNTO: fundamentar com Manual de Marcas INPI (Cap. 5, Seção 5.10.1)
+- ANÁLISE FONÉTICA DETALHADA: pronúncia sílaba a sílaba, número de sílabas, tonicidade, sonoridade, cadência rítmica, comparação fonema por fonema
+- ANÁLISE VISUAL DETALHADA: grafismo, tipografia, elementos figurativos, cores, disposição espacial, peso visual, estilização
+- ANÁLISE IDEOLÓGICA/CONCEITUAL: significado semântico, campo conceitual, associação mental, evocação, origem etimológica, referência cultural
+- ANÁLISE DE MERCADO: segmentos diferentes, canais de venda distintos, público-alvo diferenciado, faixa de preço, forma de comercialização
+- Teoria da Distância (Abstandslehre) aplicada ao caso
+- TABELA COMPARATIVA detalhada: coluna marca requerente vs. marca citada com análise ponto a ponto
+- Conclusão parcial demonstrando distinção suficiente
+
+⚠️ RESPONDA APENAS com o texto jurídico completo das Seções I a IV. SEM JSON. SEM explicações. SEM markdown. Apenas o texto jurídico profissional.
+⚠️ NÃO termine com "continuação na próxima parte" ou similar — termine a Seção IV normalmente.
+⚠️ O texto desta parte deve ter NO MÍNIMO 3.800 palavras.`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// TWO-PASS SYSTEM: PASS 2 — Sections V to VIII + closing
+// ═══════════════════════════════════════════════════════════
+function buildPass2SystemPrompt(
+  resourceTypeLabel: string,
+  currentDate: string,
+  agentName?: string,
+  agentStrategy?: string
+): string {
+  return `#instruction
+
+Você é um ADVOGADO ESPECIALISTA EM PROPRIEDADE INDUSTRIAL de ELITE.
+Você está elaborando a SEGUNDA PARTE (Seções V a VIII + encerramento) de um RECURSO ADMINISTRATIVO
+de ALTÍSSIMO NÍVEL JURÍDICO, no padrão dos melhores escritórios de PI do Brasil.
+
+O usuário já gerou as Seções I a IV. Agora você deve continuar com as Seções V a VIII + encerramento.
+
+⚠️ REGRAS ABSOLUTAS:
+- JAMAIS inventar fatos, decisões ou jurisprudência
+- JAMAIS simplificar a argumentação — cada seção deve ser EXTENSA e DENSA
+- MANTENHA o mesmo tom, estilo e nível de profundidade da Parte 1
+- USE os dados do caso (marca, processo, classe, titular) conforme apresentados na Parte 1
+- CADA seção DEVE ter a extensão MÍNIMA especificada
+
+#tipo_recurso: ${resourceTypeLabel}
+
+${LEGAL_KNOWLEDGE}
+
+${getAgentIdentity(agentName, agentStrategy)}
+
+#estrutura_obrigatoria_parte_2
+
+CONTINUE DIRETAMENTE com a Seção V (sem repetir cabeçalho):
 
 V – DA INEXISTÊNCIA DE CONFUSÃO OU ASSOCIAÇÃO INDEVIDA
-(Mínimo 400 palavras)
+(MÍNIMO 1.000 palavras — DESENVOLVA EXTENSIVAMENTE)
 - Demonstrar TECNICAMENTE que não há risco de confusão para o consumidor
-- Aplicar a "Teoria da Distância" — demonstrar que a distância entre as marcas é suficiente
-- Demonstrar a diferenciação do público consumidor (consumidor médio vs. especializado)
+- Aplicar a Teoria da Distância com profundidade — demonstrar distância suficiente
+- Diferenciar o público consumidor (médio vs. especializado) com detalhamento
 - Citar exemplos concretos de convivência no mercado (se aplicável)
-- Demonstrar que o consumidor do segmento é capaz de distinguir as marcas
-- Aplicar o "teste do consumidor distraído" conforme a jurisprudência do STJ
-- Analisar a força distintiva dos elementos em cotejo (elemento fraco vs. elemento dominante)
+- Aplicar o "teste do consumidor distraído" conforme jurisprudência do STJ
+- Analisar a força distintiva dos elementos em cotejo (fraco vs. dominante)
 - Demonstrar que elementos comuns são de uso corrente/genérico e não geram exclusividade
+- Discutir o conceito de "marca fraca" e suas implicações (REsp 1.032.014/RS)
+- Analisar se há possibilidade de diluição ou parasitismo — e refutar
+- Demonstrar a convivência pacífica em outros registros do INPI
+- Invocar o princípio da especialidade com análise detalhada das classes NCL
 
-VI – DOS PRECEDENTES E JURISPRUDÊNCIA APLICÁVEL
-(Mínimo 500 palavras — APENAS COMO REFORÇO COMPLEMENTAR)
-⚠️ ATENÇÃO: Jurisprudência é REFORÇO, não argumento principal. A fundamentação principal DEVE ser legal (LPI) e normativa (Manual INPI).
-- Citar APENAS precedentes da LISTA PRÉ-VALIDADA ou que você tenha CERTEZA ABSOLUTA da existência
-- Se não tiver certeza de um precedente → NÃO CITAR → substituir por fundamentação legal/técnica
-- Cada precedente DEVE ter: tribunal, número completo, relator, síntese FIEL da tese
-- Explicar POR QUE cada precedente se aplica ao caso concreto
-- Organizar precedentes por TESE: separar por argumento (especialidade, conjunto marcário, convivência)
-- NUNCA inventar número de processo, relator ou ementa
-- NUNCA atribuir teses a tribunais sem confirmação
-- Se a seção ficar curta por falta de precedentes verificáveis, COMPENSAR com argumentação legal e doutrinária mais densa
+VI – DOS PRECEDENTES, DOUTRINA E JURISPRUDÊNCIA APLICÁVEL
+(MÍNIMO 1.200 palavras — DESENVOLVA COM MÁXIMA PROFUNDIDADE)
+⚠️ JURISPRUDÊNCIA É REFORÇO COMPLEMENTAR — fundamentação principal é LPI + Manual INPI
+- Citar APENAS precedentes da LISTA PRÉ-VALIDADA ou que tenha CERTEZA ABSOLUTA
+- Para CADA precedente citado: tribunal, número completo, relator, síntese FIEL da tese, e explicação de POR QUE se aplica ao caso
+- Organizar por TESE: especialidade, conjunto marcário, convivência, boa-fé, marca fraca
+- Desenvolver análise doutrinária APROFUNDADA:
+  * Denis Borges Barbosa: teoria da marca fraca, princípio da especialidade, limites da exclusividade
+  * Gama Cerqueira: registro e proteção, critérios de confusão
+  * Tinoco Soares: análise comparativa de marcas
+- Citar e transcrever trechos relevantes das obras doutrinárias
+- Análise de direito comparado: como EUIPO e USPTO tratam casos similares
+- Concluir demonstrando que a jurisprudência e doutrina CONVERGEM para o deferimento
 
 VII – DA CONCLUSÃO E DEMONSTRAÇÃO DE REGISTRABILIDADE
-(Mínimo 300 palavras)
-- Sintetizar TODOS os argumentos apresentados de forma coesa
-- Demonstrar de forma objetiva e conclusiva a registrabilidade da marca
-- Reforçar que o indeferimento/exigência é injusto e contrário à lei e jurisprudência
-- Demonstrar o prejuízo causado ao titular pelo indeferimento
-- Invocar os princípios da razoabilidade e proporcionalidade
-- Mencionar o direito fundamental à livre iniciativa (art. 170, CF/88)
+(MÍNIMO 800 palavras)
+- Sintetizar TODOS os argumentos das 6 seções anteriores
+- Demonstrar OBJETIVAMENTE a registrabilidade da marca em lista numerada
+- Reforçar que o indeferimento/exigência é contrário à lei, doutrina e jurisprudência
+- Demonstrar o PREJUÍZO causado ao titular pelo indeferimento
+- Invocar princípios da RAZOABILIDADE e PROPORCIONALIDADE (art. 5º, LIV, CF)
+- Invocar LIVRE INICIATIVA (art. 170, CF/88)
+- Demonstrar que o INPI, em casos análogos, deferiu marcas com semelhança igual ou maior
+- Conclusão enfática pela reforma da decisão
 
 VIII – DOS PEDIDOS
-(200-300 palavras — pedidos ESPECÍFICOS e juridicamente adequados)
+(MÍNIMO 400 palavras — pedidos ESPECÍFICOS e detalhados)
 
 Ante o exposto, requer:
 
-a) Seja CONHECIDO o presente recurso administrativo, por tempestivo e regular;
-b) No mérito, seja PROVIDO o recurso, para REFORMAR integralmente a decisão recorrida;
-c) Seja DEFERIDO o registro da marca [NOME DA MARCA EXTRAÍDA] na classe NCL [CLASSE EXTRAÍDA], conforme especificação originalmente requerida;
-d) Subsidiariamente, caso assim não se entenda, seja a marca deferida com limitação de especificação aos produtos/serviços diretamente vinculados à atividade comprovada do titular;
-e) Ainda subsidiariamente, seja determinada a CONVERSÃO DO JULGAMENTO EM DILIGÊNCIA para melhor instrução do feito;
-f) Seja determinada a publicação do deferimento na Revista da Propriedade Industrial (RPI);
+a) Seja CONHECIDO o presente recurso administrativo, por tempestivo e regular, conforme art. 212 e parágrafos da Lei nº 9.279/96;
+b) No mérito, seja PROVIDO o recurso, para REFORMAR integralmente a decisão recorrida de [descrever a decisão], publicada na RPI nº [se identificável];
+c) Seja DEFERIDO o registro da marca [NOME DA MARCA] na classe NCL [CLASSE] — [ESPECIFICAÇÃO COMPLETA DOS PRODUTOS/SERVIÇOS], conforme especificação originalmente requerida;
+d) Subsidiariamente, caso assim não se entenda, seja a marca deferida com limitação de especificação aos produtos/serviços diretamente vinculados à atividade do titular, nos termos do art. 128, §1º da LPI;
+e) Ainda subsidiariamente, seja determinada a CONVERSÃO DO JULGAMENTO EM DILIGÊNCIA para melhor instrução do feito, nos termos do art. 220 da LPI;
+f) Seja determinada a publicação do deferimento na Revista da Propriedade Industrial (RPI), para fins de oposição tempestiva;
+g) Sejam considerados todos os documentos e provas juntados a este recurso como parte integrante da fundamentação;
 
-Protesta provar o alegado por todos os meios de prova em direito admitidos.
+Protesta provar o alegado por todos os meios de prova em direito admitidos, especialmente documental e pericial.
 
 #encerramento_obrigatorio
 
@@ -592,58 +497,28 @@ Davilys Danques de Oliveira Cunha
 Procurador(a) Constituído(a)
 CPF: 393.239.118-79
 
-${agentStrategy ? `#estrategia_especifica_do_agente
+⚠️ RESPONDA APENAS com o texto jurídico das Seções V a VIII + encerramento. SEM JSON. SEM explicações. SEM markdown. Apenas o texto jurídico profissional.
+⚠️ O texto desta parte deve ter NO MÍNIMO 3.400 palavras.`;
+}
 
-IMPORTANTE: Aplique a estratégia abaixo como CAMADA ADICIONAL sobre a estrutura obrigatória.
-A estratégia do agente deve ENRIQUECER e APROFUNDAR o recurso, não substituir seções.
-Use esta estratégia para dar um TOM e ABORDAGEM específicos a cada seção.
-
-${agentStrategy}` : ''}
-
-${agentName ? `#agente_responsavel: ${agentName}` : ''}
-
-#padrao_qualidade_elite
-
-EXIGÊNCIAS MÍNIMAS DE QUALIDADE — VERIFICAÇÃO OBRIGATÓRIA:
-1. O recurso completo deve ter NO MÍNIMO 3.000 palavras — NÃO ENCURTE
-2. Cada seção deve ter a extensão mínima especificada — RESPEITE os mínimos
-3. A argumentação deve ser ESPECÍFICA ao caso concreto — NUNCA genérica
-4. FUNDAMENTAÇÃO PRINCIPAL = LPI + Manual de Marcas + Resoluções INPI
-5. Jurisprudência = APENAS reforço complementar, NUNCA argumento central
-6. Toda jurisprudência citada DEVE ser da LISTA PRÉ-VALIDADA ou de existência COMPROVADA
-7. Se houver DÚVIDA sobre um precedente → NÃO CITAR → usar fundamentação legal
-8. Toda legislação deve ser citada com artigo, inciso e alínea exatos
-9. O texto deve ter qualidade equivalente aos melhores escritórios de PI do Brasil
-10. A linguagem deve ser jurídica profissional formal, sem simplificações
-11. CADA argumento deve ser desenvolvido em no mínimo 2-3 parágrafos densos
-12. O recurso NÃO pode terminar abruptamente — deve ter TODAS as 8 seções completas
-13. A credibilidade do recurso depende da VERACIDADE JURÍDICA — uma jurisprudência incorreta COMPROMETE toda a peça
-
-FORMATO DE RESPOSTA OBRIGATÓRIO:
-
-Responda EXCLUSIVAMENTE com um objeto JSON válido (sem markdown, sem texto antes ou depois do JSON).
-O campo "resource_content" DEVE conter o TEXTO JURÍDICO REAL E COMPLETO do recurso administrativo (mínimo 3.000 palavras REAIS).
-⚠️ ATENÇÃO CRÍTICA: 
-- NÃO coloque placeholder, resumo ou frase descritiva
-- NÃO copie exemplos do prompt — escreva o recurso REAL baseado no documento analisado
-- PREENCHA todos os dados concretos (nome da marca, número do processo, classe, titular) extraídos do documento
-- NÃO deixe colchetes [] no texto final — substitua por dados reais do caso
-- Se o campo resource_content tiver menos de 2.500 palavras REAIS, sua resposta será REJEITADA automaticamente
-- O recurso deve começar com o subtítulo "RECURSO ADMINISTRATIVO – [TIPO]" seguido de "MARCA: [NOME]" e depois "EXCELENTÍSSIMO SENHOR..."
-
+// ═══════════════════════════════════════════════════════════
+// EXTRACT DATA PROMPT (quick extraction call)
+// ═══════════════════════════════════════════════════════════
+function buildExtractionPrompt(): string {
+  return `Extraia os seguintes dados do documento INPI anexado. Responda APENAS com JSON válido:
 {
-  "extracted_data": {
-    "process_number": "preencher com número real extraído",
-    "brand_name": "preencher com nome real da marca",
-    "ncl_class": "preencher com classe NCL real e descrição",
-    "holder": "preencher com nome completo do titular",
-    "examiner_or_opponent": "preencher com oponente/examinador identificado",
-    "legal_basis": "preencher com fundamento legal usado pelo INPI"
-  },
-  "resource_content": "O texto jurídico completo do recurso com todas as 8 seções (I a VIII) integralmente desenvolvidas vai aqui. Deve começar com o subtítulo do recurso e terminar com os pedidos. Mínimo 3.000 palavras."
+  "process_number": "número do processo INPI",
+  "brand_name": "nome da marca",
+  "ncl_class": "classe NCL com descrição",
+  "holder": "nome do titular/requerente",
+  "examiner_or_opponent": "oponente ou examinador identificado",
+  "legal_basis": "fundamento legal usado pelo INPI na decisão"
 }`;
 }
 
+// ═══════════════════════════════════════════════════════════
+// MAIN HANDLER
+// ═══════════════════════════════════════════════════════════
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -666,7 +541,6 @@ serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '');
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    
     if (userError || !userData?.user) {
       return new Response(
         JSON.stringify({ error: 'Não autorizado' }),
@@ -705,371 +579,210 @@ serve(async (req) => {
     }
 
     const currentDate = new Date().toLocaleDateString('pt-BR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
+      day: 'numeric', month: 'long', year: 'numeric'
     });
 
-    let systemPrompt: string;
-    const userContent: any[] = [];
-
+    // ═════════════════════════════════════════════════════
+    // NOTIFICAÇÃO EXTRAJUDICIAL FLOW (single pass)
+    // ═════════════════════════════════════════════════════
     if (resourceType === 'notificacao_extrajudicial') {
-      // Notificação Extrajudicial flow
       const { notificanteData, notificadoData, userInstructions, files } = body;
-
-      systemPrompt = buildNotificacaoPrompt(
-        currentDate,
-        notificanteData || {},
-        notificadoData || {},
-        userInstructions || '',
-        agentStrategy,
-        agentName
-      );
-
-      let textInstruction = "Elabore a NOTIFICAÇÃO EXTRAJUDICIAL COMPLETA, EXTENSA e JURIDICAMENTE ROBUSTA conforme as instruções. O documento deve ter no MÍNIMO 2.000 palavras, seguindo rigorosamente TODAS as seções obrigatórias. NÃO simplifique, NÃO encurte. Cada argumento deve ser desenvolvido com profundidade jurídica real.";
-
-      if (files && files.length > 0) {
-        textInstruction += `\n\nO usuário anexou ${files.length} documento(s) de prova. Analise-os para enriquecer a narrativa dos fatos.`;
-      }
-
-      userContent.push({ type: "text", text: textInstruction });
-
-      // Add attached files
+      const systemPrompt = buildNotificacaoPrompt(currentDate, notificanteData || {}, notificadoData || {}, userInstructions || '', agentStrategy, agentName);
+      
+      const userContent: any[] = [{ type: 'text', text: 'Elabore a NOTIFICAÇÃO EXTRAJUDICIAL COMPLETA com no mínimo 4.000 palavras (10+ páginas).' }];
       if (files && Array.isArray(files)) {
         for (const file of files) {
           if (file.type === 'application/pdf') {
-            userContent.push({
-              type: "file",
-              file: {
-                filename: file.name || "documento.pdf",
-                file_data: `data:application/pdf;base64,${file.base64}`
-              }
-            });
+            userContent.push({ type: 'file', file: { filename: file.name || 'doc.pdf', file_data: `data:application/pdf;base64,${file.base64}` } });
           } else if (file.type?.startsWith('image/')) {
-            userContent.push({
-              type: "image_url",
-              image_url: {
-                url: `data:${file.type};base64,${file.base64}`
-              }
-            });
+            userContent.push({ type: 'image_url', image_url: { url: `data:${file.type};base64,${file.base64}` } });
           }
         }
       }
-    } else if (resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador') {
-      // Procurador flow
+
+      const parts = convertToResponsesFormat(userContent);
+      const result = await callOpenAI(OPENAI_API_KEY, systemPrompt, parts, 16000, 0.25);
+      if (result.error) {
+        return new Response(JSON.stringify({ error: `Erro IA: ${result.status}` }), { status: result.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      
+      const finalContent = cleanAIContent(result.content);
+      if (finalContent.length < 500) {
+        return new Response(JSON.stringify({ error: 'Conteúdo incompleto. Tente novamente.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        extracted_data: {},
+        resource_content: finalContent,
+        resource_type: resourceType,
+        resource_type_label: RESOURCE_TYPE_LABELS[resourceType]
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ═════════════════════════════════════════════════════
+    // PROCURADOR FLOW (single pass)
+    // ═════════════════════════════════════════════════════
+    if (resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador') {
       const { procuradorData, files } = body;
-
-      systemPrompt = buildProcuradorPrompt(
-        currentDate,
-        procuradorData || {},
-        resourceType,
-        agentStrategy,
-        agentName
-      );
-
-      const tipoLabel = resourceType === 'troca_procurador' ? 'TROCA DE PROCURADOR' : 'NOMEAÇÃO DE PROCURADOR';
-      let textInstruction = `Elabore a PETIÇÃO DE ${tipoLabel} COMPLETA e JURIDICAMENTE ROBUSTA conforme as instruções. O documento deve ter no MÍNIMO 1.500 palavras, seguindo rigorosamente TODAS as seções obrigatórias. NÃO simplifique, NÃO encurte.`;
-
-      if (files && files.length > 0) {
-        textInstruction += `\n\nO usuário anexou ${files.length} documento(s). Analise-os para enriquecer a petição.`;
-      }
-
-      userContent.push({ type: "text", text: textInstruction });
-
+      const systemPrompt = buildProcuradorPrompt(currentDate, procuradorData || {}, resourceType, agentStrategy, agentName);
+      
+      const userContent: any[] = [{ type: 'text', text: 'Elabore a PETIÇÃO COMPLETA.' }];
       if (files && Array.isArray(files)) {
         for (const file of files) {
           if (file.type === 'application/pdf') {
-            userContent.push({
-              type: "file",
-              file: {
-                filename: file.name || "documento.pdf",
-                file_data: `data:application/pdf;base64,${file.base64}`
-              }
-            });
+            userContent.push({ type: 'file', file: { filename: file.name || 'doc.pdf', file_data: `data:application/pdf;base64,${file.base64}` } });
           } else if (file.type?.startsWith('image/')) {
-            userContent.push({
-              type: "image_url",
-              image_url: {
-                url: `data:${file.type};base64,${file.base64}`
-              }
-            });
+            userContent.push({ type: 'image_url', image_url: { url: `data:${file.type};base64,${file.base64}` } });
           }
         }
       }
-    } else {
-      // Standard INPI resource flow - supports multiple files
-      const { fileBase64, fileType, files: multiFiles } = body;
 
-      const resourceTypeLabel = RESOURCE_TYPE_LABELS[resourceType] || 'RECURSO ADMINISTRATIVO';
-      systemPrompt = buildSystemPrompt(resourceTypeLabel, currentDate, agentStrategy, agentName);
-
-      const fileCount = multiFiles ? multiFiles.length : (fileBase64 ? 1 : 0);
-      
-      userContent.push({
-        type: "text",
-        text: `INSTRUÇÃO CRÍTICA: Analise ${fileCount > 1 ? `os ${fileCount} documentos anexados` : 'o documento PDF anexado'} do INPI e elabore o recurso administrativo COMPLETO, EXTENSO e ROBUSTO conforme as instruções.
-
-REQUISITOS OBRIGATÓRIOS DE EXTENSÃO:
-- O recurso COMPLETO deve ter NO MÍNIMO 3.000 palavras de conteúdo jurídico real
-- TODAS as 8 seções (I a VIII) devem ser desenvolvidas INTEGRALMENTE com a extensão mínima de cada uma
-- Seção I (Síntese): mínimo 400 palavras com cronologia detalhada
-- Seção III (Fundamentação): mínimo 600 palavras com citação textual de artigos
-- Seção IV (Análise Técnica): mínimo 500 palavras com análise fonética, visual e conceitual
-- Seção V (Inexistência de Confusão): mínimo 400 palavras
-- Seção VI (Precedentes): mínimo 500 palavras com precedentes da lista pré-validada
-- Seção VIII (Pedidos): usar formato de letras (a, b, c, d, e, f) com pedidos ESPECÍFICOS preenchidos para o caso concreto
-
-PROIBIÇÕES ABSOLUTAS:
-- NÃO simplifique ou encurte NENHUMA seção
-- NÃO deixe placeholders como "[especificação limitada quando aplicável]" — preencha com dados reais do caso
-- NÃO produza texto genérico — cada argumento deve ser ESPECÍFICO ao caso concreto
-- NÃO termine abruptamente — desenvolva CADA argumento em múltiplos parágrafos densos
-- O campo resource_content do JSON deve conter o DOCUMENTO INTEIRO, não um resumo
-
-${fileCount > 1 ? 'Analise TODOS os documentos em conjunto para uma defesa mais robusta e detalhada.' : ''}`
-      });
-
-      if (multiFiles && multiFiles.length > 0) {
-        // Multiple files flow
-        for (const file of multiFiles) {
-          if (file.type === 'application/pdf') {
-            userContent.push({
-              type: "file",
-              file: {
-                filename: file.name || "documento_inpi.pdf",
-                file_data: `data:application/pdf;base64,${file.base64}`
-              }
-            });
-          } else {
-            userContent.push({
-              type: "image_url",
-              image_url: {
-                url: `data:${file.type};base64,${file.base64}`
-              }
-            });
-          }
-        }
-      } else if (fileBase64 && fileType) {
-        // Legacy single file flow (backward compatibility)
-        if (fileType === 'application/pdf') {
-          userContent.push({
-            type: "file",
-            file: {
-              filename: "documento_inpi.pdf",
-              file_data: `data:application/pdf;base64,${fileBase64}`
-            }
-          });
-        } else {
-          userContent.push({
-            type: "image_url",
-            image_url: {
-              url: `data:${fileType};base64,${fileBase64}`
-            }
-          });
-        }
-      } else {
-        return new Response(
-          JSON.stringify({ error: 'Nenhum arquivo fornecido' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
-    console.log('Calling AI with prompt for:', resourceType, ', agent:', agentName || 'default');
-
-    // Use OpenAI Responses API (native PDF support) for INPI resource generation
-    const aiKey = OPENAI_API_KEY;
-    const aiModel = 'gpt-4o-2024-11-20';
-
-    // Build input for OpenAI Responses API
-    const inputMessages: any[] = [
-      { role: 'system', content: systemPrompt },
-    ];
-
-    // Convert userContent to Responses API format
-    const userParts: any[] = [];
-    for (const part of userContent) {
-      if (part.type === 'text') {
-        userParts.push({ type: 'input_text', text: part.text });
-      } else if (part.type === 'file') {
-        userParts.push({
-          type: 'input_file',
-          filename: part.file.filename,
-          file_data: part.file.file_data,
-        });
-      } else if (part.type === 'image_url') {
-        userParts.push({
-          type: 'input_image',
-          image_url: part.image_url.url,
-          detail: 'high',
-        });
-      }
-    }
-
-    inputMessages.push({ role: 'user', content: userParts });
-
-    console.log('Calling OpenAI Responses API for:', resourceType, ', agent:', agentName || 'default', ', parts:', userParts.length);
-
-    const aiResponse = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${aiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: aiModel,
-        input: inputMessages,
-        max_output_tokens: 16000,
-        temperature: 0.25,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('OpenAI Responses API error:', aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns minutos.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Créditos insuficientes. Adicione créditos à sua conta.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      const parts = convertToResponsesFormat(userContent);
+      const result = await callOpenAI(OPENAI_API_KEY, systemPrompt, parts, 16000, 0.25);
+      if (result.error) {
+        return new Response(JSON.stringify({ error: `Erro IA: ${result.status}` }), { status: result.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       
-      return new Response(
-        JSON.stringify({ error: `Erro ao processar documento com IA: ${aiResponse.status}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const finalContent = cleanAIContent(result.content);
+      return new Response(JSON.stringify({
+        success: true,
+        extracted_data: {},
+        resource_content: finalContent,
+        resource_type: resourceType,
+        resource_type_label: RESOURCE_TYPE_LABELS[resourceType]
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const aiData = await aiResponse.json();
-    console.log('OpenAI response status:', aiData.status, ', output items:', aiData.output?.length);
-    
-    // Extract content from Responses API format
-    let content = '';
-    if (aiData.output && Array.isArray(aiData.output)) {
-      for (const outputItem of aiData.output) {
-        if (outputItem.type === 'message' && outputItem.content) {
-          for (const contentPart of outputItem.content) {
-            if (contentPart.type === 'output_text') {
-              content += contentPart.text;
-            }
-          }
-        }
-      }
-    }
-
-    if (!content) {
-      console.error('Empty AI response. Full response:', JSON.stringify(aiData).substring(0, 1000));
-      return new Response(
-        JSON.stringify({ error: 'Resposta vazia da IA. Tente novamente.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('AI response received, length:', content.length, 'chars');
-
-    let parsedResult;
-    try {
-      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || 
-                       content.match(/```\s*([\s\S]*?)\s*```/) ||
-                       [null, content];
-      const jsonStr = jsonMatch[1] || content;
-      parsedResult = JSON.parse(jsonStr.trim());
-    } catch (parseError) {
-      console.log('Could not parse JSON, cleaning raw content');
-      
-      // Strip introductory/explanatory text that the AI sometimes adds before the actual resource
-      let cleanedContent = content;
-      
-      // Remove introductory paragraphs before the actual resource starts
-      const resourceStartPatterns = [
-        /RECURSO ADMINISTRATIVO/,
-        /EXCELENTÍSSIMO SENHOR/,
-        /NOTIFICAÇÃO EXTRAJUDICIAL/,
-        /PETIÇÃO DE/,
-        /MANIFESTAÇÃO/,
-      ];
-      
-      for (const pattern of resourceStartPatterns) {
-        const match = cleanedContent.match(pattern);
-        if (match && match.index && match.index > 0) {
-          // Check if there's unwanted intro text before the resource
-          const beforeResource = cleanedContent.substring(0, match.index);
-          // If the text before contains typical AI intro patterns, strip it
-          if (/para elaborar|extraímos|abaixo|apresento|análise detalhada|dados extraídos|informações necessárias/i.test(beforeResource)) {
-            cleanedContent = cleanedContent.substring(match.index);
-          }
-          break;
-        }
-      }
-      
-      // Remove embedded JSON/code blocks (extracted data dumps)
-      cleanedContent = cleanedContent.replace(/```json[\s\S]*?```/g, '');
-      cleanedContent = cleanedContent.replace(/```plaintext/g, '');
-      cleanedContent = cleanedContent.replace(/```/g, '');
-      
-      // Remove "Dados Extraídos" section headers and their JSON content
-      cleanedContent = cleanedContent.replace(/Dados Extraídos\s*\{[\s\S]*?\}\s*\}/g, '');
-      cleanedContent = cleanedContent.replace(/\{\s*"extracted_?data"[\s\S]*?\}\s*\}/g, '');
-      
-      // Clean up multiple blank lines
-      cleanedContent = cleanedContent.replace(/\n{3,}/g, '\n\n').trim();
-      
-      // Try to extract extracted_data from the raw content if JSON blocks exist
-      let extractedData = {
-        process_number: '',
-        brand_name: '',
-        ncl_class: '',
-        holder: '',
-        examiner_or_opponent: '',
-        legal_basis: ''
-      };
-      
-      try {
-        const dataMatch = content.match(/\{\s*"extracted_?data"\s*:\s*(\{[\s\S]*?\})\s*\}/);
-        if (dataMatch) {
-          const innerJson = JSON.parse(`{"extracted_data":${dataMatch[1]}}`);
-          extractedData = innerJson.extracted_data || extractedData;
-        }
-      } catch {}
-      
-      parsedResult = {
-        extracted_data: extractedData,
-        resource_content: cleanedContent
-      };
-    }
-
+    // ═════════════════════════════════════════════════════
+    // STANDARD INPI RESOURCE FLOW — TWO-PASS GENERATION
+    // (indeferimento, exigencia_merito, oposicao)
+    // ═════════════════════════════════════════════════════
+    const { fileBase64, fileType, files: multiFiles } = body;
     const resourceTypeLabel = RESOURCE_TYPE_LABELS[resourceType] || 'RECURSO ADMINISTRATIVO';
 
-    // Validate that the AI didn't return placeholder text
-    let finalContent = parsedResult.resource_content || content;
-    const placeholderPatterns = [
-      /^CONTEÚDO COMPLETO/i,
-      /^AQUI_INSERIR/i,
-      /^AQUI VOCÊ DEVE/i,
-      /TODAS AS \d+ SEÇÕES DESENVOLVIDAS/i,
-      /texto extenso, profundo e formatado/i,
-    ];
-    const isPlaceholder = placeholderPatterns.some(p => p.test(finalContent.trim()));
-    if (isPlaceholder || finalContent.trim().length < 500) {
-      console.error('AI returned placeholder or too-short content, length:', finalContent.length);
-      return new Response(
-        JSON.stringify({ error: 'A IA retornou um conteúdo incompleto. Por favor, tente novamente com o mesmo documento.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Build file parts for all calls
+    const fileParts: any[] = [];
+    if (multiFiles && multiFiles.length > 0) {
+      for (const file of multiFiles) {
+        if (file.type === 'application/pdf') {
+          fileParts.push({ type: 'file', file: { filename: file.name || 'doc.pdf', file_data: `data:application/pdf;base64,${file.base64}` } });
+        } else {
+          fileParts.push({ type: 'image_url', image_url: { url: `data:${file.type};base64,${file.base64}` } });
+        }
+      }
+    } else if (fileBase64 && fileType) {
+      if (fileType === 'application/pdf') {
+        fileParts.push({ type: 'file', file: { filename: 'documento_inpi.pdf', file_data: `data:application/pdf;base64,${fileBase64}` } });
+      } else {
+        fileParts.push({ type: 'image_url', image_url: { url: `data:${fileType};base64,${fileBase64}` } });
+      }
+    } else {
+      return new Response(JSON.stringify({ error: 'Nenhum arquivo fornecido' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
+
+    const fileResponseParts = convertToResponsesFormat(fileParts);
+
+    console.log('=== TWO-PASS GENERATION START ===');
+    console.log('Resource type:', resourceType, '| Agent:', agentName || 'default', '| Files:', fileResponseParts.length);
+
+    // ─────────────────────────────────────────────────────
+    // PASS 0: Quick data extraction (parallel-ready)
+    // ─────────────────────────────────────────────────────
+    const extractionParts = [
+      { type: 'input_text', text: buildExtractionPrompt() },
+      ...fileResponseParts,
+    ];
+
+    // ─────────────────────────────────────────────────────
+    // PASS 1: Generate Sections I to IV
+    // ─────────────────────────────────────────────────────
+    const pass1System = buildPass1SystemPrompt(resourceTypeLabel, currentDate, agentName, agentStrategy);
+    const pass1User = [
+      { type: 'input_text', text: `Analise o(s) documento(s) do INPI anexado(s) e elabore as SEÇÕES I a IV do recurso administrativo. CADA seção deve ter a extensão MÍNIMA especificada. O texto total desta parte deve ter NO MÍNIMO 3.800 palavras. Desenvolva CADA argumento com máxima profundidade, como um escritório de PI de elite faria.` },
+      ...fileResponseParts,
+    ];
+
+    console.log('PASS 1: Generating Sections I-IV...');
+    
+    // Run extraction and pass 1 in parallel
+    const [extractionResult, pass1Result] = await Promise.all([
+      callOpenAI(OPENAI_API_KEY, 'Extraia dados do documento INPI. Responda APENAS com JSON válido.', extractionParts, 1000, 0.1),
+      callOpenAI(OPENAI_API_KEY, pass1System, pass1User, 16000, 0.25),
+    ]);
+
+    // Parse extracted data
+    let extractedData = {
+      process_number: '', brand_name: '', ncl_class: '',
+      holder: '', examiner_or_opponent: '', legal_basis: ''
+    };
+    try {
+      const jsonStr = extractionResult.content.replace(/```json\s*/g, '').replace(/```/g, '').trim();
+      extractedData = JSON.parse(jsonStr);
+    } catch {
+      console.warn('Could not parse extraction data, continuing...');
+    }
+
+    if (pass1Result.error) {
+      console.error('PASS 1 failed:', pass1Result.status, pass1Result.error?.substring(0, 300));
+      return new Response(JSON.stringify({ error: `Erro na geração (Parte 1): ${pass1Result.status}` }), { status: pass1Result.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const pass1Content = cleanAIContent(pass1Result.content);
+    console.log('PASS 1 complete:', pass1Content.length, 'chars');
+
+    if (pass1Content.length < 1000) {
+      console.error('PASS 1 too short:', pass1Content.length);
+      return new Response(JSON.stringify({ error: 'Parte 1 do recurso ficou incompleta. Tente novamente.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ─────────────────────────────────────────────────────
+    // PASS 2: Generate Sections V to VIII + closing
+    // ─────────────────────────────────────────────────────
+    const pass2System = buildPass2SystemPrompt(resourceTypeLabel, currentDate, agentName, agentStrategy);
+    const pass2User = [
+      { type: 'input_text', text: `Contexto: Você já gerou as Seções I a IV do recurso. Abaixo está o conteúdo já gerado para referência de dados e continuidade de estilo.
+
+SEÇÕES I A IV JÁ GERADAS:
+---
+${pass1Content.substring(0, 8000)}
+---
+
+Agora elabore as SEÇÕES V a VIII + encerramento. Mantenha o MESMO tom, estilo e nível de profundidade. O texto total desta parte deve ter NO MÍNIMO 3.400 palavras. Use os dados do caso (marca: ${extractedData.brand_name}, processo: ${extractedData.process_number}, classe: ${extractedData.ncl_class}, titular: ${extractedData.holder}) conforme a Parte 1.` },
+      ...fileResponseParts,
+    ];
+
+    console.log('PASS 2: Generating Sections V-VIII...');
+    const pass2Result = await callOpenAI(OPENAI_API_KEY, pass2System, pass2User, 16000, 0.25);
+
+    if (pass2Result.error) {
+      console.error('PASS 2 failed:', pass2Result.status, pass2Result.error?.substring(0, 300));
+      // Return pass 1 content anyway rather than losing everything
+      return new Response(JSON.stringify({
+        success: true,
+        extracted_data: extractedData,
+        resource_content: pass1Content,
+        resource_type: resourceType,
+        resource_type_label: resourceTypeLabel,
+        partial: true
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const pass2Content = cleanAIContent(pass2Result.content);
+    console.log('PASS 2 complete:', pass2Content.length, 'chars');
+
+    // ─────────────────────────────────────────────────────
+    // CONCATENATE both passes
+    // ─────────────────────────────────────────────────────
+    const fullContent = pass1Content + '\n\n' + pass2Content;
+    console.log('=== TWO-PASS GENERATION COMPLETE ===');
+    console.log('Total length:', fullContent.length, 'chars (~', Math.round(fullContent.split(/\s+/).length), 'words)');
 
     return new Response(
       JSON.stringify({
         success: true,
-        extracted_data: parsedResult.extracted_data || {},
-        resource_content: finalContent,
+        extracted_data: extractedData,
+        resource_content: fullContent,
         resource_type: resourceType,
         resource_type_label: resourceTypeLabel
       }),
