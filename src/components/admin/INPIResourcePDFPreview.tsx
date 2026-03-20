@@ -518,21 +518,20 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
             <div style={{ height: '1px', marginTop: '2px', background: 'linear-gradient(90deg, transparent, #c8af37, transparent)' }} />
           </div>
 
-          {/* Document title badge */}
-          <div className="text-center mb-8">
-            <div className="inline-block px-8 py-2 rounded-sm" style={{ backgroundColor: '#1e3a5f' }}>
-              <span className="text-white font-semibold text-sm tracking-wider uppercase">
-                {documentTitle}
-              </span>
-            </div>
+          {/* Document title (left-aligned) */}
+          <div className="mb-8">
+            <p className="text-base font-bold tracking-wide" style={{ color: '#1e3a5f' }}>
+              {isNotif
+                ? 'NOTIFICAÇÃO EXTRAJUDICIAL'
+                : isProcuradorPetition
+                  ? documentTitleUpper
+                  : getResourceTypeLabel(resourceType)
+                    ? `RECURSO ADMINISTRATIVO – ${getResourceTypeLabel(resourceType)}`
+                    : 'RECURSO ADMINISTRATIVO'}
+            </p>
             {resource.brand_name && (
-              <p className="mt-3 text-base font-semibold" style={{ color: '#1e3a5f' }}>
-                Marca: {resource.brand_name}
-              </p>
-            )}
-            {resource.process_number && (
-              <p className="text-sm" style={{ color: '#666' }}>
-                Processo INPI nº {resource.process_number}
+              <p className="mt-2 text-base font-bold" style={{ color: '#1e3a5f' }}>
+                MARCA: {resource.brand_name.toUpperCase()}
               </p>
             )}
           </div>
