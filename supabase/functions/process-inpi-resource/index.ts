@@ -573,8 +573,8 @@ Ante o exposto, requer:
 
 a) Seja CONHECIDO o presente recurso administrativo, por tempestivo e regular;
 b) No mérito, seja PROVIDO o recurso, para REFORMAR integralmente a decisão recorrida;
-c) Seja DEFERIDO o registro da marca [NOME] na classe NCL [XX], conforme especificação originalmente requerida;
-d) Subsidiariamente, caso assim não se entenda, seja a marca deferida com limitação de especificação a: [especificação limitada quando aplicável];
+c) Seja DEFERIDO o registro da marca [NOME DA MARCA EXTRAÍDA] na classe NCL [CLASSE EXTRAÍDA], conforme especificação originalmente requerida;
+d) Subsidiariamente, caso assim não se entenda, seja a marca deferida com limitação de especificação aos produtos/serviços diretamente vinculados à atividade comprovada do titular;
 e) Ainda subsidiariamente, seja determinada a CONVERSÃO DO JULGAMENTO EM DILIGÊNCIA para melhor instrução do feito;
 f) Seja determinada a publicação do deferimento na Revista da Propriedade Industrial (RPI);
 
@@ -623,20 +623,24 @@ FORMATO DE RESPOSTA OBRIGATÓRIO:
 
 Responda EXCLUSIVAMENTE com um objeto JSON válido (sem markdown, sem texto antes ou depois do JSON).
 O campo "resource_content" DEVE conter o TEXTO JURÍDICO REAL E COMPLETO do recurso administrativo (mínimo 3.000 palavras REAIS).
-⚠️ ATENÇÃO CRÍTICA: NÃO coloque placeholder, resumo ou frase descritiva como "CONTEÚDO COMPLETO DO RECURSO...".
-Coloque o DOCUMENTO JURÍDICO INTEIRO com TODAS as 8 seções (I a VIII) desenvolvidas integralmente.
-Se o campo resource_content tiver menos de 2.500 palavras REAIS, sua resposta será REJEITADA automaticamente.
+⚠️ ATENÇÃO CRÍTICA: 
+- NÃO coloque placeholder, resumo ou frase descritiva
+- NÃO copie exemplos do prompt — escreva o recurso REAL baseado no documento analisado
+- PREENCHA todos os dados concretos (nome da marca, número do processo, classe, titular) extraídos do documento
+- NÃO deixe colchetes [] no texto final — substitua por dados reais do caso
+- Se o campo resource_content tiver menos de 2.500 palavras REAIS, sua resposta será REJEITADA automaticamente
+- O recurso deve começar com o subtítulo "RECURSO ADMINISTRATIVO – [TIPO]" seguido de "MARCA: [NOME]" e depois "EXCELENTÍSSIMO SENHOR..."
 
 {
   "extracted_data": {
-    "process_number": "número do processo extraído do documento",
-    "brand_name": "nome da marca extraído do documento",
-    "ncl_class": "classe NCL com descrição completa",
-    "holder": "nome do titular completo",
-    "examiner_or_opponent": "oponente identificado no documento",
-    "legal_basis": "fundamento legal utilizado pelo INPI"
+    "process_number": "preencher com número real extraído",
+    "brand_name": "preencher com nome real da marca",
+    "ncl_class": "preencher com classe NCL real e descrição",
+    "holder": "preencher com nome completo do titular",
+    "examiner_or_opponent": "preencher com oponente/examinador identificado",
+    "legal_basis": "preencher com fundamento legal usado pelo INPI"
   },
-  "resource_content": "AQUI_INSERIR_TEXTO_REAL_COMPLETO_DO_RECURSO_ADMINISTRATIVO_TODAS_8_SECOES_I_A_VIII"
+  "resource_content": "O texto jurídico completo do recurso com todas as 8 seções (I a VIII) integralmente desenvolvidas vai aqui. Deve começar com o subtítulo do recurso e terminar com os pedidos. Mínimo 3.000 palavras."
 }`;
 }
 
@@ -803,7 +807,26 @@ serve(async (req) => {
       
       userContent.push({
         type: "text",
-        text: `Analise ${fileCount > 1 ? `os ${fileCount} documentos anexados` : 'o documento PDF anexado'} do INPI e elabore o recurso administrativo COMPLETO, EXTENSO e ROBUSTO conforme as instruções. O recurso deve ter no MÍNIMO 3.000 palavras, seguindo rigorosamente TODAS as 8 seções obrigatórias com a extensão mínima especificada para cada uma. NÃO simplifique, NÃO encurte, NÃO produza texto genérico. Cada argumento deve ser desenvolvido em múltiplos parágrafos com profundidade jurídica real.${fileCount > 1 ? ' Analise TODOS os documentos em conjunto para uma defesa mais robusta e detalhada.' : ''}`
+        text: `INSTRUÇÃO CRÍTICA: Analise ${fileCount > 1 ? `os ${fileCount} documentos anexados` : 'o documento PDF anexado'} do INPI e elabore o recurso administrativo COMPLETO, EXTENSO e ROBUSTO conforme as instruções.
+
+REQUISITOS OBRIGATÓRIOS DE EXTENSÃO:
+- O recurso COMPLETO deve ter NO MÍNIMO 3.000 palavras de conteúdo jurídico real
+- TODAS as 8 seções (I a VIII) devem ser desenvolvidas INTEGRALMENTE com a extensão mínima de cada uma
+- Seção I (Síntese): mínimo 400 palavras com cronologia detalhada
+- Seção III (Fundamentação): mínimo 600 palavras com citação textual de artigos
+- Seção IV (Análise Técnica): mínimo 500 palavras com análise fonética, visual e conceitual
+- Seção V (Inexistência de Confusão): mínimo 400 palavras
+- Seção VI (Precedentes): mínimo 500 palavras com precedentes da lista pré-validada
+- Seção VIII (Pedidos): usar formato de letras (a, b, c, d, e, f) com pedidos ESPECÍFICOS preenchidos para o caso concreto
+
+PROIBIÇÕES ABSOLUTAS:
+- NÃO simplifique ou encurte NENHUMA seção
+- NÃO deixe placeholders como "[especificação limitada quando aplicável]" — preencha com dados reais do caso
+- NÃO produza texto genérico — cada argumento deve ser ESPECÍFICO ao caso concreto
+- NÃO termine abruptamente — desenvolva CADA argumento em múltiplos parágrafos densos
+- O campo resource_content do JSON deve conter o DOCUMENTO INTEIRO, não um resumo
+
+${fileCount > 1 ? 'Analise TODOS os documentos em conjunto para uma defesa mais robusta e detalhada.' : ''}`
       });
 
       if (multiFiles && multiFiles.length > 0) {
