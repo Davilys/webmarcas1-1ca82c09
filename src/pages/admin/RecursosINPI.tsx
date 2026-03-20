@@ -686,17 +686,39 @@ export default function RecursosINPI() {
       if (error) throw error;
       if (!data.success) throw new Error(data.error || 'Erro ao ajustar recurso');
 
-      setDraftContent(data.adjusted_content);
+      const newContent = data.adjusted_content;
+      setDraftContent(newContent);
 
       if (currentResourceId) {
+        // Save adjusted content AND log the adjustment in history
+        const { data: currentResource } = await supabase
+          .from('inpi_resources')
+          .select('adjustments_history')
+          .eq('id', currentResourceId)
+          .single();
+
+        const history = Array.isArray(currentResource?.adjustments_history) 
+          ? currentResource.adjustments_history 
+          : [];
+        
+        history.push({
+          date: new Date().toISOString(),
+          instructions: adjustmentNotes,
+          previous_length: draftContent.length,
+          new_length: newContent.length,
+        });
+
         await supabase
           .from('inpi_resources')
-          .update({ draft_content: data.adjusted_content })
+          .update({ 
+            draft_content: newContent,
+            adjustments_history: history,
+          })
           .eq('id', currentResourceId);
       }
 
       setAdjustmentNotes('');
-      toast.success('Recurso ajustado com sucesso!');
+      toast.success('Recurso ajustado e incorporado com sucesso!');
     } catch (error) {
       console.error('Error adjusting resource:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao ajustar recurso');
