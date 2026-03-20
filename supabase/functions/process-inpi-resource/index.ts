@@ -573,8 +573,8 @@ Ante o exposto, requer:
 
 a) Seja CONHECIDO o presente recurso administrativo, por tempestivo e regular;
 b) No mérito, seja PROVIDO o recurso, para REFORMAR integralmente a decisão recorrida;
-c) Seja DEFERIDO o registro da marca [NOME] na classe NCL [XX], conforme especificação originalmente requerida;
-d) Subsidiariamente, caso assim não se entenda, seja a marca deferida com limitação de especificação a: [especificação limitada quando aplicável];
+c) Seja DEFERIDO o registro da marca [NOME DA MARCA EXTRAÍDA] na classe NCL [CLASSE EXTRAÍDA], conforme especificação originalmente requerida;
+d) Subsidiariamente, caso assim não se entenda, seja a marca deferida com limitação de especificação aos produtos/serviços diretamente vinculados à atividade comprovada do titular;
 e) Ainda subsidiariamente, seja determinada a CONVERSÃO DO JULGAMENTO EM DILIGÊNCIA para melhor instrução do feito;
 f) Seja determinada a publicação do deferimento na Revista da Propriedade Industrial (RPI);
 
