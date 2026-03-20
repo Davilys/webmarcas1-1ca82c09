@@ -24,6 +24,20 @@ interface INPIResourcePDFPreviewProps {
 
 const isNotificacao = (type?: string) => type === 'notificacao_extrajudicial';
 
+const RESOURCE_TYPE_LABELS: Record<string, string> = {
+  oposicao: 'MANIFESTAÇÃO À OPOSIÇÃO',
+  indeferimento: 'RECURSO CONTRA INDEFERIMENTO',
+  exigencia_merito: 'CUMPRIMENTO DE EXIGÊNCIA DE MÉRITO',
+  notificacao_extrajudicial: 'NOTIFICAÇÃO EXTRAJUDICIAL',
+  troca_procurador: 'PETIÇÃO DE TROCA DE PROCURADOR',
+  nomeacao_procurador: 'PETIÇÃO DE NOMEAÇÃO DE PROCURADOR',
+};
+
+const getResourceTypeLabel = (resourceType?: string): string => {
+  if (!resourceType) return '';
+  return RESOURCE_TYPE_LABELS[resourceType] || resourceType.toUpperCase().replace(/_/g, ' ');
+};
+
 const cleanMarkdown = (text: string): string => {
   return text
     .replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -221,32 +235,34 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
       pdf.line(margin, yPos + 1.5, pageWidth - margin, yPos + 1.5);
       yPos += 8;
 
-      // ── Document Title Badge ──
-      pdf.setFontSize(11);
-      const badgeWidth = pdf.getTextWidth(documentTitleUpper) + 16;
-      const badgeX = (pageWidth - badgeWidth) / 2;
-      pdf.setFillColor(30, 58, 95);
-      pdf.roundedRect(badgeX, yPos - 4, badgeWidth, 10, 1, 1, 'F');
-      pdf.setTextColor(255, 255, 255);
+      // ── Document Title (left-aligned) ──
+      const typeLabel = getResourceTypeLabel(resourceType);
+      const fullTitle = isNotif
+        ? 'NOTIFICAÇÃO EXTRAJUDICIAL'
+        : isProcuradorPetition
+          ? documentTitleUpper
+          : typeLabel
+            ? `RECURSO ADMINISTRATIVO – ${typeLabel}`
+            : 'RECURSO ADMINISTRATIVO';
+
+      pdf.setFontSize(13);
+      pdf.setTextColor(30, 58, 95);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(documentTitleUpper, pageWidth / 2, yPos + 2.5, { align: 'center' });
-      yPos += 12;
+      const titleLines = pdf.splitTextToSize(fullTitle, contentWidth);
+      for (const tl of titleLines) {
+        pdf.text(tl, margin, yPos);
+        yPos += 7;
+      }
+      yPos += 2;
 
       if (resource.brand_name) {
         pdf.setFontSize(12);
         pdf.setTextColor(30, 58, 95);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`Marca: ${resource.brand_name}`, pageWidth / 2, yPos, { align: 'center' });
-        yPos += 6;
+        pdf.text(`MARCA: ${resource.brand_name.toUpperCase()}`, margin, yPos);
+        yPos += 8;
       }
-      if (resource.process_number) {
-        pdf.setFontSize(10);
-        pdf.setTextColor(100, 100, 100);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`Processo INPI nº ${resource.process_number}`, pageWidth / 2, yPos, { align: 'center' });
-        yPos += 6;
-      }
-      yPos += 6;
+      yPos += 4;
 
       // ── Content Body ──
       pdf.setFont('helvetica', 'normal');
@@ -502,21 +518,20 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
             <div style={{ height: '1px', marginTop: '2px', background: 'linear-gradient(90deg, transparent, #c8af37, transparent)' }} />
           </div>
 
-          {/* Document title badge */}
-          <div className="text-center mb-8">
-            <div className="inline-block px-8 py-2 rounded-sm" style={{ backgroundColor: '#1e3a5f' }}>
-              <span className="text-white font-semibold text-sm tracking-wider uppercase">
-                {documentTitle}
-              </span>
-            </div>
+          {/* Document title (left-aligned) */}
+          <div className="mb-8">
+            <p className="text-base font-bold tracking-wide" style={{ color: '#1e3a5f' }}>
+              {isNotif
+                ? 'NOTIFICAÇÃO EXTRAJUDICIAL'
+                : isProcuradorPetition
+                  ? documentTitleUpper
+                  : getResourceTypeLabel(resourceType)
+                    ? `RECURSO ADMINISTRATIVO – ${getResourceTypeLabel(resourceType)}`
+                    : 'RECURSO ADMINISTRATIVO'}
+            </p>
             {resource.brand_name && (
-              <p className="mt-3 text-base font-semibold" style={{ color: '#1e3a5f' }}>
-                Marca: {resource.brand_name}
-              </p>
-            )}
-            {resource.process_number && (
-              <p className="text-sm" style={{ color: '#666' }}>
-                Processo INPI nº {resource.process_number}
+              <p className="mt-2 text-base font-bold" style={{ color: '#1e3a5f' }}>
+                MARCA: {resource.brand_name.toUpperCase()}
               </p>
             )}
           </div>
