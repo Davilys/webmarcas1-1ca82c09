@@ -36,6 +36,16 @@ const cleanMarkdown = (text: string): string => {
     .trim();
 };
 
+const stripOpeningMarkers = (text: string): string => {
+  let cleaned = text;
+  cleaned = cleaned.replace(/^-{2,}\s*INÍCIO DO RECURSO\s*-{2,}\s*$/gm, '');
+  cleaned = cleaned.replace(/^-{2,}\s*FIM DO RECURSO\s*-{2,}\s*$/gm, '');
+  cleaned = cleaned.replace(/^\s*RECURSO ADMINISTRATIVO\s*[–—-]\s*.+$/im, '');
+  cleaned = cleaned.replace(/^\s*MARCA:\s*.+$/im, '');
+  cleaned = cleaned.replace(/^\s*NOTIFICAÇÃO EXTRAJUDICIAL\s*$/im, '');
+  return cleaned.trim();
+};
+
 const stripClosingFromContent = (text: string, resourceType?: string): string => {
   let cleaned = text.replace(/^Av\.\s*Brigadeiro.*$/gm, '');
   cleaned = cleaned.replace(/^Tel:?\s*\(11\).*$/gm, '');
@@ -53,13 +63,17 @@ const stripClosingFromContent = (text: string, resourceType?: string): string =>
   }
   cleaned = cleaned.replace(/\n\s*Termos em que,?\s*\n\s*Pede deferimento\.?\s*\n[\s\S]*$/i, '');
   
-  // For notificacao, also strip any AI-generated closing with signature
   if (isNotificacao(resourceType)) {
     cleaned = cleaned.replace(/\n\s*São Paulo,\s*\d{1,2}\s*de\s*\w+\s*de\s*\d{4}[\s\S]*$/i, '');
     cleaned = cleaned.replace(/\n\s*Davilys Danques[\s\S]*$/i, '');
   }
   
   return cleaned.trim();
+};
+
+const isMetadataLine = (text: string): boolean => {
+  const trimmed = text.trim();
+  return /^(Processo\s*(INPI\s*)?n[ºo°]|Marca:|Classe\s*NCL|Titular|Requerente:|Oponente:|Procurador:|Examinador:)/i.test(trimmed);
 };
 
 const isHeadingLine = (text: string): boolean => {
@@ -92,7 +106,7 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
 
   const isNotif = isNotificacao(resourceType);
   const isProcuradorPetition = resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador';
-  const cleanedContent = cleanMarkdown(content);
+  const cleanedContent = stripOpeningMarkers(cleanMarkdown(content));
   const bodyContent = stripClosingFromContent(cleanedContent, resourceType);
 
   const approvalDate = resource.approved_at 
@@ -261,6 +275,25 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
         if (!trimmedParagraph) continue;
         if (/^(Av\.\s*Brigadeiro|Tel:\s*\(11\))/.test(trimmedParagraph)) continue;
 
+        // Handle metadata block: split into individual lines rendered compactly
+        const metadataLines = trimmedParagraph.split('\n').filter(l => l.trim());
+        const hasMetadata = metadataLines.some(l => isMetadataLine(l));
+        
+        if (hasMetadata && metadataLines.length > 1) {
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setTextColor(60, 60, 60);
+          for (const mLine of metadataLines) {
+            const ml = mLine.trim();
+            if (!ml) continue;
+            if (yPos > bottomLimit) { pdf.addPage(); yPos = margin; }
+            pdf.text(ml, margin, yPos);
+            yPos += 5.5;
+          }
+          yPos += 4;
+          continue;
+        }
+
         const heading = isHeadingLine(trimmedParagraph);
         
         if (heading) {
@@ -372,6 +405,19 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
       const trimmed = paragraph.trim();
       if (/^(Av\.\s*Brigadeiro|Tel:\s*\(11\))/.test(trimmed)) return null;
       
+      // Metadata block: render each line individually, no justify, no indent
+      const metaLines = trimmed.split('\n').filter(l => l.trim());
+      const hasMetadata = metaLines.some(l => isMetadataLine(l));
+      if (hasMetadata && metaLines.length > 1) {
+        return (
+          <div key={idx} className="mb-4 text-sm" style={{ color: '#444', lineHeight: '1.6' }}>
+            {metaLines.map((ml, mi) => (
+              <p key={mi} className="mb-0.5" style={{ textIndent: '0' }}>{ml.trim()}</p>
+            ))}
+          </div>
+        );
+      }
+
       if (isHeadingLine(trimmed)) {
         return (
           <h2 key={idx} className="text-base font-semibold mt-6 mb-3 pb-1" style={{ color: '#1e3a5f', borderBottom: '2px solid #c8af37' }}>
@@ -385,7 +431,13 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
         return <p key={idx} className="mb-3 pl-6" style={{ textIndent: '0' }}>{trimmed}</p>;
       }
       
-      return <p key={idx} className="mb-4 text-justify" style={{ textIndent: '2cm' }}>{trimmed}</p>;
+      // Short lines (e.g. "EXCELENTÍSSIMO...") should not be stretched by justify
+      const isShort = trimmed.length < 120;
+      return (
+        <p key={idx} className={`mb-4 ${isShort ? '' : 'text-justify'}`} style={{ textIndent: '2cm', textAlignLast: 'left' }}>
+          {trimmed}
+        </p>
+      );
     }).filter(Boolean);
   };
 
