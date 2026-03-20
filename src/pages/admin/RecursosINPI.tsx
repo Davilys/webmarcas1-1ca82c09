@@ -680,7 +680,18 @@ export default function RecursosINPI() {
 
     try {
       const { data, error } = await supabase.functions.invoke('adjust-inpi-resource', {
-        body: { currentContent: draftContent, adjustmentInstructions: adjustmentNotes }
+        body: { 
+          currentContent: draftContent, 
+          adjustmentInstructions: adjustmentNotes,
+          resourceType: resourceType || selectedResource?.resource_type,
+          extractedData: extractedData || {
+            process_number: selectedResource?.process_number,
+            brand_name: selectedResource?.brand_name,
+            ncl_class: selectedResource?.ncl_class,
+            holder: selectedResource?.holder,
+            examiner_or_opponent: selectedResource?.examiner_or_opponent || '',
+          }
+        }
       });
 
       if (error) throw error;

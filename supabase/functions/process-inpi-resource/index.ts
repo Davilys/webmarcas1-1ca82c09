@@ -863,11 +863,13 @@ Agora elabore as SEÇÕES V a VIII + encerramento. Mantenha o MESMO tom, estilo 
 
     if (pass2Result.error) {
       console.error('PASS 2 failed:', pass2Result.status, pass2Result.error?.substring(0, 300));
-      // Return pass 1 content anyway rather than losing everything
+      // Return pass 1 content with enforced header
+      const enriched = enrichExtractedData(extractedData, pass1Content);
+      const normalizedPartial = enforceMandatoryOpening(pass1Content, resourceTypeLabel, enriched);
       return new Response(JSON.stringify({
         success: true,
-        extracted_data: extractedData,
-        resource_content: pass1Content,
+        extracted_data: enriched,
+        resource_content: normalizedPartial,
         resource_type: resourceType,
         resource_type_label: resourceTypeLabel,
         partial: true
@@ -878,16 +880,19 @@ Agora elabore as SEÇÕES V a VIII + encerramento. Mantenha o MESMO tom, estilo 
     console.log('PASS 2 complete:', pass2Content.length, 'chars');
 
     // ─────────────────────────────────────────────────────
-    // CONCATENATE both passes
+    // CONCATENATE both passes + ENFORCE mandatory opening
     // ─────────────────────────────────────────────────────
-    const fullContent = pass1Content + '\n\n' + pass2Content;
+    const rawFullContent = pass1Content + '\n\n' + pass2Content;
+    const enriched = enrichExtractedData(extractedData, rawFullContent);
+    const fullContent = enforceMandatoryOpening(rawFullContent, resourceTypeLabel, enriched);
+    
     console.log('=== TWO-PASS GENERATION COMPLETE ===');
     console.log('Total length:', fullContent.length, 'chars (~', Math.round(fullContent.split(/\s+/).length), 'words)');
 
     return new Response(
       JSON.stringify({
         success: true,
-        extracted_data: extractedData,
+        extracted_data: enriched,
         resource_content: fullContent,
         resource_type: resourceType,
         resource_type_label: resourceTypeLabel
