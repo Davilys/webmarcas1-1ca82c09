@@ -619,17 +619,24 @@ EXIGÊNCIAS MÍNIMAS DE QUALIDADE — VERIFICAÇÃO OBRIGATÓRIA:
 12. O recurso NÃO pode terminar abruptamente — deve ter TODAS as 8 seções completas
 13. A credibilidade do recurso depende da VERACIDADE JURÍDICA — uma jurisprudência incorreta COMPROMETE toda a peça
 
-FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
+FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+Responda EXCLUSIVAMENTE com um objeto JSON válido (sem markdown, sem texto antes ou depois do JSON).
+O campo "resource_content" DEVE conter o TEXTO JURÍDICO REAL E COMPLETO do recurso administrativo (mínimo 3.000 palavras REAIS).
+⚠️ ATENÇÃO CRÍTICA: NÃO coloque placeholder, resumo ou frase descritiva como "CONTEÚDO COMPLETO DO RECURSO...".
+Coloque o DOCUMENTO JURÍDICO INTEIRO com TODAS as 8 seções (I a VIII) desenvolvidas integralmente.
+Se o campo resource_content tiver menos de 2.500 palavras REAIS, sua resposta será REJEITADA automaticamente.
+
 {
   "extracted_data": {
-    "process_number": "número do processo",
-    "brand_name": "nome da marca",
-    "ncl_class": "classe NCL com descrição completa dos produtos/serviços",
+    "process_number": "número do processo extraído do documento",
+    "brand_name": "nome da marca extraído do documento",
+    "ncl_class": "classe NCL com descrição completa",
     "holder": "nome do titular completo",
-    "examiner_or_opponent": "oponente (não incluir nome do examinador)",
-    "legal_basis": "fundamento legal completo utilizado pelo INPI (artigo, inciso, alínea)"
+    "examiner_or_opponent": "oponente identificado no documento",
+    "legal_basis": "fundamento legal utilizado pelo INPI"
   },
-  "resource_content": "CONTEÚDO COMPLETO DO RECURSO COM TODAS AS 8 SEÇÕES DESENVOLVIDAS (texto extenso, profundo e formatado)"
+  "resource_content": "AQUI_INSERIR_TEXTO_REAL_COMPLETO_DO_RECURSO_ADMINISTRATIVO_TODAS_8_SECOES_I_A_VIII"
 }`;
 }
 
