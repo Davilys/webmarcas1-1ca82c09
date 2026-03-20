@@ -854,14 +854,22 @@ serve(async (req) => {
 
     console.log('Calling AI with prompt for:', resourceType, ', agent:', agentName || 'default');
 
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Use Lovable AI Gateway for better PDF/file support
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const aiUrl = LOVABLE_API_KEY 
+      ? 'https://ai-gateway.lovable.dev/v1/chat/completions'
+      : 'https://api.openai.com/v1/chat/completions';
+    const aiKey = LOVABLE_API_KEY || OPENAI_API_KEY;
+    const aiModel = LOVABLE_API_KEY ? 'openai/gpt-5' : 'gpt-4o';
+
+    const aiResponse = await fetch(aiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${aiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: aiModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent }
