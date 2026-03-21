@@ -597,6 +597,17 @@ export function generateDocumentPrintHTML(
     .content { margin-top: 20px; color: #1f2937; }
     .content h2 { color: #0284c7; font-size: 13px; font-weight: bold; margin-top: 24px; margin-bottom: 10px; }
     .content p { color: #1f2937; font-size: 11px; line-height: 1.7; margin-bottom: 10px; text-align: justify; }
+    .signatures-section { margin-top: 48px; padding-top: 32px; border-top: 1px solid #e5e7eb; page-break-inside: avoid; }
+    .signatures-intro { font-size: 11px; color: #4b5563; margin-bottom: 32px; }
+    .signatures-grid { display: flex; gap: 32px; justify-content: center; }
+    .signature-col { flex: 1; text-align: center; max-width: 280px; }
+    .signature-col .sig-label { font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #1f2937; }
+    .signature-col .sig-details { font-size: 10px; color: #4b5563; margin-bottom: 16px; min-height: 32px; }
+    .signature-col .sig-box { border-bottom: 2px solid #1f2937; padding-bottom: 8px; min-height: 64px; display: flex; align-items: center; justify-content: center; margin: 0 auto; width: 240px; }
+    .signature-col .sig-box img { max-height: 56px; object-fit: contain; }
+    .sig-digital { color: #0284c7; font-weight: 500; font-size: 12px; }
+    .sig-waiting { color: #9ca3af; font-style: italic; font-size: 11px; }
+    .sig-footnote { font-size: 9px; color: #6b7280; margin-top: 8px; }
     .footer { margin-top: 40px; text-align: center; color: #6b7280; font-size: 10px; border-top: 1px solid #e5e7eb; padding-top: 16px; }
     @media print {
       .gradient-bar { background: linear-gradient(90deg, #f97316, #fbbf24) !important; }
@@ -615,6 +626,38 @@ export function generateDocumentPrintHTML(
   <div class="content">
     ${htmlContent}
   </div>
+  
+  <!-- Seção de Assinaturas -->
+  <div class="signatures-section">
+    <p class="signatures-intro">Por estarem justas e contratadas, as partes assinam o presente de igual teor e forma, de forma digital válido juridicamente.</p>
+    <div class="signatures-grid">
+      <div class="signature-col">
+        <p class="sig-label">Assinatura autorizada:</p>
+        <p class="sig-details">WebMarcas Intelligence PI - CNPJ/MF sob o nº 39.528.012/0001-29</p>
+        <div class="sig-box">
+          ${documentType === 'procuracao' && davilysSignatureBase64
+            ? `<img src="${davilysSignatureBase64}" alt="Assinatura WebMarcas" />`
+            : `<span class="sig-digital">✓ Assinado Digitalmente</span>`
+          }
+        </div>
+        <p class="sig-footnote">${documentType === 'procuracao' ? 'Davilys Danques de Oliveira Cunha' : 'Certificação Digital - Lei 14.063/2020'}</p>
+      </div>
+      <div class="signature-col">
+        <p class="sig-label">Contratante:</p>
+        <p class="sig-details">${signatoryName || 'Nome do Representante'}${signatoryCnpj ? ` - CNPJ sob o nº ${signatoryCnpj}` : ''}${signatoryCpf ? `, CPF sob o nº ${signatoryCpf}` : ''}</p>
+        <div class="sig-box">
+          ${clientSignature
+            ? `<img src="${clientSignature}" alt="Assinatura do Cliente" />`
+            : blockchainSignature?.hash
+              ? `<span class="sig-digital">✓ Assinado Digitalmente</span>`
+              : `<span class="sig-waiting">Aguardando assinatura...</span>`
+          }
+        </div>
+        <p class="sig-footnote">${blockchainSignature?.hash ? 'Certificação Digital - Lei 14.063/2020' : ''}</p>
+      </div>
+    </div>
+  </div>
+
   ${blockchainSignature?.hash ? buildBlockchainCertificationHtml(blockchainSignature, verificationBase) : `
   <div class="footer">
     <p>WebMarcas Intelligence PI - CNPJ: 39.528.012/0001-29</p>
