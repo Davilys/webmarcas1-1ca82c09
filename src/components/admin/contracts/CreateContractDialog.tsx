@@ -2174,7 +2174,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                         } else if (tName.includes('procuração') || tName.includes('procuracao')) {
                           autoSubject = 'PROCURAÇÃO INPI';
                         } else if (tName.includes('distrato')) {
-                          autoSubject = tName.includes('multa') && !tName.includes('sem') ? 'DISTRATO COM MULTA' : 'DISTRATO SEM MULTA';
+                          autoSubject = 'DISTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO PARA REGISTRO DE MARCA JUNTO AO INPI';
                         } else {
                           autoSubject = template.name.toUpperCase();
                         }
