@@ -572,7 +572,7 @@ export function generateDocumentPrintHTML(
   const documentTitle = documentType === 'procuracao'
     ? 'PROCURAÇÃO PARA REPRESENTAÇÃO JUNTO AO INPI'
     : documentType === 'distrato_multa' || documentType === 'distrato_sem_multa'
-    ? 'ACORDO DE DISTRATO'
+    ? 'DISTRATO'
     : 'CONTRATO';
 
   return `<!DOCTYPE html>
