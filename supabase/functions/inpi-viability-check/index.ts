@@ -3,28 +3,87 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Lista de marcas de alto renome
+// Lista de marcas de alto renome (Brasil)
 const FAMOUS_BRANDS = [
-  'petrobras', 'itau', 'itaú', 'bradesco', 'caixa', 'santander', 'nubank',
-  'magazine luiza', 'magalu', 'casas bahia', 'coca-cola', 'coca cola', 'cocacola',
-  'nike', 'apple', 'samsung', 'globo', 'fiat', 'volkswagen', 'natura', 'boticario',
-  'o boticário', 'shopee', 'mercado livre', 'mercadolivre', 'heineken', 'ambev',
-  'brahma', 'skol', 'antartica', 'antarctica', 'google', 'microsoft', 'amazon',
-  'netflix', 'spotify', 'uber', 'ifood', '99', 'rappi', 'picpay', 'stone',
-  'pagseguro', 'cielo', 'rede', 'getnet', 'bmw', 'mercedes', 'audi', 'toyota',
-  'honda', 'hyundai', 'chevrolet', 'ford', 'renault', 'peugeot', 'citroen',
-  'jeep', 'land rover', 'porsche', 'ferrari', 'lamborghini', 'rolex', 'cartier',
-  'louis vuitton', 'gucci', 'prada', 'chanel', 'dior', 'hermes', 'armani',
-  'versace', 'burberry', 'tiffany', 'pandora', 'swarovski', 'ray-ban', 'rayban',
-  'oakley', 'adidas', 'puma', 'reebok', 'new balance', 'asics', 'mizuno',
-  'vans', 'converse', 'mcdonalds', 'mc donalds', "mcdonald's", 'burger king',
-  'subway', 'starbucks', 'kfc', 'pizza hut', 'dominos', "domino's", 'habib',
-  'habibs', "habib's", 'outback', 'madero', 'giraffas', 'bobs', "bob's", 'havaianas',
+  // Bancos e Fintechs
+  'itau', 'itaú', 'bradesco', 'banco do brasil', 'caixa', 'nubank', 'santander',
+  'btg pactual', 'btg', 'xp', 'xp investimentos', 'picpay', 'sicoob',
+  'c6 bank', 'c6', 'pagbank', 'pagseguro', 'stone', 'porto seguro', 'sulamerica',
+  'sulamerica', 'sul america',
+
+  // Bebidas e Alimentos
+  'skol', 'brahma', 'antarctica', 'antartica', 'ambev', 'coca-cola', 'coca cola',
+  'cocacola', 'nestle', 'nestlé', 'sadia', 'perdigao', 'perdigão', 'seara',
+  'bauducco', 'cacau show', 'bis', 'sonho de valsa', 'itambe', 'itambé',
+  'piracanjuba', 'tang', 'nescau', 'toddy', 'kibon', 'danone',
+
+  // Varejo e E-commerce
+  'magazine luiza', 'magalu', 'casas bahia', 'americanas', 'mercado livre',
+  'mercadolivre', 'assai', 'assaí', 'atacadao', 'atacadão', 'renner', 'riachuelo',
+  'havan', 'pao de acucar', 'pão de açúcar', 'carrefour', 'extra', 'kalunga',
+  'tok&stok', 'tok stok', 'leroy merlin', 'shopee', 'shein',
+
+  // Telecom / Tecnologia
+  'vivo', 'claro', 'oi', 'tim', 'globo', 'ifood', '99', 'uol', 'totvs', 'positivo',
+
+  // Energia / Indústria / Grandes Corporações
+  'petrobras', 'vale', 'weg', 'ipiranga', 'ultrapar', 'suzano', 'gerdau',
+  'votorantim', 'br distribuidora', 'raizen', 'raízen',
+
+  // Transporte e Serviços
+  'localiza', 'unidas', 'gol', 'azul', 'latam', 'latam brasil', 'ccr',
+  'ecorodovias', 'movida', 'uber',
+
+  // Cosméticos / Consumo
+  'natura', 'boticario', 'o boticário', 'o boticario', 'avon', 'jequiti', 'eudora',
+  'lupo', 'havaianas', 'brastemp', 'consul', 'tramontina',
+  'quem disse berenice', 'granado', 'mahogany', 'arezzo', 'schutz',
+
+  // Limpeza e Utilidades
+  'omo', 'ype', 'ypê', 'bombril', 'veja', 'ariel', 'downy', 'dove', 'colgate',
+  'oral-b', 'oral b', 'duracell',
+
+  // Automotivo
+  'volkswagen', 'fiat', 'chevrolet', 'toyota', 'honda', 'hyundai', 'ford',
+  'renault', 'peugeot', 'citroen', 'citroën', 'jeep', 'land rover', 'porsche',
+  'ferrari', 'lamborghini', 'bmw', 'mercedes', 'audi',
+
+  // Entretenimento / Cultura
+  'flamengo', 'globoplay', 'netflix', 'xbox', 'playstation', 'ibope',
+  'google', 'apple', 'samsung', 'tiktok',
+
+  // Alimentação / Redes
+  'mcdonalds', 'mc donalds', "mcdonald's", 'burger king', 'habib', 'habibs',
+  "habib's", 'giraffas', 'outback', 'subway', 'starbucks', 'kfc', 'pizza hut',
+  'dominos', "domino's", 'bobs', "bob's", 'madero',
+
+  // Indústria / Construção
+  'tigre', 'amanco', 'quartzolit', 'vedacit', 'duratex',
+
+  // Logística / Serviços
+  'correios', 'jadlog', 'loggi', 'dhl', 'fedex',
+
+  // Mídia / Digital
+  'sbt', 'record', 'band', 'terra', 'ig',
+
+  // Apps e consumo digital
+  'kwai', 'telegram', 'whatsapp', 'instagram', 'facebook', 'meta', 'twitter',
+  'youtube', 'linkedin', 'pinterest', 'snapchat', 'spotify',
+
+  // Saúde / Farmácia
+  'drogasil', 'droga raia', 'pague menos', 'hapvida', 'notredame intermedica',
+  'notre dame intermedica', 'notredame intermédica',
+
+  // Internacionais com forte presença
+  'nike', 'adidas', 'puma', 'reebok', 'new balance', 'asics', 'mizuno',
+  'vans', 'converse', 'rolex', 'cartier', 'louis vuitton', 'gucci', 'prada',
+  'chanel', 'dior', 'hermes', 'hermès', 'armani', 'versace', 'burberry',
+  'tiffany', 'pandora', 'swarovski', 'ray-ban', 'rayban', 'oakley',
   'visa', 'mastercard', 'american express', 'amex', 'elo', 'hipercard',
   'disney', 'warner', 'paramount', 'universal', 'sony', 'lg', 'philips',
   'panasonic', 'jbl', 'bose', 'beats', 'dell', 'hp', 'lenovo', 'asus', 'acer',
-  'intel', 'amd', 'nvidia', 'telegram', 'whatsapp', 'instagram', 'facebook',
-  'meta', 'twitter', 'tiktok', 'youtube', 'linkedin', 'pinterest', 'snapchat'
+  'intel', 'amd', 'nvidia', 'microsoft', 'amazon', 'rappi',
+  'cielo', 'rede', 'getnet'
 ];
 
 // Mapeamento de ramos para classes NCL (fallback)
