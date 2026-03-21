@@ -211,6 +211,43 @@ export function ContractRenderer({
                 </p>
               </div>
             </>
+          ) : (documentType === 'distrato_multa' || documentType === 'distrato_sem_multa') ? (
+            <>
+              {/* Blue Title - DISTRATO underlined */}
+              <h1 
+                className="text-center text-xl font-bold mb-4"
+                style={{ color: '#0284c7', textDecoration: 'underline' }}
+              >
+                DISTRATO
+              </h1>
+              
+              {/* Dark Blue Box with Distrato Title */}
+              <div 
+                className="text-center py-3 px-4 rounded mb-4"
+                style={{ backgroundColor: '#1e3a5f' }}
+              >
+                <p className="text-white font-semibold text-sm leading-tight">
+                  DISTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br />PARA REGISTRO DE MARCA JUNTO AO INPI
+                </p>
+              </div>
+              
+              {/* Yellow Highlight Section - LEFT BORDER ONLY */}
+              <div 
+                className="p-4 mb-6 text-sm"
+                style={{ 
+                  backgroundColor: '#FEF9E7', 
+                  borderLeft: '4px solid #F59E0B',
+                  color: '#374151'
+                }}
+              >
+                <p className="mb-3">
+                  Os termos deste instrumento aplicam-se exclusivamente à formalização do cancelamento de contratações realizadas mediante negociações personalizadas, conduzidas diretamente com a equipe comercial da WebMarcas Intelligence PI.
+                </p>
+                <p>
+                  O presente distrato estabelece as condições para encerramento da relação contratual anteriormente firmada, estando vinculado ao "Contrato de Prestação de Serviços e Gestão de Pagamentos e Outras Avenças", cujo aceite integral ocorreu no momento do envio da Proposta.
+                </p>
+              </div>
+            </>
           ) : (
             <>
               {/* Blue Title - CONTRATO underlined */}
@@ -221,7 +258,7 @@ export function ContractRenderer({
                 CONTRATO
               </h1>
               
-              {/* Dark Blue Box with Contract Title - same as PDF model */}
+              {/* Dark Blue Box with Contract Title */}
               <div 
                 className="text-center py-3 px-4 rounded mb-4"
                 style={{ backgroundColor: '#1e3a5f' }}
@@ -707,13 +744,14 @@ export function generateContractPrintHTML(
   </div>
   ` : documentType === 'distrato_multa' || documentType === 'distrato_sem_multa' ? `
   <!-- Título do Distrato -->
-  <h1 class="main-title">ACORDO DE DISTRATO</h1>
+  <h1 class="main-title">DISTRATO</h1>
   <div class="contract-title-box">
-    <p>INSTRUMENTO PARTICULAR DE DISTRATO DE CONTRATO DE PRESTAÇÃO DE SERVIÇOS</p>
+    <p>DISTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ASSESSORAMENTO<br/>PARA REGISTRO DE MARCA JUNTO AO INPI</p>
   </div>
   
   <div class="highlight-box">
-    <p>As partes abaixo qualificadas resolvem, de comum acordo, distratar o contrato de prestação de serviços firmado anteriormente, nos termos e condições a seguir estabelecidos.</p>
+    <p>Os termos deste instrumento aplicam-se exclusivamente à formalização do cancelamento de contratações realizadas mediante negociações personalizadas, conduzidas diretamente com a equipe comercial da WebMarcas Intelligence PI.</p>
+    <p style="margin-top: 12px;">O presente distrato estabelece as condições para encerramento da relação contratual anteriormente firmada, estando vinculado ao "Contrato de Prestação de Serviços e Gestão de Pagamentos e Outras Avenças", cujo aceite integral ocorreu no momento do envio da Proposta.</p>
   </div>
   ` : `
   <!-- Blue Title - CONTRATO underlined -->
