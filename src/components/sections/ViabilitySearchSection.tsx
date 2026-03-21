@@ -649,6 +649,22 @@ const ViabilitySearchSection = ({ compact = false }: { compact?: boolean }) => {
               socialMatches={result.internetData?.socialMatches}
             />
 
+            {/* Laudo Completo - Mobile */}
+            {result.laudo && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-display font-semibold text-base">Laudo Técnico de Viabilidade</h4>
+                  <Button variant="ghost" size="sm" onClick={printLaudo} className="text-muted-foreground hover:text-foreground">
+                    <Printer className="w-4 h-4 mr-1" />
+                    Salvar
+                  </Button>
+                </div>
+                <div className="bg-muted/40 rounded-xl p-4 max-h-60 overflow-y-auto border border-border/40">
+                  <pre className="whitespace-pre-wrap text-sm text-muted-foreground font-sans leading-relaxed">{result.laudo}</pre>
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="space-y-2 mt-4">
               <Button className="w-full" size="lg" onClick={handleRegisterClick}>
