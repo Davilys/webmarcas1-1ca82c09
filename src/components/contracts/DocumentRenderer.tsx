@@ -208,7 +208,7 @@ export function DocumentRenderer({
       return 'Pelo presente instrumento particular de PROCURAÇÃO, o(a) outorgante abaixo identificado(a) nomeia e constitui como seu bastante PROCURADOR o(a) Sr(a). Davilys Danques de Oliveira Cunha, para representá-lo(a) de forma exclusiva junto ao INSTITUTO NACIONAL DA PROPRIEDADE INDUSTRIAL – INPI, podendo praticar todos os atos necessários, legais e administrativos relacionados ao pedido, acompanhamento, defesa e manutenção do registro de marca, inclusive apresentação de requerimentos, cumprimento de exigências, interposição de recursos e recebimento de notificações.';
     }
     if (documentType === 'distrato_multa' || documentType === 'distrato_sem_multa') {
-      return `Os termos deste instrumento aplicam-se apenas a contratações com negociações personalizadas, tratadas diretamente com a equipe comercial da Web Marcas e Patentes Eireli.\n\nOs termos aqui celebrados são adicionais ao "Contrato de Prestação de Serviços e Gestão de Pagamentos e Outras Avenças" com aceite integral no momento do envio da Proposta.`;
+      return `Os termos deste instrumento aplicam-se exclusivamente à formalização do cancelamento de contratações realizadas mediante negociações personalizadas, conduzidas diretamente com a equipe comercial da WebMarcas Intelligence PI.\n\nO presente distrato estabelece as condições para encerramento da relação contratual anteriormente firmada, estando vinculado ao "Contrato de Prestação de Serviços e Gestão de Pagamentos e Outras Avenças", cujo aceite integral ocorreu no momento do envio da Proposta.`;
     }
     return null;
   }, [documentType]);
