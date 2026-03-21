@@ -39,52 +39,107 @@ São Paulo, ${dataHoje}.`;
 export function generateDistratoComMultaContent(vars: DocumentVariables): string {
   const dataHoje = formatDateExtended(new Date());
   
-  return `I) WebMarcas Intelligence PI, com sede na cidade de SÃO PAULO, Estado de SP, na AVENIDA PRESTES MAIA, Nº: 241, CEP:01031-001, inscrita no CNPJ/MF sob o Nº:39.528.012/0001-29, na cidade de SÃO PAULO, Estado de SP (" WebMarcas ");
+  return `Pelo presente instrumento particular de distrato, de um lado:
 
-Pelo presente instrumento as partes abaixo qualificadas:
+I) WebMarcas Intelligence PI, pessoa jurídica de direito privado, inscrita no CNPJ/MF sob o Nº: 39.528.012/0001-29, com sede na cidade de SÃO PAULO, Estado de SP, na Av. Brigadeiro Luís Antônio, 2696 - andar 2, sala 202 - Jardim Paulista, CEP: 01402-000, doravante denominada CONTRATADA;
 
-II) A pessoa física ou jurídica que preencheu e enviou à WebMarcas o cadastro necessário para criação e verificação de conta junto à WebMarcas, identificada pelo presente instrumento particular que o fazem parte, de um lado ora a CONTRATANTE: ${vars.nome_empresa}, com sede na ${vars.endereco}, na cidade de ${vars.cidade}, estado de ${vars.estado}, CEP ${vars.cep}, inscrita no CNPJ/ sob nº ${vars.cnpj}, neste ato representada por ${vars.nome_representante}, CPF sob o n⁰ ${vars.cpf_representante}, com endereço de e-mail para faturamento ${vars.email || ''} e Tel; ${vars.telefone || ''}, ("Contratante").
+E, de outro lado:
 
-As partes celebram o presente Acordo de Tarifas, que se regerá pelas cláusulas e condições abaixo:
+II) ${vars.nome_empresa}, com sede na ${vars.endereco}, na cidade de ${vars.cidade}, estado de ${vars.estado}, CEP ${vars.cep}, inscrita no CNPJ sob nº ${vars.cnpj}, neste ato representada por ${vars.nome_representante}, CPF sob o nº ${vars.cpf_representante}, com endereço de e-mail para faturamento ${vars.email || ''} e Tel: ${vars.telefone || ''}, doravante denominada CONTRATANTE.
 
-1. DO OBJETO E CONSIDERAÇÕES DO CONTRATO
-1.2. O presente contrato tem como OBJETO a parceria celebrada entre as partes, com o objetivo de preparar e depositar o registro da marca junto ao INSTITUTO NACIONAL DA PROPRIEDADE INDUSTRIAL, referente à marca ${vars.marca || '[Nome da Marca]'}, bem como o acompanhamento e vigilância do processo até a sua fase processual seguinte.
+As partes acima qualificadas, em comum e recíproco acordo, resolvem, por este instrumento e na melhor forma de direito, DISTRATAR o Contrato de Prestação de Serviços celebrado para preparo de depósito de registro de marca junto ao INSTITUTO NACIONAL DA PROPRIEDADE INDUSTRIAL, referente à marca ${vars.marca || '[Nome da Marca]'}, bem como o acompanhamento e supervisão do processo até sua fase processual seguinte, doravante denominado "Contrato Original", mediante as cláusulas e condições seguintes:
 
-1.3. As partes resolvem, nesta data ${vars.data_distrato || dataHoje}, em comum acordo e no exercício de suas faculdades, dissolver todos os direitos e obrigações decorrentes do contrato de parceria celebrado entre elas. Fica estabelecido que haverá um ônus financeiro em virtude do cancelamento, correspondente ao valor de ${vars.numero_parcela || '1'} parcela de R$${vars.valor_multa || '0,00'}. Ressalta-se que a falta de pagamento acarretará na cobrança do valor total do serviço, sujeito a protesto.
+CLÁUSULA PRIMEIRA – DO OBJETO DO DISTRATO E CONDIÇÕES DE RESCISÃO
 
-1.4. Todas as cláusulas e condições contidas no presente contrato são consideradas DISTRATADAS a partir desta data. As partes declaram, por meio deste instrumento e nos termos da lei, quitação total e irrestrita de todos os direitos e obrigações decorrentes do contrato de parceria, não existindo pendências recíprocas.
+1.1. O presente instrumento tem como objeto o distrato do Contrato Original, celebrado entre as partes, que tinha como fundamento a prestação de serviços de preparo e depósito de registro de marca junto ao INSTITUTO NACIONAL DA PROPRIEDADE INDUSTRIAL, referente à marca ${vars.marca || '[Nome da Marca]'}, bem como o acompanhamento e supervisão do processo até sua fase processual seguinte.
 
-1.5. Este Distrato passa a vigorar entre as partes a partir da data de assinatura, independentemente do estágio de desenvolvimento financeiro das partes.
+1.2. As partes, de forma livre e espontânea, e no pleno exercício de suas faculdades, declaram dissolver, a partir da data de assinatura deste distrato, todos os direitos e obrigações decorrentes do Contrato Original. Fica expressamente acordado que, em virtude do cancelamento, haverá um ônus financeiro correspondente ao valor de ${vars.numero_parcela || '1'} parcela(s) de R$ ${vars.valor_multa || '0,00'}. A falta de pagamento deste ônus implicará na cobrança do valor total do serviço contratado, sujeito a protesto e demais medidas legais cabíveis.
 
-2. ELEIÇÃO DE FORO
-2.1 Fica eleito o Foro da Comarca de São Paulo como o competente para dirimir as questões suscitadas com base no presente Contrato, renunciando as partes a outros Foros, por mais privilegiados que sejam.
+1.3. As partes declaram que, com a assinatura do presente distrato, o Contrato Original é considerado integralmente cumprido e extinto, ressalvadas as obrigações financeiras expressamente previstas neste instrumento, não havendo quaisquer outras pendências recíprocas, sejam elas financeiras, contratuais, ou de qualquer outra ordem, exceto as aqui estabelecidas.
 
-São Paulo, ${dataHoje}.`;
+1.4. Este Distrato passa a vigorar entre as partes a partir da data de sua assinatura, independentemente do estágio de desenvolvimento financeiro ou jurídico das partes.
+
+CLÁUSULA SEGUNDA – DA QUITAÇÃO PLENA, IRREVOGÁVEL E IRRETRATÁVEL
+
+2.1. A CONTRATANTE, por este ato, concede à CONTRATADA, e esta à CONTRATANTE, a mais ampla, geral, rasa, plena, irrevogável e irretratável quitação de todas e quaisquer obrigações, direitos, deveres, créditos, débitos, responsabilidades, indenizações, multas, penalidades, perdas e danos, de qualquer natureza, presentes ou futuras, decorrentes ou relacionadas ao Contrato Original, para nada mais reclamar, a qualquer título e a qualquer tempo, judicial ou extrajudicialmente, ressalvadas as obrigações financeiras expressamente estabelecidas na Cláusula Primeira deste distrato.
+
+2.2. O presente distrato é celebrado em caráter irretratável e irrevogável, obrigando as partes por si, seus herdeiros e sucessores, a qualquer tempo e grau de desenvolvimento financeiro ou jurídico, não sendo admitida qualquer alegação de vício de consentimento, erro, dolo, coação, simulação ou fraude, para fins de sua anulação ou revisão.
+
+CLÁUSULA TERCEIRA – DA VEDAÇÃO A RECLAMAÇÕES E MEDIDAS ADVERSAS
+
+3.1. A CONTRATANTE, ao assinar o presente instrumento, reconhece e concorda expressamente que, em virtude da quitação plena, irrevogável e irretratável concedida na Cláusula Segunda, NÃO PODERÁ propor, iniciar, dar continuidade ou participar de qualquer tipo de reclamação, ação judicial, procedimento administrativo, queixa, denúncia, ou qualquer outra medida, de qualquer natureza, que vise a discutir, questionar, ou imputar responsabilidade à CONTRATADA, seus sócios, administradores, empregados, prepostos ou representantes, por fatos, atos ou omissões ocorridos durante a vigência ou em decorrência do Contrato Original, ressalvadas as obrigações financeiras expressamente estabelecidas na Cláusula Primeira deste distrato.
+
+3.2. A CONTRATANTE se compromete a abster-se de qualquer conduta que possa, direta ou indiretamente, causar prejuízo à imagem, reputação, bom nome, ou quaisquer outros direitos da CONTRATADA, de seus sócios, administradores, empregados, prepostos ou representantes, sob pena de responder por perdas e danos, sem prejuízo das demais medidas legais cabíveis.
+
+CLÁUSULA QUARTA – DA CONFIDENCIALIDADE
+
+4.1. As partes comprometem-se a manter sigilo e confidencialidade sobre todas as informações e termos do presente distrato, bem como sobre quaisquer informações comerciais, técnicas ou estratégicas da outra parte, que tenham tido acesso em razão do Contrato Original e deste distrato, sob pena de responderem por perdas e danos.
+
+CLÁUSULA QUINTA – DA INDEPENDÊNCIA DAS CLÁUSULAS
+
+5.1. Caso qualquer disposição deste distrato seja considerada inválida, ilegal ou inexequível em qualquer jurisdição, tal invalidade, ilegalidade ou inexequibilidade não afetará a validade, legalidade ou exequibilidade das demais disposições deste distrato, nem a validade, legalidade ou exequibilidade de tal disposição em qualquer outra jurisdição.
+
+CLÁUSULA SEXTA – DA LEGISLAÇÃO APLICÁVEL E ELEIÇÃO DE FORO
+
+6.1. O presente distrato será regido e interpretado de acordo com as leis da República Federativa do Brasil.
+
+6.2. Fica eleito o Foro da Comarca de São Paulo, Estado de São Paulo, para dirimir quaisquer dúvidas ou litígios oriundos do presente distrato, com expressa renúncia a qualquer outro, por mais privilegiado que seja.
+
+Por estarem justas e contratadas, as partes assinam o presente de igual teor e forma, de forma digital válida juridicamente.
+
+São Paulo, ${vars.data_distrato || dataHoje}.`;
 }
 
 export function generateDistratoSemMultaContent(vars: DocumentVariables): string {
   const dataHoje = formatDateExtended(new Date());
   
-  return `I) WebMarcas Intelligence PI, com sede na cidade de SÃO PAULO, Estado de SP, na AVENIDA PRESTES MAIA, Nº: 241, CEP:01031-001, inscrita no CNPJ/MF sob o Nº:39.528.012/0001-29, na cidade de SÃO PAULO, Estado de SP (" WebMarcas ");
+  return `Pelo presente instrumento particular de distrato, de um lado:
 
-Pelo presente instrumento as partes abaixo qualificadas:
+I) WebMarcas Intelligence PI, pessoa jurídica de direito privado, inscrita no CNPJ/MF sob o Nº: 39.528.012/0001-29, com sede na cidade de SÃO PAULO, Estado de SP, na Av. Brigadeiro Luís Antônio, 2696 - andar 2, sala 202 - Jardim Paulista, CEP: 01402-000, doravante denominada CONTRATADA;
 
-II) A pessoa física ou jurídica que preencheu e enviou à WebMarcas o cadastro necessário para criação e verificação de conta junto à WebMarcas, identificada pelo presente instrumento particular que o fazem parte, de um lado ora a CONTRATANTE: ${vars.nome_empresa}, com sede na ${vars.endereco}, na cidade de ${vars.cidade}, estado de ${vars.estado}, CEP ${vars.cep}, inscrita no CNPJ/ sob nº ${vars.cnpj}, neste ato representada por ${vars.nome_representante}, CPF sob o n⁰ ${vars.cpf_representante}, com endereço de e-mail para faturamento ${vars.email || ''} e Tel; ${vars.telefone || ''}, ("Contratante").
+E, de outro lado:
 
-As partes celebram o presente Acordo de Tarifas, que se regerá pelas cláusulas e condições abaixo:
+II) ${vars.nome_empresa}, com sede na ${vars.endereco}, na cidade de ${vars.cidade}, estado de ${vars.estado}, CEP ${vars.cep}, inscrita no CNPJ sob nº ${vars.cnpj}, neste ato representada por ${vars.nome_representante}, CPF sob o nº ${vars.cpf_representante}, com endereço de e-mail para faturamento ${vars.email || ''} e Tel: ${vars.telefone || ''}, doravante denominada CONTRATANTE.
 
-1. DO OBJETO E CONSIDERAÇÕES DO CONTRATO
-1.2. O presente tem como OBJETO o contrato de parceria celebrado entre as partes neste mencionado, o qual teve como fundamento, o seguinte: (Preparo de depósito de registro de marca junto ao INSTITUTO NACIONAL DA PROPRIEDADE INDUSTRIAL, marca; ${vars.marca || '[Nome da Marca]'}, bem como acompanhamento e vigilância até sua faze processual seguinte).
+As partes acima qualificadas, em comum e recíproco acordo, resolvem, por este instrumento e na melhor forma de direito, DISTRATAR o Contrato de Prestação de Serviços celebrado para preparo de depósito de registro de marca junto ao INSTITUTO NACIONAL DA PROPRIEDADE INDUSTRIAL, referente à marca ${vars.marca || '[Nome da Marca]'}, bem como o acompanhamento e supervisão do processo até sua fase processual seguinte, doravante denominado "Contrato Original", mediante as cláusulas e condições seguintes:
 
-1.3. As partes resolvem, nesta data ${vars.data_distrato || dataHoje}, em comum acordo, nas razões de suas faculdades, dissolver quaisquer direitos e obrigações oriundas do contrato de parceria firmado entre elas, de forma que não restar resquícios de ônus financeiro obrigacional relativos ao mesmo.
+CLÁUSULA PRIMEIRA – DO OBJETO DO DISTRATO
 
-1.4. Todas as cláusulas e condições contidas no presente restam desde já DISTRATADAS. Afirmam por este e na forma de Direito, dando total e irrestrita quitação sobre todos os direitos e obrigações oriundas do contrato de parceria, não havendo quaisquer pendências recíprocas.
+1.1. O presente instrumento tem como objeto o distrato do Contrato Original, celebrado entre as partes, que tinha como fundamento a prestação de serviços de preparo e depósito de registro de marca junto ao INSTITUTO NACIONAL DA PROPRIEDADE INDUSTRIAL, referente à marca ${vars.marca || '[Nome da Marca]'}, bem como o acompanhamento e supervisão do processo até sua fase processual seguinte.
 
-1.5. Seja em qualquer tempo ou grau de desenvolvimento financeiro do DISTRATANTE e DISTRATADO, em função dos termos, o presente. Distrato passa a vigorar entre as partes á partir da assinatura do mesmo.
+1.2. As partes, de forma livre e espontânea, e no pleno exercício de suas faculdades, declaram dissolver, a partir da data de assinatura deste distrato, todos os direitos e obrigações decorrentes do Contrato Original, de modo que não subsistam quaisquer resquícios de ônus financeiro, obrigacional, ou de qualquer outra natureza, relativos ao referido contrato.
 
-2.1 Fica eleito o Foro da Comarca de São Paulo, como o competente para dirimir as questões suscitadas com base no presente Contrato, renunciando as partes a outros Foros, por mais privilegiados que sejam.
+CLÁUSULA SEGUNDA – DA QUITAÇÃO PLENA, IRREVOGÁVEL E IRRETRATÁVEL
 
-São Paulo, ${dataHoje}.`;
+2.1. A CONTRATANTE, por este ato, concede à CONTRATADA, e esta à CONTRATANTE, a mais ampla, geral, rasa, plena, irrevogável e irretratável quitação de todas e quaisquer obrigações, direitos, deveres, créditos, débitos, responsabilidades, indenizações, multas, penalidades, perdas e danos, de qualquer natureza, presentes ou futuras, decorrentes ou relacionadas ao Contrato Original, para nada mais reclamar, a qualquer título e a qualquer tempo, judicial ou extrajudicialmente.
+
+2.2. As partes declaram, expressamente, que, com a assinatura do presente distrato, o Contrato Original é considerado integralmente cumprido e extinto, não havendo quaisquer pendências recíprocas, sejam elas financeiras, contratuais, ou de qualquer outra ordem.
+
+2.3. O presente distrato é celebrado em caráter irretratável e irrevogável, obrigando as partes por si, seus herdeiros e sucessores, a qualquer tempo e grau de desenvolvimento financeiro ou jurídico, não sendo admitida qualquer alegação de vício de consentimento, erro, dolo, coação, simulação ou fraude, para fins de sua anulação ou revisão.
+
+CLÁUSULA TERCEIRA – DA VEDAÇÃO A RECLAMAÇÕES E MEDIDAS ADVERSAS
+
+3.1. A CONTRATANTE, ao assinar o presente instrumento, reconhece e concorda expressamente que, em virtude da quitação plena, irrevogável e irretratável concedida na Cláusula Segunda, NÃO PODERÁ propor, iniciar, dar continuidade ou participar de qualquer tipo de reclamação, ação judicial, procedimento administrativo, queixa, denúncia, ou qualquer outra medida, de qualquer natureza, que vise a discutir, questionar, ou imputar responsabilidade à CONTRATADA, seus sócios, administradores, empregados, prepostos ou representantes, por fatos, atos ou omissões ocorridos durante a vigência ou em decorrência do Contrato Original.
+
+3.2. A CONTRATANTE se compromete a abster-se de qualquer conduta que possa, direta ou indiretamente, causar prejuízo à imagem, reputação, bom nome, ou quaisquer outros direitos da CONTRATADA, de seus sócios, administradores, empregados, prepostos ou representantes, sob pena de responder por perdas e danos, sem prejuízo das demais medidas legais cabíveis.
+
+CLÁUSULA QUARTA – DA CONFIDENCIALIDADE
+
+4.1. As partes comprometem-se a manter sigilo e confidencialidade sobre todas as informações e termos do presente distrato, bem como sobre quaisquer informações comerciais, técnicas ou estratégicas da outra parte, que tenham tido acesso em razão do Contrato Original e deste distrato, sob pena de responderem por perdas e danos.
+
+CLÁUSULA QUINTA – DA INDEPENDÊNCIA DAS CLÁUSULAS
+
+5.1. Caso qualquer disposição deste distrato seja considerada inválida, ilegal ou inexequível em qualquer jurisdição, tal invalidade, ilegalidade ou inexequibilidade não afetará a validade, legalidade ou exequibilidade das demais disposições deste distrato, nem a validade, legalidade ou exequibilidade de tal disposição em qualquer outra jurisdição.
+
+CLÁUSULA SEXTA – DA LEGISLAÇÃO APLICÁVEL E ELEIÇÃO DE FORO
+
+6.1. O presente distrato será regido e interpretado de acordo com as leis da República Federativa do Brasil.
+
+6.2. Fica eleito o Foro da Comarca de São Paulo, Estado de São Paulo, para dirimir quaisquer dúvidas ou litígios oriundos do presente distrato, com expressa renúncia a qualquer outro, por mais privilegiado que seja.
+
+Por estarem justas e contratadas, as partes assinam o presente de igual teor e forma, de forma digital válida juridicamente.
+
+São Paulo, ${vars.data_distrato || dataHoje}.`;
 }
 
 export function generateDocumentContent(
