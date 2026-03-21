@@ -39,7 +39,15 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const invoiceData: InvoiceRequest = await req.json();
+    const rawData = await req.json();
+    // Support both field naming conventions
+    const invoiceData = {
+      ...rawData,
+      user_id: rawData.user_id || rawData.clientId,
+      total_value: rawData.total_value || rawData.value,
+      due_date: rawData.due_date || rawData.dueDate,
+      payment_method: rawData.payment_method || (rawData.billingType === 'BOLETO' ? 'boleto' : rawData.billingType === 'PIX' ? 'pix' : 'boleto'),
+    } as InvoiceRequest;
     console.log('Creating admin invoice:', JSON.stringify(invoiceData));
 
     // ========================================
