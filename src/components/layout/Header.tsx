@@ -139,7 +139,7 @@ const Header = () => {
               )}
             </Button>
 
-            <Button variant="ghost" size="sm" className={!isScrolled ? 'text-white hover:bg-white/10' : ''} asChild>
+            <Button variant="ghost" size="sm" asChild>
               <Link to="/cliente/login">{t("nav.clientArea")}</Link>
             </Button>
             <Button variant="primary" size="sm" className="btn-glow" asChild>
