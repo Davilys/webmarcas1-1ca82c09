@@ -9,6 +9,21 @@ import { toast } from 'sonner';
 import { Mail, Lock, Loader2, Shield } from 'lucide-react';
 import logo from '@/assets/webmarcas-logo.png';
 
+const MAX_NETWORK_RETRIES = 2;
+const BASE_RETRY_DELAY_MS = 700;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isFetchConnectivityError = (message?: string) => {
+  const normalized = (message || '').toLowerCase();
+  return (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('networkerror') ||
+    normalized.includes('load failed') ||
+    normalized.includes('network request failed')
+  );
+};
+
 export default function AdminLogin() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -20,14 +35,37 @@ export default function AdminLogin() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const normalizedEmail = email.trim().toLowerCase();
+
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        toast.error('Você está sem internet. Verifique sua conexão e tente novamente.');
+        return;
+      }
+
+      let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'] | null = null;
+      let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['error'] | null = null;
+
+      for (let attempt = 1; attempt <= MAX_NETWORK_RETRIES; attempt++) {
+        const result = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+
+        data = result.data;
+        error = result.error;
+
+        if (!error || !isFetchConnectivityError(error.message) || attempt === MAX_NETWORK_RETRIES) {
+          break;
+        }
+
+        await wait(BASE_RETRY_DELAY_MS * attempt);
+      }
 
       if (error) {
         if (error.message.includes('Invalid login credentials')) {
           toast.error('Email ou senha incorretos');
+        } else if (isFetchConnectivityError(error.message)) {
+          toast.error('Falha de conexão com o servidor. Tente novamente em alguns segundos.');
         } else {
           toast.error(error.message);
         }
@@ -36,12 +74,36 @@ export default function AdminLogin() {
 
       // Check if user is admin
       if (data.user) {
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', data.user.id)
-          .eq('role', 'admin')
-          .maybeSingle();
+        let roleData: { role: string } | null = null;
+        let roleError: { message: string } | null = null;
+
+        for (let attempt = 1; attempt <= MAX_NETWORK_RETRIES; attempt++) {
+          const roleResult = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', data.user.id)
+            .eq('role', 'admin')
+            .maybeSingle();
+
+          roleData = roleResult.data;
+          roleError = roleResult.error;
+
+          if (!roleError || !isFetchConnectivityError(roleError.message) || attempt === MAX_NETWORK_RETRIES) {
+            break;
+          }
+
+          await wait(BASE_RETRY_DELAY_MS * attempt);
+        }
+
+        if (roleError) {
+          await supabase.auth.signOut();
+          toast.error(
+            isFetchConnectivityError(roleError.message)
+              ? 'Instabilidade de conexão ao validar seu acesso. Tente novamente.'
+              : 'Não foi possível validar suas permissões de administrador.'
+          );
+          return;
+        }
 
         if (roleData) {
           // Master admin goes to dashboard directly
@@ -51,11 +113,35 @@ export default function AdminLogin() {
             navigate('/admin/dashboard');
           } else {
             // Fetch permissions to find first allowed route
-            const { data: perms } = await supabase
-              .from('admin_permissions')
-              .select('permission_key, can_view')
-              .eq('user_id', data.user.id)
-              .eq('can_view', true);
+            let perms: { permission_key: string; can_view: boolean }[] | null = null;
+            let permsError: { message: string } | null = null;
+
+            for (let attempt = 1; attempt <= MAX_NETWORK_RETRIES; attempt++) {
+              const permsResult = await supabase
+                .from('admin_permissions')
+                .select('permission_key, can_view')
+                .eq('user_id', data.user.id)
+                .eq('can_view', true);
+
+              perms = permsResult.data;
+              permsError = permsResult.error;
+
+              if (!permsError || !isFetchConnectivityError(permsError.message) || attempt === MAX_NETWORK_RETRIES) {
+                break;
+              }
+
+              await wait(BASE_RETRY_DELAY_MS * attempt);
+            }
+
+            if (permsError) {
+              toast.error(
+                isFetchConnectivityError(permsError.message)
+                  ? 'Login realizado, mas houve instabilidade ao carregar permissões. Tente novamente.'
+                  : 'Login realizado, mas não foi possível carregar permissões de acesso.'
+              );
+              navigate('/admin/configuracoes');
+              return;
+            }
 
             const PATH_MAP: Record<string, string> = {
               dashboard: '/admin/dashboard',
@@ -91,7 +177,12 @@ export default function AdminLogin() {
         }
       }
     } catch (error) {
-      toast.error('Erro ao fazer login');
+      const errorMessage = error instanceof Error ? error.message : '';
+      toast.error(
+        isFetchConnectivityError(errorMessage)
+          ? 'Falha de conexão com o servidor. Tente novamente em alguns segundos.'
+          : 'Erro ao fazer login'
+      );
     } finally {
       setIsLoading(false);
     }
