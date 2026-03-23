@@ -516,7 +516,8 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
     );
   }
 
-  if (isAdmin === null || loadingPermissions) {
+  // Only show full loading screen if we have NO cached data at all
+  if (isAdmin === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
