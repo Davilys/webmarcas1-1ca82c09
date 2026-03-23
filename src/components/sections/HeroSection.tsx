@@ -39,15 +39,6 @@ const HeroSection = () => {
 
   return (
     <section id="home" className="relative overflow-x-clip overflow-y-visible" style={{ background: 'linear-gradient(135deg, #2946d9 0%, #3B5CFC 40%, #4a6aff 100%)' }}>
-      {/* Watermark logo */}
-      <div className="absolute inset-0 flex items-start justify-center pointer-events-none overflow-hidden pt-20 lg:pt-10">
-        <img 
-          src={webmarcasLogo} 
-          alt="" 
-          className="w-[500px] h-[500px] lg:w-[700px] lg:h-[700px] object-contain opacity-[0.07] select-none"
-          aria-hidden="true"
-        />
-      </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-14 relative z-10 max-w-7xl">
         {/* Two-column hero */}
