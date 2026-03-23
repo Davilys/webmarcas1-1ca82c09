@@ -612,7 +612,7 @@ const ViabilitySearchSection = ({ compact = false }: { compact?: boolean }) => {
                   </button>
                 </div>
 
-                <p className="mt-4 text-center text-xs text-muted-foreground">
+                <p className="mt-4 text-center text-xs text-white/70">
                   🔒 Consulta gratuita • Resultado em segundos • Sem cadastro necessário
                 </p>
               </form>
