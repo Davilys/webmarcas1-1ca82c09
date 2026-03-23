@@ -2,16 +2,10 @@ import { Award, Star } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { AnimatedCounter } from "@/components/admin/dashboard/AnimatedCounter";
 import ViabilitySearchSection from "@/components/sections/ViabilitySearchSection";
-import ClientLogosMarquee from "@/components/sections/ClientLogosSection";
 import consultant1 from "@/assets/consultants/consultant-1.jpg";
 import consultant2 from "@/assets/consultants/consultant-2.jpg";
 import consultant3 from "@/assets/consultants/consultant-3.jpg";
-import trustShield from "@/assets/illustrations/trust-shield.png";
-import trustClock from "@/assets/illustrations/trust-clock.png";
-import trustGuarantee from "@/assets/illustrations/trust-guarantee.png";
-import trustOnline from "@/assets/illustrations/trust-online.png";
 
 const HeroSection = () => {
   const { t } = useLanguage();
@@ -26,19 +20,6 @@ const HeroSection = () => {
     return () => clearInterval(interval);
   }, [phrases.length]);
 
-  const trustBadges = [
-    { image: trustShield, label: t("hero.trust.inpi") },
-    { image: trustClock, label: t("hero.trust.protocol") },
-    { image: trustGuarantee, label: t("hero.trust.guarantee") },
-    { image: trustOnline, label: t("hero.trust.online") },
-  ];
-
-  const stats = [
-    { value: 11000, suffix: "+", label: t("hero.stats.brands") },
-    { value: 98, suffix: "%", label: t("hero.stats.success") },
-    { value: 48, suffix: "h", label: t("hero.stats.time") },
-    { value: 15, suffix: "+", label: t("hero.stats.experience") },
-  ];
 
   return (
     <section id="home" className="relative overflow-x-clip overflow-y-visible" style={{ background: 'linear-gradient(135deg, #2946d9 0%, #3B5CFC 40%, #4a6aff 100%)' }}>
@@ -104,55 +85,10 @@ const HeroSection = () => {
           </div>
         </div>
 
-        {/* Trust Badges */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto mt-10">
-          {trustBadges.map((item, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-              className="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/10 backdrop-blur-sm text-center"
-            >
-              <div className="w-16 h-16 flex items-center justify-center">
-                <img src={item.image} alt={item.label} className="w-full h-full object-contain" />
-              </div>
-              <span className="text-sm font-medium text-white leading-tight">{item.label}</span>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Stats */}
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 max-w-4xl mx-auto">
-          {stats.map((stat, index) => (
-            <motion.div 
-              key={index} 
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.5 + index * 0.1 }}
-            >
-              <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">
-                <AnimatedCounter 
-                  value={stat.value} 
-                  suffix={stat.suffix}
-                  duration={2.5}
-                />
-              </div>
-              <div className="text-sm md:text-base text-white/70 font-medium">
-                {stat.label}
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Client Logos Marquee */}
-        <div className="mt-10">
-          <ClientLogosMarquee embedded />
-        </div>
       </div>
     </section>
   );
 };
 
 export default HeroSection;
+
