@@ -554,7 +554,7 @@ const ViabilitySearchSection = ({ compact = false }: { compact?: boolean }) => {
               <h2 className="hidden sm:block font-display text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2 leading-tight whitespace-nowrap">
                 Consulte a viabilidade da sua <span className="text-yellow-300">marca</span>
               </h2>
-              <p className="hidden sm:block text-sm md:text-base text-white/80 mb-8">
+              <p className="hidden sm:block text-sm md:text-base text-white mb-8">
                 Pesquisa automática na base oficial do INPI em tempo real.
               </p>
 

@@ -72,7 +72,7 @@ const HeroSection = () => {
                     <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                   ))}
                 </div>
-                <p className="text-xs text-white/90 leading-snug max-w-[220px]">
+                <p className="text-xs text-white leading-snug max-w-[220px]">
                   Consultores disponíveis durante todo processo do registro via WhatsApp.
                 </p>
               </div>
