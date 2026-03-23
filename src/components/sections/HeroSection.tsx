@@ -2,15 +2,10 @@ import { Award, Star } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { AnimatedCounter } from "@/components/admin/dashboard/AnimatedCounter";
 import ViabilitySearchSection from "@/components/sections/ViabilitySearchSection";
 import consultant1 from "@/assets/consultants/consultant-1.jpg";
 import consultant2 from "@/assets/consultants/consultant-2.jpg";
 import consultant3 from "@/assets/consultants/consultant-3.jpg";
-import trustShield from "@/assets/illustrations/trust-shield.png";
-import trustClock from "@/assets/illustrations/trust-clock.png";
-import trustGuarantee from "@/assets/illustrations/trust-guarantee.png";
-import trustOnline from "@/assets/illustrations/trust-online.png";
 
 const HeroSection = () => {
   const { t } = useLanguage();
