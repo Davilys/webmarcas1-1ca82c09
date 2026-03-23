@@ -84,11 +84,7 @@ const Header = () => {
                 <Link
                   key={item.label}
                   to={item.href}
-                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
-                    isScrolled 
-                      ? 'text-primary hover:text-primary/80 hover:bg-primary/10' 
-                      : 'text-white hover:text-white/80 hover:bg-white/10'
-                  }`}
+                  className="px-4 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors rounded-lg hover:bg-primary/10"
                 >
                   {item.label}
                 </Link>
@@ -97,11 +93,7 @@ const Header = () => {
                   key={item.label}
                   href={isHomePage ? item.href : `/${item.href}`}
                   onClick={(e) => handleAnchorClick(e, item.href)}
-                  className={`px-4 py-2 text-sm transition-colors rounded-lg ${
-                    isScrolled 
-                      ? 'text-muted-foreground hover:text-foreground hover:bg-secondary' 
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
+                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary"
                 >
                   {item.label}
                 </a>
