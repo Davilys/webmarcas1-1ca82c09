@@ -20,19 +20,6 @@ const HeroSection = () => {
     return () => clearInterval(interval);
   }, [phrases.length]);
 
-  const trustBadges = [
-    { image: trustShield, label: t("hero.trust.inpi") },
-    { image: trustClock, label: t("hero.trust.protocol") },
-    { image: trustGuarantee, label: t("hero.trust.guarantee") },
-    { image: trustOnline, label: t("hero.trust.online") },
-  ];
-
-  const stats = [
-    { value: 11000, suffix: "+", label: t("hero.stats.brands") },
-    { value: 98, suffix: "%", label: t("hero.stats.success") },
-    { value: 48, suffix: "h", label: t("hero.stats.time") },
-    { value: 15, suffix: "+", label: t("hero.stats.experience") },
-  ];
 
   return (
     <section id="home" className="relative overflow-x-clip overflow-y-visible" style={{ background: 'linear-gradient(135deg, #2946d9 0%, #3B5CFC 40%, #4a6aff 100%)' }}>
