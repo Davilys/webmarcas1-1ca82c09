@@ -561,10 +561,10 @@ const ViabilitySearchSection = ({ compact = false }: { compact?: boolean }) => {
               {/* Feature Cards */}
               <div className="grid grid-cols-3 gap-3 mb-8">
                 {FEATURE_CARDS.map((item, i) => (
-                  <div key={i} className="flex flex-col items-center gap-2 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-sm px-3 py-4 text-center">
-                    <item.icon className="w-6 h-6 text-yellow-300" strokeWidth={1.5} />
-                    <p className="font-semibold text-white text-sm leading-tight">{item.label}</p>
-                    <p className="text-xs text-white/70 leading-snug">{item.sub}</p>
+                  <div key={i} className="flex flex-col items-center gap-2 rounded-2xl border border-white/40 bg-white shadow-sm px-3 py-4 text-center">
+                    <item.icon className="w-6 h-6 text-primary" strokeWidth={1.5} />
+                    <p className="font-semibold text-foreground text-sm leading-tight">{item.label}</p>
+                    <p className="text-xs text-muted-foreground leading-snug">{item.sub}</p>
                   </div>
                 ))}
               </div>
