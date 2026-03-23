@@ -72,7 +72,7 @@ const HeroSection = () => {
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: '-100%', opacity: 0 }}
                     transition={{ duration: 0.5, ease: "easeInOut" }}
-                    className="inline-block gradient-text"
+                    className="inline-block text-yellow-300"
                   >
                     {phrases[phraseIndex]}
                   </motion.span>
