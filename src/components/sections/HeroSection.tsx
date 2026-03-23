@@ -88,9 +88,9 @@ const HeroSection = () => {
             {/* Social Proof */}
             <div className="hidden sm:inline-flex flex-col sm:flex-row items-center lg:items-start gap-4 rounded-2xl bg-white/10 border border-white/20 px-5 py-4 mx-auto lg:mx-0">
               <div className="flex items-center -space-x-3 shrink-0">
-                <img src={consultant1} alt="Consultora" className="w-11 h-11 rounded-full border-2 border-primary-foreground/30 object-cover" />
-                <img src={consultant2} alt="Consultor" className="w-11 h-11 rounded-full border-2 border-primary-foreground/30 object-cover" />
-                <img src={consultant3} alt="Consultora" className="w-11 h-11 rounded-full border-2 border-primary-foreground/30 object-cover" />
+                <img src={consultant1} alt="Consultora" className="w-11 h-11 rounded-full border-2 border-white/40 object-cover" />
+                <img src={consultant2} alt="Consultor" className="w-11 h-11 rounded-full border-2 border-white/40 object-cover" />
+                <img src={consultant3} alt="Consultora" className="w-11 h-11 rounded-full border-2 border-white/40 object-cover" />
               </div>
               <div className="text-center sm:text-left">
                 <div className="flex items-center justify-center sm:justify-start gap-0.5 mb-1">
