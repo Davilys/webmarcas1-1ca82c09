@@ -123,12 +123,12 @@ const HeroSection = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-              className="flex flex-col items-center gap-3 p-5 rounded-2xl bg-card/60 backdrop-blur-sm text-center"
+              className="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/10 backdrop-blur-sm text-center"
             >
-              <div className={`p-3 rounded-xl ${item.bgColor}`}>
-                <item.icon className={`w-6 h-6 ${item.color}`} />
+              <div className={`p-3 rounded-xl bg-white/15`}>
+                <item.icon className="w-6 h-6 text-white" />
               </div>
-              <span className="text-sm font-medium text-foreground leading-tight">{item.label}</span>
+              <span className="text-sm font-medium text-white leading-tight">{item.label}</span>
             </motion.div>
           ))}
         </div>
