@@ -83,7 +83,7 @@ const ClientLogosSection = ({ embedded }: { embedded?: boolean }) => {
         <div className="overflow-hidden">
           <div className="flex gap-5 animate-scroll-left hover:[animation-play-state:paused]">
             {[...row1Logos, ...row1Logos, ...row1Logos].map((logo, i) => (
-              <LogoCard key={`r1-${i}`} src={logo.src} alt={logo.alt} />
+              <LogoCard key={`r1-${i}`} src={logo.src} alt={logo.alt} embedded={embedded} />
             ))}
           </div>
         </div>
