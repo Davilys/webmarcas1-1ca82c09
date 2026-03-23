@@ -56,7 +56,7 @@ const HeroSection = () => {
           {/* Left — Text */}
           <div className="text-center lg:text-left">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 badge-premium mb-6 w-fit mx-auto lg:mx-0">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium bg-white/15 border border-white/30 text-white mb-6 w-fit mx-auto lg:mx-0">
               <Award className="w-4 h-4" />
               <span>{t("hero.badge")}</span>
             </div>
@@ -86,11 +86,11 @@ const HeroSection = () => {
             </p>
 
             {/* Social Proof */}
-            <div className="hidden sm:inline-flex flex-col sm:flex-row items-center lg:items-start gap-4 rounded-2xl bg-primary px-5 py-4 mx-auto lg:mx-0">
+            <div className="hidden sm:inline-flex flex-col sm:flex-row items-center lg:items-start gap-4 rounded-2xl bg-white/10 border border-white/20 px-5 py-4 mx-auto lg:mx-0">
               <div className="flex items-center -space-x-3 shrink-0">
-                <img src={consultant1} alt="Consultora" className="w-11 h-11 rounded-full border-2 border-primary-foreground/30 object-cover" />
-                <img src={consultant2} alt="Consultor" className="w-11 h-11 rounded-full border-2 border-primary-foreground/30 object-cover" />
-                <img src={consultant3} alt="Consultora" className="w-11 h-11 rounded-full border-2 border-primary-foreground/30 object-cover" />
+                <img src={consultant1} alt="Consultora" className="w-11 h-11 rounded-full border-2 border-white/40 object-cover" />
+                <img src={consultant2} alt="Consultor" className="w-11 h-11 rounded-full border-2 border-white/40 object-cover" />
+                <img src={consultant3} alt="Consultora" className="w-11 h-11 rounded-full border-2 border-white/40 object-cover" />
               </div>
               <div className="text-center sm:text-left">
                 <div className="flex items-center justify-center sm:justify-start gap-0.5 mb-1">
@@ -98,7 +98,7 @@ const HeroSection = () => {
                     <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                   ))}
                 </div>
-                <p className="text-xs text-primary-foreground/90 leading-snug max-w-[220px]">
+                <p className="text-xs text-white/90 leading-snug max-w-[220px]">
                   Consultores disponíveis durante todo processo do registro via WhatsApp.
                 </p>
               </div>
