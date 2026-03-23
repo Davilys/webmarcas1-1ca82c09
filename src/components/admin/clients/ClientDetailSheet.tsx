@@ -1653,8 +1653,8 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
               </TabsList>
             </div>
 
-            <ScrollArea className="flex-1">
-              <div className="p-5 space-y-5">
+            <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]]:!overflow-x-auto">
+              <div className="p-5 space-y-5 min-w-0">
 
                 {/* ─── GERAL TAB ─────────────────────────────────────────── */}
                 <TabsContent value="overview" className="mt-0 space-y-5">
