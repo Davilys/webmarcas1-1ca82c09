@@ -11,8 +11,6 @@ import TestimonialsSection from "@/components/sections/TestimonialsSection";
 import FAQSection from "@/components/sections/FAQSection";
 import CTASection from "@/components/sections/CTASection";
 import BlogPreviewSection from "@/components/sections/BlogPreviewSection";
-import ClientLogosSection from "@/components/sections/ClientLogosSection";
-import TrustBadgesSection from "@/components/sections/TrustBadgesSection";
 
 const Index = () => {
   return (
@@ -20,8 +18,6 @@ const Index = () => {
       <Header />
       <main className="mobile-compact">
         <HeroSection />
-        <ClientLogosSection />
-        <TrustBadgesSection />
         <BenefitsSection />
         <HowItWorksSection />
         <PricingSection />

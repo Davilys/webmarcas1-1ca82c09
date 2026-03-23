@@ -61,7 +61,11 @@ const Header = () => {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 safe-area-top bg-white shadow-sm border-b border-border"
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 safe-area-top ${
+        isScrolled
+          ? "md:bg-background/80 md:backdrop-blur-xl md:border-b md:border-border bg-transparent"
+          : "bg-transparent"
+      }`}
     >
       <div className="container mx-auto px-3 md:px-4">
         <div className="flex items-center justify-between h-14 md:h-16 lg:h-20">
@@ -72,7 +76,7 @@ const Header = () => {
               alt="WebMarcas"
               className="h-9 md:h-11 w-auto shrink-0"
             />
-            <span className="font-display text-lg md:text-xl font-bold text-foreground">
+            <span className="font-display text-lg md:text-xl font-bold">
               WebMarcas <span className="gradient-text">Intelligence PI</span>
             </span>
           </a>
@@ -124,6 +128,20 @@ const Header = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* Theme Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="w-9 h-9"
+              aria-label="Alternar tema"
+            >
+              {theme === "light" ? (
+                <Moon className="w-5 h-5" />
+              ) : (
+                <Sun className="w-5 h-5" />
+              )}
+            </Button>
 
             <Button variant="ghost" size="sm" asChild>
               <Link to="/cliente/login">{t("nav.clientArea")}</Link>
@@ -157,6 +175,19 @@ const Header = () => {
             </DropdownMenu>
 
             {/* Theme Toggle Mobile */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="w-9 h-9"
+              aria-label="Alternar tema"
+            >
+              {theme === "light" ? (
+                <Moon className="w-5 h-5" />
+              ) : (
+                <Sun className="w-5 h-5" />
+              )}
+            </Button>
 
             {/* Mobile Menu Button */}
             <button

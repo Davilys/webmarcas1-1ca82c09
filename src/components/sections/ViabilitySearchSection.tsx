@@ -551,17 +551,17 @@ const ViabilitySearchSection = ({ compact = false }: { compact?: boolean }) => {
               className="text-center"
             >
               {/* Title */}
-              <h2 className="hidden sm:block font-display text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2 leading-tight whitespace-nowrap">
-                Consulte a viabilidade da sua <span className="text-yellow-300">marca</span>
+              <h2 className="hidden sm:block font-display text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2 leading-tight whitespace-nowrap">
+                Consulte a viabilidade da sua <span className="gradient-text">marca</span>
               </h2>
-              <p className="hidden sm:block text-sm md:text-base text-white mb-8">
+              <p className="hidden sm:block text-sm md:text-base text-muted-foreground mb-8">
                 Pesquisa automática na base oficial do INPI em tempo real.
               </p>
 
               {/* Feature Cards */}
               <div className="grid grid-cols-3 gap-3 mb-8">
                 {FEATURE_CARDS.map((item, i) => (
-                  <div key={i} className="flex flex-col items-center gap-2 rounded-2xl border border-white/40 bg-white shadow-sm px-3 py-4 text-center">
+                  <div key={i} className="flex flex-col items-center gap-2 rounded-2xl border border-border/50 bg-card/50 px-3 py-4 text-center">
                     <item.icon className="w-6 h-6 text-primary" strokeWidth={1.5} />
                     <p className="font-semibold text-foreground text-sm leading-tight">{item.label}</p>
                     <p className="text-xs text-muted-foreground leading-snug">{item.sub}</p>
@@ -570,7 +570,7 @@ const ViabilitySearchSection = ({ compact = false }: { compact?: boolean }) => {
               </div>
 
               {/* Form inside a card */}
-              <form onSubmit={handleSearch} className="rounded-2xl border border-white/40 bg-white shadow-md p-6 text-left">
+              <form onSubmit={handleSearch} className="rounded-2xl border border-border/50 bg-card/50 p-6 text-left">
                 <div className="space-y-5">
                   <div>
                     <label htmlFor="brandNameCompact" className="block text-sm font-bold text-foreground mb-2">
@@ -612,7 +612,7 @@ const ViabilitySearchSection = ({ compact = false }: { compact?: boolean }) => {
                   </button>
                 </div>
 
-                <p className="mt-4 text-center text-xs text-white/70">
+                <p className="mt-4 text-center text-xs text-muted-foreground">
                   🔒 Consulta gratuita • Resultado em segundos • Sem cadastro necessário
                 </p>
               </form>

@@ -41,10 +41,8 @@ const row2Logos = [
   { src: danadoDeBom, alt: "Danado de Bom" },
 ];
 
-const LogoCard = ({ src, alt, embedded }: { src: string; alt: string; embedded?: boolean }) => (
-  <div className={`flex-shrink-0 w-[140px] h-[100px] md:w-[200px] md:h-[130px] rounded-2xl flex items-center justify-center p-3 md:p-4 ${
-    embedded ? 'bg-white border border-white/40 shadow-md' : 'bg-card border border-border/50'
-  }`}>
+const LogoCard = ({ src, alt }: { src: string; alt: string }) => (
+  <div className="flex-shrink-0 w-[140px] h-[100px] md:w-[200px] md:h-[130px] rounded-2xl bg-card border border-border/50 flex items-center justify-center p-4 md:p-6">
     <img
       src={src}
       alt={alt}
@@ -58,19 +56,15 @@ const ClientLogosSection = ({ embedded }: { embedded?: boolean }) => {
   const content = (
     <>
       <div className="container mx-auto px-4 mb-10 text-center">
-        <h2 className={`font-display text-2xl md:text-3xl lg:text-4xl font-bold mb-2 ${embedded ? 'text-white' : 'text-foreground'}`}>
-          <span className={embedded ? 'text-yellow-300' : 'gradient-text'}>Consulte grátis</span> se sua marca já está registrada
+        <h2 className="font-display text-2xl md:text-3xl lg:text-4xl font-bold text-foreground mb-2">
+          <span className="gradient-text">Consulte grátis</span> se sua marca já está registrada
         </h2>
-        <p className={`text-base md:text-lg mb-6 ${embedded ? 'text-white/80' : 'text-muted-foreground'}`}>
+        <p className="text-muted-foreground text-base md:text-lg mb-6">
           Somos a maior empresa de registro de marcas do Brasil!
         </p>
         <a
           href="#precos"
-          className={`inline-flex items-center justify-center rounded-xl font-semibold px-8 py-3 text-base transition-all duration-200 ${
-            embedded 
-              ? 'bg-white text-blue-600 hover:bg-white/90 shadow-lg shadow-black/10' 
-              : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25'
-          }`}
+          className="inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground font-semibold px-8 py-3 text-base hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25"
         >
           Saiba Mais
         </a>
@@ -81,7 +75,7 @@ const ClientLogosSection = ({ embedded }: { embedded?: boolean }) => {
         <div className="overflow-hidden">
           <div className="flex gap-5 animate-scroll-left hover:[animation-play-state:paused]">
             {[...row1Logos, ...row1Logos, ...row1Logos].map((logo, i) => (
-              <LogoCard key={`r1-${i}`} src={logo.src} alt={logo.alt} embedded={embedded} />
+              <LogoCard key={`r1-${i}`} src={logo.src} alt={logo.alt} />
             ))}
           </div>
         </div>
@@ -90,7 +84,7 @@ const ClientLogosSection = ({ embedded }: { embedded?: boolean }) => {
         <div className="overflow-hidden">
           <div className="flex gap-5 animate-scroll-right hover:[animation-play-state:paused]">
             {[...row2Logos, ...row2Logos, ...row2Logos].map((logo, i) => (
-              <LogoCard key={`r2-${i}`} src={logo.src} alt={logo.alt} embedded={embedded} />
+              <LogoCard key={`r2-${i}`} src={logo.src} alt={logo.alt} />
             ))}
           </div>
         </div>

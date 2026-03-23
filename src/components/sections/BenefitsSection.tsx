@@ -1,42 +1,44 @@
+import { 
+  Shield, 
+  FileCheck, 
+  Clock, 
+  Users, 
+  Scale, 
+  Headphones 
+} from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import benefitProtection from "@/assets/illustrations/benefit-protection.png";
-import benefitReport from "@/assets/illustrations/benefit-report.png";
-import benefitProtocol from "@/assets/illustrations/benefit-protocol.png";
-import benefitLegal from "@/assets/illustrations/benefit-legal.png";
-import benefitTracking from "@/assets/illustrations/benefit-tracking.png";
-import benefitSupport from "@/assets/illustrations/benefit-support.png";
 
 const BenefitsSection = () => {
   const { t } = useLanguage();
 
   const benefits = [
     {
-      image: benefitProtection,
+      icon: Shield,
       title: t("benefits.protection.title"),
       description: t("benefits.protection.desc"),
     },
     {
-      image: benefitReport,
+      icon: FileCheck,
       title: t("benefits.report.title"),
       description: t("benefits.report.desc"),
     },
     {
-      image: benefitProtocol,
+      icon: Clock,
       title: t("benefits.protocol.title"),
       description: t("benefits.protocol.desc"),
     },
     {
-      image: benefitLegal,
+      icon: Scale,
       title: t("benefits.legal.title"),
       description: t("benefits.legal.desc"),
     },
     {
-      image: benefitTracking,
+      icon: Users,
       title: t("benefits.tracking.title"),
       description: t("benefits.tracking.desc"),
     },
     {
-      image: benefitSupport,
+      icon: Headphones,
       title: t("benefits.support.title"),
       description: t("benefits.support.desc"),
     },
@@ -64,8 +66,8 @@ const BenefitsSection = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
           {benefits.map((benefit, index) => (
             <div key={index} className="feature-card group">
-              <div className="w-20 h-20 mb-4 flex items-center justify-center">
-                <img src={benefit.image} alt={benefit.title} className="w-full h-full object-contain" />
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                <benefit.icon className="w-6 h-6 text-primary" />
               </div>
               <h3 className="font-display text-xl font-semibold mb-2">
                 {benefit.title}
