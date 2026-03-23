@@ -398,21 +398,34 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
     return first?.href || '/admin/configuracoes';
   }, [permissions]);
 
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const checkAdmin = async () => {
+    setAuthError(null);
+    try {
+      const { data: { user } } = await withTimeout(supabase.auth.getUser(), 12000);
       
       if (!user) {
         navigate('/cliente/login');
         return;
       }
 
-      const { data: isAdminRole, error } = await supabase.rpc('has_role', {
-        _user_id: user.id,
-        _role: 'admin'
-      });
+      const { data: isAdminRole, error } = await withTimeout(
+        supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' }),
+        12000,
+      );
 
-      if (error || !isAdminRole) {
+      if (error) {
+        if (isConnectivityError(error)) {
+          setAuthError('Falha de conexão ao verificar permissões. Tente novamente.');
+          return;
+        }
+        toast.error('Acesso negado. Você não tem permissão de administrador.');
+        navigate('/cliente/dashboard');
+        return;
+      }
+
+      if (!isAdminRole) {
         toast.error('Acesso negado. Você não tem permissão de administrador.');
         navigate('/cliente/dashboard');
         return;
@@ -420,8 +433,17 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
 
       setIsAdmin(true);
       setAdminUserId(user.id);
-    };
+    } catch (err) {
+      if (isConnectivityError(err)) {
+        setAuthError('Falha de conexão com o servidor. Tente novamente.');
+      } else {
+        toast.error('Erro ao verificar permissões.');
+        navigate('/cliente/login');
+      }
+    }
+  };
 
+  useEffect(() => {
     checkAdmin();
   }, [navigate]);
 
