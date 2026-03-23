@@ -385,8 +385,12 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { chatMode, setChatMode } = useChatMode();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [adminUserId, setAdminUserId] = useState<string | null>(null);
+
+  // Use sessionStorage to cache admin status across navigations/tab switches
+  const cachedAdmin = sessionStorage.getItem('admin_verified');
+  const cachedUserId = sessionStorage.getItem('admin_user_id');
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(cachedAdmin === 'true' ? true : null);
+  const [adminUserId, setAdminUserId] = useState<string | null>(cachedUserId || null);
   const { permissions, isLoading: loadingPermissions, canAccessPath, isMasterAdmin } = useAdminPermissions();
 
   // Broadcast admin presence
@@ -407,7 +411,17 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
       const { data: { user } } = await withTimeout(supabase.auth.getUser(), 12000);
       
       if (!user) {
+        sessionStorage.removeItem('admin_verified');
+        sessionStorage.removeItem('admin_user_id');
+        setIsAdmin(null);
         navigate('/cliente/login');
+        return;
+      }
+
+      // If already verified in this session for the same user, skip RPC call
+      if (cachedAdmin === 'true' && cachedUserId === user.id) {
+        setIsAdmin(true);
+        setAdminUserId(user.id);
         return;
       }
 
@@ -418,6 +432,12 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
 
       if (error) {
         if (isConnectivityError(error)) {
+          // If we have a cached admin status, trust it instead of showing error
+          if (cachedAdmin === 'true' && cachedUserId === user.id) {
+            setIsAdmin(true);
+            setAdminUserId(user.id);
+            return;
+          }
           setAuthError('Falha de conexão ao verificar permissões. Tente novamente.');
           return;
         }
@@ -427,15 +447,25 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
       }
 
       if (!isAdminRole) {
+        sessionStorage.removeItem('admin_verified');
+        sessionStorage.removeItem('admin_user_id');
         toast.error('Acesso negado. Você não tem permissão de administrador.');
         navigate('/cliente/dashboard');
         return;
       }
 
+      sessionStorage.setItem('admin_verified', 'true');
+      sessionStorage.setItem('admin_user_id', user.id);
       setIsAdmin(true);
       setAdminUserId(user.id);
     } catch (err) {
       if (isConnectivityError(err)) {
+        // Trust cache on connectivity errors
+        if (cachedAdmin === 'true' && cachedUserId) {
+          setIsAdmin(true);
+          setAdminUserId(cachedUserId);
+          return;
+        }
         setAuthError('Falha de conexão com o servidor. Tente novamente.');
       } else {
         toast.error('Erro ao verificar permissões.');
@@ -446,7 +476,19 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
 
   useEffect(() => {
     checkAdmin();
-  }, [navigate]);
+
+    // Listen for auth state changes to clear cache on sign out
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        sessionStorage.removeItem('admin_verified');
+        sessionStorage.removeItem('admin_user_id');
+        setIsAdmin(null);
+        setAdminUserId(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Centralized permission guard: redirect if user can't access current route
   useEffect(() => {

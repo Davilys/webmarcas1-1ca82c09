@@ -134,7 +134,8 @@ export function useAdminPermissions(userId?: string) {
       return permissionsMap;
     },
     enabled: !!targetUserId,
-    staleTime: 30000,
+    staleTime: 5 * 60 * 1000, // 5 minutes - avoid constant refetching on navigation
+    gcTime: 10 * 60 * 1000, // 10 minutes cache
     retry: connectivityRetry,
     retryDelay: connectivityRetryDelay,
   });
