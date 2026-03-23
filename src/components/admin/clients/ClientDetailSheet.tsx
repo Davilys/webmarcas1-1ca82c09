@@ -1615,8 +1615,8 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
           ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
             {/* Tab bar */}
-            <div className="border-b border-border flex-shrink-0 px-1">
-              <TabsList className="h-auto bg-transparent p-0 gap-0 w-full justify-start overflow-x-auto flex-nowrap">
+            <div className="border-b border-border flex-shrink-0 px-1 overflow-x-auto scrollbar-hide">
+              <TabsList className="h-auto bg-transparent p-0 gap-0 w-max min-w-full justify-start flex-nowrap">
                 {[
                   { value: 'overview', label: 'Geral', icon: User },
                   { value: 'contacts', label: 'Contatos', icon: Phone },
