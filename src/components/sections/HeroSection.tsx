@@ -104,55 +104,10 @@ const HeroSection = () => {
           </div>
         </div>
 
-        {/* Trust Badges */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto mt-10">
-          {trustBadges.map((item, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-              className="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/10 backdrop-blur-sm text-center"
-            >
-              <div className="w-16 h-16 flex items-center justify-center">
-                <img src={item.image} alt={item.label} className="w-full h-full object-contain" />
-              </div>
-              <span className="text-sm font-medium text-white leading-tight">{item.label}</span>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Stats */}
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 max-w-4xl mx-auto">
-          {stats.map((stat, index) => (
-            <motion.div 
-              key={index} 
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.5 + index * 0.1 }}
-            >
-              <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">
-                <AnimatedCounter 
-                  value={stat.value} 
-                  suffix={stat.suffix}
-                  duration={2.5}
-                />
-              </div>
-              <div className="text-sm md:text-base text-white/70 font-medium">
-                {stat.label}
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Client Logos Marquee */}
-        <div className="mt-10">
-          <ClientLogosMarquee embedded />
-        </div>
       </div>
     </section>
   );
 };
 
 export default HeroSection;
+
