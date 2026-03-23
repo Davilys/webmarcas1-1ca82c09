@@ -570,7 +570,7 @@ const ViabilitySearchSection = ({ compact = false }: { compact?: boolean }) => {
               </div>
 
               {/* Form inside a card */}
-              <form onSubmit={handleSearch} className="rounded-2xl border border-border/50 bg-card/50 p-6 text-left">
+              <form onSubmit={handleSearch} className="rounded-2xl border border-white/40 bg-white shadow-md p-6 text-left">
                 <div className="space-y-5">
                   <div>
                     <label htmlFor="brandNameCompact" className="block text-sm font-bold text-foreground mb-2">
