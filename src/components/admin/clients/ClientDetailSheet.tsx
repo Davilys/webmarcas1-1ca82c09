@@ -1615,8 +1615,8 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
           ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
             {/* Tab bar */}
-            <div className="border-b border-border flex-shrink-0 px-1 overflow-x-auto scrollbar-hide">
-              <TabsList className="h-auto bg-transparent p-0 gap-0 w-max min-w-full justify-start flex-nowrap">
+            <div className="border-b border-border flex-shrink-0 overflow-x-auto overflow-y-hidden scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <TabsList className="inline-flex h-auto bg-transparent p-0 gap-0 w-max justify-start flex-nowrap px-1">
                 {[
                   { value: 'overview', label: 'Geral', icon: User },
                   { value: 'contacts', label: 'Contatos', icon: Phone },
@@ -1629,9 +1629,9 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="relative h-10 rounded-none px-3.5 text-xs font-medium text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:bg-transparent bg-transparent hover:text-foreground transition-colors gap-1.5 whitespace-nowrap"
+                    className="relative h-10 rounded-none px-3.5 text-xs font-medium text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:bg-transparent bg-transparent hover:text-foreground transition-colors gap-1.5 whitespace-nowrap flex-shrink-0"
                   >
-                    <tab.icon className="h-3.5 w-3.5" />
+                    <tab.icon className="h-3.5 w-3.5 flex-shrink-0" />
                     {tab.label}
                   </TabsTrigger>
                 ))}
