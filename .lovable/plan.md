@@ -1,45 +1,30 @@
 
-Objetivo: eliminar a instabilidade intermitente de “Failed to fetch” no painel administrativo e tornar o app resiliente quando a conexão oscila.
 
-Achados da auditoria (já confirmados):
-1) A instabilidade não é constante no backend: há chamadas com status 200 no mesmo período.
-2) O erro aparece principalmente no ciclo de autenticação/renovação de sessão no cliente (falha de rede transitória).
-3) Há muitos pontos com chamadas assíncronas sem tratamento uniforme de timeout/retry.
-4) O Dashboard dispara várias consultas em paralelo; quando há microqueda, surgem várias falhas ao mesmo tempo.
-5) Em alguns fluxos de validação de admin, se houver falha de rede no momento crítico, a UI pode ficar em estado inconsistente (ex.: verificação eterna ou mensagem genérica).
+## Dump SQL Completo do Banco de Dados — Plano
 
-Plano de implementação:
-1) Padronizar resiliência de rede (camada única)
-- Criar utilitário compartilhado para: timeout, retry com backoff, classificação de erro de conectividade e cancelamento seguro.
-- Reaproveitar essa camada em login, validação de permissões e consultas críticas.
-- Arquivos-alvo: novo util em `src/lib/*` + adoção em `src/pages/admin/Login.tsx`, `src/components/admin/AdminLayout.tsx`, `src/hooks/useAdminPermissions.ts`.
+### Situação
+Estamos em modo somente leitura. Para gerar o dump SQL completo (schema + dados), preciso mudar para o modo de implementação para executar o comando `pg_dump`.
 
-2) Fortalecer bootstrap de autenticação/admin
-- Refatorar verificação inicial do admin para fluxo robusto com fallback e estado de erro recuperável (botão “tentar novamente” sem travar tela).
-- Evitar spinner infinito quando a rede oscila.
-- Garantir que apenas erro definitivo de permissão bloqueie acesso; erro transitório vira estado de reconexão.
+### O que será feito
+1. Executar `pg_dump --schema=public --no-owner --no-privileges` usando as variáveis de conexão já configuradas no ambiente
+2. O arquivo será salvo em `/mnt/documents/webmarcas_full_dump.sql`
+3. Incluirá:
+   - **Schema completo**: todas as 73 tabelas, tipos (enums), índices, constraints, funções e triggers
+   - **Dados completos**: todos os registros de todas as tabelas
+4. Disponibilizar o arquivo para download
 
-3) Reduzir explosão de requisições simultâneas no Dashboard
-- Colocar tratamento de erro consistente em todos os widgets (sem promise rejeitada “solta”).
-- Introduzir retry controlado e janela de refetch mais estável (evitar tempestade de requisições em foco/reconexão).
-- Arquivos-alvo: `src/pages/admin/Dashboard.tsx` e componentes em `src/components/admin/dashboard/*`.
+### Tabelas incluídas (73 tabelas)
+Profiles, leads, contracts, invoices, brand_processes, documents, chat_messages, notifications, user_roles, admin_permissions, email_inbox, marketing_campaigns, e todas as demais.
 
-4) Unificar chamadas a funções de backend feitas via `fetch`
-- Substituir padrões diretos por invocação padronizada com timeout/retry e mensagens de erro amigáveis.
-- Priorizar pontos de alto uso: contratos, criação de cobrança, assinatura e envios.
-- Arquivos-alvo iniciais: `src/components/admin/contracts/*`, `src/pages/admin/RevistaINPI.tsx`, `src/pages/AssinarDocumento.tsx`.
+### Como usar no Supabase externo
+```sql
+-- No Supabase externo, execute no SQL Editor:
+-- 1. Cole o conteúdo do arquivo .sql
+-- 2. Execute
+```
 
-5) Observabilidade e validação final
-- Adicionar logs técnicos mínimos (somente dev) com causa classificada: timeout, offline, rede instável, permissão.
-- Validar em cenário real: login admin, abertura do dashboard, navegação entre módulos, reconexão após queda curta.
+### Importante
+- O dump NÃO inclui dados da tabela `auth.users` (schema reservado do Supabase) — os usuários precisam ser recriados no projeto externo
+- Edge Functions e Secrets precisam ser configurados manualmente
+- Storage buckets (`documents`, `email-attachments`) e seus arquivos não são incluídos no dump SQL
 
-Testes de aceite (obrigatórios):
-1) Login admin com rede normal e com oscilação (sem travar em “Verificando…”).
-2) Dashboard abre sem “explosão” de erros no console durante reconexão.
-3) Após queda rápida de internet e retorno, sessão volta sem exigir múltiplos logins.
-4) Fluxos críticos (contratos/cobrança/assinatura) mostram erro claro e recuperam no retry.
-
-Detalhes técnicos (resumo):
-- Sem alteração de banco de dados.
-- Sem mexer em `src/integrations/supabase/client.ts` (arquivo gerado).
-- Foco em hardening de frontend: auth bootstrap, retries centralizados, controle de concorrência e tratamento de erro por módulo.
