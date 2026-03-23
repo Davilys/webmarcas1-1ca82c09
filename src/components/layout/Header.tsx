@@ -63,7 +63,7 @@ const Header = () => {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 safe-area-top ${
         isScrolled
-          ? "md:bg-background/80 md:backdrop-blur-xl md:border-b md:border-border bg-transparent"
+          ? "bg-background/95 backdrop-blur-xl border-b border-border shadow-sm"
           : "bg-transparent"
       }`}
     >
@@ -74,10 +74,10 @@ const Header = () => {
             <img
               src={webmarcasLogoMark}
               alt="WebMarcas"
-              className="h-9 md:h-11 w-auto shrink-0"
+              className={`h-9 md:h-11 w-auto shrink-0 transition-all duration-300 ${!isScrolled ? 'brightness-0 invert' : ''}`}
             />
-            <span className="font-display text-lg md:text-xl font-bold">
-              WebMarcas <span className="gradient-text">Intelligence PI</span>
+            <span className={`font-display text-lg md:text-xl font-bold transition-colors duration-300 ${isScrolled ? 'text-foreground' : 'text-white'}`}>
+              WebMarcas <span className={isScrolled ? 'gradient-text' : 'text-yellow-300'}>Intelligence PI</span>
             </span>
           </a>
 
@@ -88,7 +88,11 @@ const Header = () => {
                 <Link
                   key={item.label}
                   to={item.href}
-                  className="px-4 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors rounded-lg hover:bg-primary/10"
+                  className={`px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
+                    isScrolled 
+                      ? 'text-primary hover:text-primary/80 hover:bg-primary/10' 
+                      : 'text-white hover:text-white/80 hover:bg-white/10'
+                  }`}
                 >
                   {item.label}
                 </Link>
@@ -97,7 +101,11 @@ const Header = () => {
                   key={item.label}
                   href={isHomePage ? item.href : `/${item.href}`}
                   onClick={(e) => handleAnchorClick(e, item.href)}
-                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-secondary"
+                  className={`px-4 py-2 text-sm transition-colors rounded-lg ${
+                    isScrolled 
+                      ? 'text-muted-foreground hover:text-foreground hover:bg-secondary' 
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
                 >
                   {item.label}
                 </a>
@@ -110,7 +118,7 @@ const Header = () => {
             {/* Language Selector */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="w-9 h-9">
+                <Button variant="ghost" size="icon" className={`w-9 h-9 ${!isScrolled ? 'text-white hover:bg-white/10' : ''}`}>
                   <span className="text-lg">{currentLang?.flag}</span>
                 </Button>
               </DropdownMenuTrigger>
@@ -133,7 +141,7 @@ const Header = () => {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="w-9 h-9"
+              className={`w-9 h-9 ${!isScrolled ? 'text-white hover:bg-white/10' : ''}`}
               aria-label="Alternar tema"
             >
               {theme === "light" ? (
@@ -143,7 +151,7 @@ const Header = () => {
               )}
             </Button>
 
-            <Button variant="ghost" size="sm" asChild>
+            <Button variant="ghost" size="sm" className={!isScrolled ? 'text-white hover:bg-white/10' : ''} asChild>
               <Link to="/cliente/login">{t("nav.clientArea")}</Link>
             </Button>
             <Button variant="primary" size="sm" className="btn-glow" asChild>
@@ -156,7 +164,7 @@ const Header = () => {
             {/* Language Selector Mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="w-9 h-9">
+                <Button variant="ghost" size="icon" className={`w-9 h-9 ${!isScrolled ? 'text-white hover:bg-white/10' : ''}`}>
                   <span className="text-lg">{currentLang?.flag}</span>
                 </Button>
               </DropdownMenuTrigger>
@@ -179,7 +187,7 @@ const Header = () => {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="w-9 h-9"
+              className={`w-9 h-9 ${!isScrolled ? 'text-white hover:bg-white/10' : ''}`}
               aria-label="Alternar tema"
             >
               {theme === "light" ? (
@@ -191,7 +199,7 @@ const Header = () => {
 
             {/* Mobile Menu Button */}
             <button
-              className="p-2 text-foreground"
+              className={`p-2 ${isScrolled ? 'text-foreground' : 'text-white'}`}
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-label="Menu"
             >
