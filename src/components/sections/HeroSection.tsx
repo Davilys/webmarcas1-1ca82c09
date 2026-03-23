@@ -62,7 +62,7 @@ const HeroSection = () => {
             </div>
 
             {/* Heading */}
-            <h1 className="font-display text-[2.5rem] sm:text-5xl xl:text-[3.5rem] font-bold leading-[1.15] mb-6">
+            <h1 className="font-display text-[2.5rem] sm:text-5xl xl:text-[3.5rem] font-bold leading-[1.15] mb-6 text-white">
               {t("hero.title")}{" "}
               <span className="inline-block overflow-hidden h-[1.15em] align-bottom relative">
                 <AnimatePresence mode="wait">
