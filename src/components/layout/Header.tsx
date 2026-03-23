@@ -70,10 +70,10 @@ const Header = () => {
             <img
               src={webmarcasLogoMark}
               alt="WebMarcas"
-              className={`h-9 md:h-11 w-auto shrink-0 transition-all duration-300 ${!isScrolled ? 'brightness-0 invert' : ''}`}
+              className="h-9 md:h-11 w-auto shrink-0"
             />
-            <span className={`font-display text-lg md:text-xl font-bold transition-colors duration-300 ${isScrolled ? 'text-foreground' : 'text-white'}`}>
-              WebMarcas <span className={isScrolled ? 'gradient-text' : 'text-yellow-300'}>Intelligence PI</span>
+            <span className="font-display text-lg md:text-xl font-bold text-foreground">
+              WebMarcas <span className="gradient-text">Intelligence PI</span>
             </span>
           </a>
 
