@@ -40,11 +40,11 @@ const HeroSection = () => {
   return (
     <section id="home" className="relative overflow-x-clip overflow-y-visible" style={{ background: 'linear-gradient(135deg, #2946d9 0%, #3B5CFC 40%, #4a6aff 100%)' }}>
       {/* Watermark logo */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+      <div className="absolute inset-0 flex items-start justify-center pointer-events-none overflow-hidden pt-20 lg:pt-10">
         <img 
           src={webmarcasLogo} 
           alt="" 
-          className="w-[600px] h-[600px] lg:w-[800px] lg:h-[800px] object-contain opacity-[0.06] select-none"
+          className="w-[500px] h-[500px] lg:w-[700px] lg:h-[700px] object-contain opacity-[0.07] select-none"
           aria-hidden="true"
         />
       </div>
