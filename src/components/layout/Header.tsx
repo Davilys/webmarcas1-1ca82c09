@@ -118,7 +118,7 @@ const Header = () => {
             {/* Language Selector */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="w-9 h-9">
+                <Button variant="ghost" size="icon" className={`w-9 h-9 ${!isScrolled ? 'text-white hover:bg-white/10' : ''}`}>
                   <span className="text-lg">{currentLang?.flag}</span>
                 </Button>
               </DropdownMenuTrigger>
