@@ -175,7 +175,7 @@ const Header = () => {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className={`w-9 h-9 ${!isScrolled ? 'text-white hover:bg-white/10' : ''}`}
+              className="w-9 h-9"
               aria-label="Alternar tema"
             >
               {theme === "light" ? (
