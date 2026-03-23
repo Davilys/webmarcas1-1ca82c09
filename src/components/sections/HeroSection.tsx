@@ -56,7 +56,7 @@ const HeroSection = () => {
           {/* Left — Text */}
           <div className="text-center lg:text-left">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 badge-premium mb-6 w-fit mx-auto lg:mx-0">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium bg-white/15 border border-white/30 text-white mb-6 w-fit mx-auto lg:mx-0">
               <Award className="w-4 h-4" />
               <span>{t("hero.badge")}</span>
             </div>
