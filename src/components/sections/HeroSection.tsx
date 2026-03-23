@@ -1,4 +1,4 @@
-import { Shield, Clock, CheckCircle, Award, Star } from "lucide-react";
+import { Award, Star } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,7 +8,10 @@ import ClientLogosMarquee from "@/components/sections/ClientLogosSection";
 import consultant1 from "@/assets/consultants/consultant-1.jpg";
 import consultant2 from "@/assets/consultants/consultant-2.jpg";
 import consultant3 from "@/assets/consultants/consultant-3.jpg";
-import webmarcasLogo from "@/assets/webmarcas-logo-transparent.png";
+import trustShield from "@/assets/illustrations/trust-shield.png";
+import trustClock from "@/assets/illustrations/trust-clock.png";
+import trustGuarantee from "@/assets/illustrations/trust-guarantee.png";
+import trustOnline from "@/assets/illustrations/trust-online.png";
 
 const HeroSection = () => {
   const { t } = useLanguage();
@@ -24,10 +27,10 @@ const HeroSection = () => {
   }, [phrases.length]);
 
   const trustBadges = [
-    { icon: Shield, label: t("hero.trust.inpi"), color: "text-blue-600", bgColor: "bg-blue-500/10" },
-    { icon: Clock, label: t("hero.trust.protocol"), color: "text-emerald-600", bgColor: "bg-emerald-500/10" },
-    { icon: CheckCircle, label: t("hero.trust.guarantee"), color: "text-violet-600", bgColor: "bg-violet-500/10" },
-    { icon: Award, label: t("hero.trust.online"), color: "text-amber-600", bgColor: "bg-amber-500/10" },
+    { image: trustShield, label: t("hero.trust.inpi") },
+    { image: trustClock, label: t("hero.trust.protocol") },
+    { image: trustGuarantee, label: t("hero.trust.guarantee") },
+    { image: trustOnline, label: t("hero.trust.online") },
   ];
 
   const stats = [
@@ -39,7 +42,6 @@ const HeroSection = () => {
 
   return (
     <section id="home" className="relative overflow-x-clip overflow-y-visible" style={{ background: 'linear-gradient(135deg, #2946d9 0%, #3B5CFC 40%, #4a6aff 100%)' }}>
-
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-14 relative z-10 max-w-7xl">
         {/* Two-column hero */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
@@ -116,8 +118,8 @@ const HeroSection = () => {
               transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
               className="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/10 backdrop-blur-sm text-center"
             >
-              <div className={`p-3 rounded-xl bg-white/15`}>
-                <item.icon className="w-6 h-6 text-white" />
+              <div className="w-16 h-16 flex items-center justify-center">
+                <img src={item.image} alt={item.label} className="w-full h-full object-contain" />
               </div>
               <span className="text-sm font-medium text-white leading-tight">{item.label}</span>
             </motion.div>
