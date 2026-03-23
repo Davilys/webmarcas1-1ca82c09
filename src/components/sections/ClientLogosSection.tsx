@@ -41,12 +41,16 @@ const row2Logos = [
   { src: danadoDeBom, alt: "Danado de Bom" },
 ];
 
-const LogoCard = ({ src, alt }: { src: string; alt: string }) => (
-  <div className="flex-shrink-0 w-[140px] h-[100px] md:w-[200px] md:h-[130px] rounded-2xl bg-card border border-border/50 flex items-center justify-center p-4 md:p-6">
+const LogoCard = ({ src, alt, embedded }: { src: string; alt: string; embedded?: boolean }) => (
+  <div className={`flex-shrink-0 w-[140px] h-[100px] md:w-[200px] md:h-[130px] rounded-2xl flex items-center justify-center p-4 md:p-6 ${
+    embedded ? 'bg-white/10 border border-white/20' : 'bg-card border border-border/50'
+  }`}>
     <img
       src={src}
       alt={alt}
-      className="max-w-full max-h-full object-contain grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-500"
+      className={`max-w-full max-h-full object-contain hover:grayscale-0 hover:opacity-100 transition-all duration-500 ${
+        embedded ? 'grayscale-0 opacity-90 brightness-0 invert' : 'grayscale opacity-70'
+      }`}
       loading="lazy"
     />
   </div>
