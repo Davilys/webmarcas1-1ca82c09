@@ -8,6 +8,7 @@ import ClientLogosMarquee from "@/components/sections/ClientLogosSection";
 import consultant1 from "@/assets/consultants/consultant-1.jpg";
 import consultant2 from "@/assets/consultants/consultant-2.jpg";
 import consultant3 from "@/assets/consultants/consultant-3.jpg";
+import webmarcasLogo from "@/assets/webmarcas-logo-transparent.png";
 
 const HeroSection = () => {
   const { t } = useLanguage();
