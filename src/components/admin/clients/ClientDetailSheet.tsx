@@ -1416,6 +1416,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                         { key: 'data_renovacao', label: 'Renovação (9 anos)', icon: RefreshCw, description: 'Prazo ordinário + 6m ord. + 6m extra' },
                       ] as const;
                       const STATUS_CONFIG_INLINE: Record<string, { label: string; color: string; bg: string }> = {
+                        depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
                         '003': { label: '003', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/40' },
                         oposicao: { label: 'Oposição', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
                         exigencia_merito: { label: 'Exig. Mérito', color: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/40' },
@@ -1816,6 +1817,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                           const brandName = pub.brand_name_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.brand_name || '—';
                           const processNum = pub.process_number_rpi || clientBrands.find((b: any) => b.id === pub.process_id)?.process_number || '';
                           const PUB_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+                            depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
                             '003': { label: '003', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/40' },
                             oposicao: { label: 'Oposição', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
                             exigencia_merito: { label: 'Exig. Mérito', color: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/40' },
@@ -2728,6 +2730,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                         const linkedPub = processPublicacoes.find((p: any) => p.process_id === brand.id);
                                         if (!linkedPub) return null;
                                         const BRAND_PUB_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+                                          depositada: { label: 'Depositada', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/40' },
                                           '003': { label: '003', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/40' },
                                           oposicao: { label: 'Oposição', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/40' },
                                           exigencia_merito: { label: 'Exig. Mérito', color: 'text-violet-700 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/40' },
