@@ -124,20 +124,6 @@ const Header = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Theme Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="w-9 h-9"
-              aria-label="Alternar tema"
-            >
-              {theme === "light" ? (
-                <Moon className="w-5 h-5" />
-              ) : (
-                <Sun className="w-5 h-5" />
-              )}
-            </Button>
 
             <Button variant="ghost" size="sm" asChild>
               <Link to="/cliente/login">{t("nav.clientArea")}</Link>
@@ -171,19 +157,6 @@ const Header = () => {
             </DropdownMenu>
 
             {/* Theme Toggle Mobile */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="w-9 h-9"
-              aria-label="Alternar tema"
-            >
-              {theme === "light" ? (
-                <Moon className="w-5 h-5" />
-              ) : (
-                <Sun className="w-5 h-5" />
-              )}
-            </Button>
 
             {/* Mobile Menu Button */}
             <button
