@@ -9,31 +9,11 @@ import { toast } from 'sonner';
 import { Mail, Lock, Loader2, Shield } from 'lucide-react';
 import logo from '@/assets/webmarcas-logo.png';
 
-const MAX_NETWORK_RETRIES = 2;
-const BASE_RETRY_DELAY_MS = 700;
-const REQUEST_TIMEOUT_MS = 12000;
+import { withTimeout, wait, isConnectivityError as isFetchConnectivityError } from '@/lib/networkResilience';
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const withTimeout = async <T,>(promise: Promise<T> | PromiseLike<T>, timeoutMs: number): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('request timeout')), timeoutMs);
-    }),
-  ]);
-};
-
-const isFetchConnectivityError = (message?: string) => {
-  const normalized = (message || '').toLowerCase();
-  return (
-    normalized.includes('failed to fetch') ||
-    normalized.includes('networkerror') ||
-    normalized.includes('load failed') ||
-    normalized.includes('network request failed') ||
-    normalized.includes('timeout')
-  );
-};
+const MAX_NETWORK_RETRIES = 3;
+const BASE_RETRY_DELAY_MS = 800;
+const REQUEST_TIMEOUT_MS = 15000;
 
 export default function AdminLogin() {
   const navigate = useNavigate();
