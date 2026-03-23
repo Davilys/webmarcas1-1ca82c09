@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type WheelEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -227,6 +227,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
   const [processInvoices, setProcessInvoices] = useState<any[]>([]);
   const [processEvents, setProcessEvents] = useState<any[]>([]);
   const [processActivities, setProcessActivities] = useState<any[]>([]);
+  const tabsScrollRef = useRef<HTMLDivElement>(null);
 
   // Publication action states
   const [editingPubData, setEditingPubData] = useState<any>(null);
@@ -1037,6 +1038,14 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
     { id: 'nova_fatura', label: 'Nova Fatura', icon: Receipt, cls: 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 hover:bg-teal-200 dark:hover:bg-teal-900/60' },
   ];
 
+  const handleTabsWheel = (event: WheelEvent<HTMLDivElement>) => {
+    if (!tabsScrollRef.current) return;
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+
+    tabsScrollRef.current.scrollLeft += event.deltaY;
+    event.preventDefault();
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-2xl p-0 overflow-hidden flex flex-col">
@@ -1616,8 +1625,13 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
           ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
             {/* Tab bar */}
-            <div className="border-b border-border flex-shrink-0 overflow-x-auto overflow-y-hidden scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <TabsList className="inline-flex h-auto bg-transparent p-0 gap-0 w-max justify-start flex-nowrap px-1">
+            <div
+              ref={tabsScrollRef}
+              onWheel={handleTabsWheel}
+              className="border-b border-border flex-shrink-0 overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none scrollbar-hide"
+              style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x' }}
+            >
+              <TabsList className="inline-flex h-auto bg-transparent p-0 gap-0 w-max min-w-max justify-start flex-nowrap px-1">
                 {[
                   { value: 'overview', label: 'Geral', icon: User },
                   { value: 'contacts', label: 'Contatos', icon: Phone },
@@ -1630,7 +1644,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="relative h-10 rounded-none px-3.5 text-xs font-medium text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:bg-transparent bg-transparent hover:text-foreground transition-colors gap-1.5 whitespace-nowrap flex-shrink-0"
+                    className="relative h-10 min-w-[8.5rem] rounded-none px-3.5 text-xs font-medium text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:bg-transparent bg-transparent hover:text-foreground transition-colors gap-1.5 whitespace-nowrap flex-shrink-0"
                   >
                     <tab.icon className="h-3.5 w-3.5 flex-shrink-0" />
                     {tab.label}
