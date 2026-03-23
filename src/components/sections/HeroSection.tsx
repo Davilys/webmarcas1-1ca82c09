@@ -23,7 +23,7 @@ const HeroSection = () => {
 
   return (
     <section id="home" className="relative overflow-x-clip overflow-y-visible" style={{ background: 'linear-gradient(135deg, #2946d9 0%, #3B5CFC 40%, #4a6aff 100%)' }}>
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-14 relative z-10 max-w-7xl">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-14 relative z-10 max-w-7xl">
         {/* Two-column hero */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           
