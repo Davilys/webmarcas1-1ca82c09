@@ -55,7 +55,7 @@ const HeroSection = () => {
             </h1>
 
             {/* Subtitle */}
-            <p className="text-base md:text-lg text-white/80 max-w-lg mx-auto lg:mx-0 mb-10">
+            <p className="text-base md:text-lg text-white max-w-lg mx-auto lg:mx-0 mb-10">
               {t("hero.subtitle")}
             </p>
 
@@ -72,7 +72,7 @@ const HeroSection = () => {
                     <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                   ))}
                 </div>
-                <p className="text-xs text-white/90 leading-snug max-w-[220px]">
+                <p className="text-xs text-white leading-snug max-w-[220px]">
                   Consultores disponíveis durante todo processo do registro via WhatsApp.
                 </p>
               </div>
