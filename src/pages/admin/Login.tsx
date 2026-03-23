@@ -11,8 +11,18 @@ import logo from '@/assets/webmarcas-logo.png';
 
 const MAX_NETWORK_RETRIES = 2;
 const BASE_RETRY_DELAY_MS = 700;
+const REQUEST_TIMEOUT_MS = 12000;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const withTimeout = async <T,>(promise: Promise<T> | PromiseLike<T>, timeoutMs: number): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('request timeout')), timeoutMs);
+    }),
+  ]);
+};
 
 const isFetchConnectivityError = (message?: string) => {
   const normalized = (message || '').toLowerCase();
@@ -20,7 +30,8 @@ const isFetchConnectivityError = (message?: string) => {
     normalized.includes('failed to fetch') ||
     normalized.includes('networkerror') ||
     normalized.includes('load failed') ||
-    normalized.includes('network request failed')
+    normalized.includes('network request failed') ||
+    normalized.includes('timeout')
   );
 };
 
@@ -37,19 +48,17 @@ export default function AdminLogin() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        toast.error('Você está sem internet. Verifique sua conexão e tente novamente.');
-        return;
-      }
-
       let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'] | null = null;
       let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['error'] | null = null;
 
       for (let attempt = 1; attempt <= MAX_NETWORK_RETRIES; attempt++) {
-        const result = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
+        const result = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          }),
+          REQUEST_TIMEOUT_MS
+        );
 
         data = result.data;
         error = result.error;
@@ -78,12 +87,17 @@ export default function AdminLogin() {
         let roleError: { message: string } | null = null;
 
         for (let attempt = 1; attempt <= MAX_NETWORK_RETRIES; attempt++) {
-          const roleResult = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', data.user.id)
-            .eq('role', 'admin')
-            .maybeSingle();
+          const roleResult = await withTimeout(
+            Promise.resolve(
+              supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', data.user.id)
+                .eq('role', 'admin')
+                .maybeSingle()
+            ),
+            REQUEST_TIMEOUT_MS
+          );
 
           roleData = roleResult.data;
           roleError = roleResult.error;
@@ -117,11 +131,16 @@ export default function AdminLogin() {
             let permsError: { message: string } | null = null;
 
             for (let attempt = 1; attempt <= MAX_NETWORK_RETRIES; attempt++) {
-              const permsResult = await supabase
-                .from('admin_permissions')
-                .select('permission_key, can_view')
-                .eq('user_id', data.user.id)
-                .eq('can_view', true);
+              const permsResult = await withTimeout(
+                Promise.resolve(
+                  supabase
+                    .from('admin_permissions')
+                    .select('permission_key, can_view')
+                    .eq('user_id', data.user.id)
+                    .eq('can_view', true)
+                ),
+                REQUEST_TIMEOUT_MS
+              );
 
               perms = permsResult.data;
               permsError = permsResult.error;
