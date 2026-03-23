@@ -60,15 +60,19 @@ const ClientLogosSection = ({ embedded }: { embedded?: boolean }) => {
   const content = (
     <>
       <div className="container mx-auto px-4 mb-10 text-center">
-        <h2 className="font-display text-2xl md:text-3xl lg:text-4xl font-bold text-foreground mb-2">
-          <span className="gradient-text">Consulte grátis</span> se sua marca já está registrada
+        <h2 className={`font-display text-2xl md:text-3xl lg:text-4xl font-bold mb-2 ${embedded ? 'text-white' : 'text-foreground'}`}>
+          <span className={embedded ? 'text-yellow-300' : 'gradient-text'}>Consulte grátis</span> se sua marca já está registrada
         </h2>
-        <p className="text-muted-foreground text-base md:text-lg mb-6">
+        <p className={`text-base md:text-lg mb-6 ${embedded ? 'text-white/80' : 'text-muted-foreground'}`}>
           Somos a maior empresa de registro de marcas do Brasil!
         </p>
         <a
           href="#precos"
-          className="inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground font-semibold px-8 py-3 text-base hover:bg-primary/90 transition-all duration-200 shadow-lg shadow-primary/25"
+          className={`inline-flex items-center justify-center rounded-xl font-semibold px-8 py-3 text-base transition-all duration-200 ${
+            embedded 
+              ? 'bg-white text-blue-600 hover:bg-white/90 shadow-lg shadow-black/10' 
+              : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25'
+          }`}
         >
           Saiba Mais
         </a>
