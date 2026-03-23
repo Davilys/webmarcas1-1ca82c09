@@ -15,7 +15,7 @@ const REQUEST_TIMEOUT_MS = 12000;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+const withTimeout = async <T,>(promise: Promise<T> | PromiseLike<T>, timeoutMs: number): Promise<T> => {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) => {
@@ -93,12 +93,14 @@ export default function AdminLogin() {
 
         for (let attempt = 1; attempt <= MAX_NETWORK_RETRIES; attempt++) {
           const roleResult = await withTimeout(
-            supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', data.user.id)
-              .eq('role', 'admin')
-              .maybeSingle(),
+            Promise.resolve(
+              supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', data.user.id)
+                .eq('role', 'admin')
+                .maybeSingle()
+            ),
             REQUEST_TIMEOUT_MS
           );
 
@@ -135,11 +137,13 @@ export default function AdminLogin() {
 
             for (let attempt = 1; attempt <= MAX_NETWORK_RETRIES; attempt++) {
               const permsResult = await withTimeout(
-                supabase
-                  .from('admin_permissions')
-                  .select('permission_key, can_view')
-                  .eq('user_id', data.user.id)
-                  .eq('can_view', true),
+                Promise.resolve(
+                  supabase
+                    .from('admin_permissions')
+                    .select('permission_key, can_view')
+                    .eq('user_id', data.user.id)
+                    .eq('can_view', true)
+                ),
                 REQUEST_TIMEOUT_MS
               );
 
