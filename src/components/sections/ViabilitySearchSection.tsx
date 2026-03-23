@@ -551,7 +551,7 @@ const ViabilitySearchSection = ({ compact = false }: { compact?: boolean }) => {
               className="text-center"
             >
               {/* Title */}
-              <h2 className="hidden sm:block font-display text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2 leading-tight whitespace-nowrap">
+              <h2 className="hidden sm:block font-display text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-2 leading-tight whitespace-nowrap text-center">
                 Consulte a viabilidade da sua <span className="gradient-text">marca</span>
               </h2>
               <p className="hidden sm:block text-sm md:text-base text-muted-foreground mb-8">
