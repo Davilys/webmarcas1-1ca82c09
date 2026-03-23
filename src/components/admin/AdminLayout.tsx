@@ -52,6 +52,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAdminPermissions, type PermissionKey } from '@/hooks/useAdminPermissions';
+import { withTimeout, isConnectivityError } from '@/lib/networkResilience';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -398,21 +399,34 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
     return first?.href || '/admin/configuracoes';
   }, [permissions]);
 
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const checkAdmin = async () => {
+    setAuthError(null);
+    try {
+      const { data: { user } } = await withTimeout(supabase.auth.getUser(), 12000);
       
       if (!user) {
         navigate('/cliente/login');
         return;
       }
 
-      const { data: isAdminRole, error } = await supabase.rpc('has_role', {
-        _user_id: user.id,
-        _role: 'admin'
-      });
+      const { data: isAdminRole, error } = await withTimeout(
+        supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' }),
+        12000,
+      );
 
-      if (error || !isAdminRole) {
+      if (error) {
+        if (isConnectivityError(error)) {
+          setAuthError('Falha de conexão ao verificar permissões. Tente novamente.');
+          return;
+        }
+        toast.error('Acesso negado. Você não tem permissão de administrador.');
+        navigate('/cliente/dashboard');
+        return;
+      }
+
+      if (!isAdminRole) {
         toast.error('Acesso negado. Você não tem permissão de administrador.');
         navigate('/cliente/dashboard');
         return;
@@ -420,8 +434,17 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
 
       setIsAdmin(true);
       setAdminUserId(user.id);
-    };
+    } catch (err) {
+      if (isConnectivityError(err)) {
+        setAuthError('Falha de conexão com o servidor. Tente novamente.');
+      } else {
+        toast.error('Erro ao verificar permissões.');
+        navigate('/cliente/login');
+      }
+    }
+  };
 
+  useEffect(() => {
     checkAdmin();
   }, [navigate]);
 
@@ -433,6 +456,23 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
       }
     }
   }, [isAdmin, loadingPermissions, permissions, location.pathname, canAccessPath, navigate, getFirstPermittedRoute]);
+
+  if (authError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center">
+          <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <Shield className="h-7 w-7 text-destructive" />
+          </div>
+          <h2 className="text-lg font-bold text-foreground">Erro de Conexão</h2>
+          <p className="text-sm text-muted-foreground">{authError}</p>
+          <Button onClick={() => checkAdmin()} className="gap-2">
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (isAdmin === null || loadingPermissions) {
     return (

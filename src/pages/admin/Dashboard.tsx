@@ -462,49 +462,62 @@ export default function AdminDashboard() {
   }, []);
 
   const fetchStats = async () => {
-    const now = new Date();
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    try {
+      const now = new Date();
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [
-      clientsRes, leadsRes, processesRes, invoicesRes,
-      lastMonthClients, lastMonthLeads, lastMonthRevenue
-    ] = await Promise.all([
-      supabase.from('profiles').select('id', { count: 'exact' }),
-      supabase.from('leads').select('id', { count: 'exact' }),
-      supabase.from('brand_processes').select('id, status'),
-      supabase.from('invoices').select('id, status, amount, created_at'),
-      supabase.from('profiles').select('id', { count: 'exact' }).gte('created_at', lastMonth.toISOString()).lt('created_at', thisMonth.toISOString()),
-      supabase.from('leads').select('id', { count: 'exact' }).gte('created_at', lastMonth.toISOString()).lt('created_at', thisMonth.toISOString()),
-      supabase.from('invoices').select('amount').eq('status', 'paid').gte('created_at', lastMonth.toISOString()).lt('created_at', thisMonth.toISOString()),
-    ]);
+      const results = await Promise.allSettled([
+        supabase.from('profiles').select('id', { count: 'exact' }),
+        supabase.from('leads').select('id', { count: 'exact' }),
+        supabase.from('brand_processes').select('id, status'),
+        supabase.from('invoices').select('id, status, amount, created_at'),
+        supabase.from('profiles').select('id', { count: 'exact' }).gte('created_at', lastMonth.toISOString()).lt('created_at', thisMonth.toISOString()),
+        supabase.from('leads').select('id', { count: 'exact' }).gte('created_at', lastMonth.toISOString()).lt('created_at', thisMonth.toISOString()),
+        supabase.from('invoices').select('amount').eq('status', 'paid').gte('created_at', lastMonth.toISOString()).lt('created_at', thisMonth.toISOString()),
+      ]);
 
-    const processes = processesRes.data || [];
-    const invoices = invoicesRes.data || [];
-    const paidInvoices = invoices.filter(i => i.status === 'paid' || i.status === 'confirmed' || i.status === 'received');
-    const totalRevenue = paidInvoices.reduce((sum, i) => sum + Number(i.amount), 0);
-    const thisMonthClients = (clientsRes.count || 0) - (lastMonthClients.count || 0);
-    const thisMonthLeads = (leadsRes.count || 0) - (lastMonthLeads.count || 0);
-    const lastMonthRevenueTotal = lastMonthRevenue.data?.reduce((sum, i) => sum + Number(i.amount), 0) || 0;
-    const clientsTrend = lastMonthClients.count ? ((thisMonthClients - (lastMonthClients.count || 0)) / (lastMonthClients.count || 1)) * 100 : 0;
-    const leadsTrend = lastMonthLeads.count ? ((thisMonthLeads - (lastMonthLeads.count || 0)) / (lastMonthLeads.count || 1)) * 100 : 0;
-    const revenueTrend = lastMonthRevenueTotal ? ((totalRevenue - lastMonthRevenueTotal) / lastMonthRevenueTotal) * 100 : 0;
-    const totalLeads = leadsRes.count || 0;
-    const totalClients = clientsRes.count || 0;
-    const conversionRate = totalLeads > 0 ? Math.round((totalClients / totalLeads) * 100) : 0;
+      const getValue = <T,>(r: PromiseSettledResult<T>, fallback: T): T =>
+        r.status === 'fulfilled' ? r.value : fallback;
 
-    setStats({
-      totalClients, totalLeads,
-      activeProcesses: processes.filter(p => p.status === 'em_andamento').length,
-      pendingInvoices: invoices.filter(i => i.status === 'pending').length,
-      totalRevenue,
-      completedProcesses: processes.filter(p => p.status === 'registrada').length,
-      clientsTrend: Math.round(clientsTrend),
-      leadsTrend: Math.round(leadsTrend),
-      revenueTrend: Math.round(revenueTrend),
-      totalProcesses: processes.length,
-      conversionRate,
-    });
+      const emptyRes = { data: null, count: 0, error: null };
+      const clientsRes = getValue(results[0], emptyRes as any);
+      const leadsRes = getValue(results[1], emptyRes as any);
+      const processesRes = getValue(results[2], emptyRes as any);
+      const invoicesRes = getValue(results[3], emptyRes as any);
+      const lastMonthClients = getValue(results[4], emptyRes as any);
+      const lastMonthLeads = getValue(results[5], emptyRes as any);
+      const lastMonthRevenue = getValue(results[6], emptyRes as any);
+
+      const processes = processesRes.data || [];
+      const invoices = invoicesRes.data || [];
+      const paidInvoices = invoices.filter((i: any) => i.status === 'paid' || i.status === 'confirmed' || i.status === 'received');
+      const totalRevenue = paidInvoices.reduce((sum: number, i: any) => sum + Number(i.amount), 0);
+      const thisMonthClients = (clientsRes.count || 0) - (lastMonthClients.count || 0);
+      const thisMonthLeads = (leadsRes.count || 0) - (lastMonthLeads.count || 0);
+      const lastMonthRevenueTotal = lastMonthRevenue.data?.reduce((sum: number, i: any) => sum + Number(i.amount), 0) || 0;
+      const clientsTrend = lastMonthClients.count ? ((thisMonthClients - (lastMonthClients.count || 0)) / (lastMonthClients.count || 1)) * 100 : 0;
+      const leadsTrend = lastMonthLeads.count ? ((thisMonthLeads - (lastMonthLeads.count || 0)) / (lastMonthLeads.count || 1)) * 100 : 0;
+      const revenueTrend = lastMonthRevenueTotal ? ((totalRevenue - lastMonthRevenueTotal) / lastMonthRevenueTotal) * 100 : 0;
+      const totalLeads = leadsRes.count || 0;
+      const totalClients = clientsRes.count || 0;
+      const conversionRate = totalLeads > 0 ? Math.round((totalClients / totalLeads) * 100) : 0;
+
+      setStats({
+        totalClients, totalLeads,
+        activeProcesses: processes.filter((p: any) => p.status === 'em_andamento').length,
+        pendingInvoices: invoices.filter((i: any) => i.status === 'pending').length,
+        totalRevenue,
+        completedProcesses: processes.filter((p: any) => p.status === 'registrada').length,
+        clientsTrend: Math.round(clientsTrend),
+        leadsTrend: Math.round(leadsTrend),
+        revenueTrend: Math.round(revenueTrend),
+        totalProcesses: processes.length,
+        conversionRate,
+      });
+    } catch (err) {
+      console.warn('[Dashboard] Erro ao carregar estatísticas:', err);
+    }
   };
 
   const kpiCards: KpiCardProps[] = [

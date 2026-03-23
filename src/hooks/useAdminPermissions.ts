@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { connectivityRetry, connectivityRetryDelay } from '@/lib/networkResilience';
 
 // Available CRM sections with their permission keys
 export const CRM_SECTIONS = [
@@ -134,6 +135,8 @@ export function useAdminPermissions(userId?: string) {
     },
     enabled: !!targetUserId,
     staleTime: 30000,
+    retry: connectivityRetry,
+    retryDelay: connectivityRetryDelay,
   });
 
   const hasPermission = (key: PermissionKey, action: PermissionAction): boolean => {
