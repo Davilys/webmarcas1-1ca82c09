@@ -104,12 +104,8 @@ const HeroSection = () => {
           </div>
         </div>
 
-        {/* Client Logos Marquee */}
-        <div className="mt-14">
-          <ClientLogosMarquee embedded />
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto mt-16">
+        {/* Trust Badges */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto mt-10">
           {trustBadges.map((item, index) => (
             <motion.div
               key={index}
@@ -127,7 +123,7 @@ const HeroSection = () => {
         </div>
 
         {/* Stats */}
-        <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 max-w-4xl mx-auto">
+        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 max-w-4xl mx-auto">
           {stats.map((stat, index) => (
             <motion.div 
               key={index} 
@@ -148,6 +144,11 @@ const HeroSection = () => {
               </div>
             </motion.div>
           ))}
+        </div>
+
+        {/* Client Logos Marquee */}
+        <div className="mt-10">
+          <ClientLogosMarquee embedded />
         </div>
       </div>
     </section>
