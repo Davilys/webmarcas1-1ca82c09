@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { connectivityRetry, connectivityRetryDelay } from '@/lib/networkResilience';
 
 // Available CRM sections with their permission keys
 export const CRM_SECTIONS = [

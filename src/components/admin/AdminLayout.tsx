@@ -52,6 +52,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAdminPermissions, type PermissionKey } from '@/hooks/useAdminPermissions';
+import { withTimeout, isConnectivityError } from '@/lib/networkResilience';
 
 interface AdminLayoutProps {
   children: ReactNode;
