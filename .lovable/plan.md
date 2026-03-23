@@ -1,49 +1,45 @@
 
+Objetivo: eliminar a instabilidade intermitente de “Failed to fetch” no painel administrativo e tornar o app resiliente quando a conexão oscila.
 
-## Problem
+Achados da auditoria (já confirmados):
+1) A instabilidade não é constante no backend: há chamadas com status 200 no mesmo período.
+2) O erro aparece principalmente no ciclo de autenticação/renovação de sessão no cliente (falha de rede transitória).
+3) Há muitos pontos com chamadas assíncronas sem tratamento uniforme de timeout/retry.
+4) O Dashboard dispara várias consultas em paralelo; quando há microqueda, surgem várias falhas ao mesmo tempo.
+5) Em alguns fluxos de validação de admin, se houver falha de rede no momento crítico, a UI pode ficar em estado inconsistente (ex.: verificação eterna ou mensagem genérica).
 
-Comparing image 646 (correct) vs image 647 (current):
+Plano de implementação:
+1) Padronizar resiliência de rede (camada única)
+- Criar utilitário compartilhado para: timeout, retry com backoff, classificação de erro de conectividade e cancelamento seguro.
+- Reaproveitar essa camada em login, validação de permissões e consultas críticas.
+- Arquivos-alvo: novo util em `src/lib/*` + adoção em `src/pages/admin/Login.tsx`, `src/components/admin/AdminLayout.tsx`, `src/hooks/useAdminPermissions.ts`.
 
-1. **Title block**: Currently rendered as a centered navy badge. Should be **bold left-aligned text**: `RECURSO ADMINISTRATIVO – MANIFESTAÇÃO À OPOSIÇÃO` and `MARCA: ASTROELETIVA`
-2. **All body text**: Currently mixed centered/justified. Should be **left-aligned** throughout (except paragraphs which use justify with indent)
-3. **Metadata and addressing block**: Currently centered under badge. Should be **left-aligned**
+2) Fortalecer bootstrap de autenticação/admin
+- Refatorar verificação inicial do admin para fluxo robusto com fallback e estado de erro recuperável (botão “tentar novamente” sem travar tela).
+- Evitar spinner infinito quando a rede oscila.
+- Garantir que apenas erro definitivo de permissão bloqueie acesso; erro transitório vira estado de reconexão.
 
-## Root Cause
+3) Reduzir explosão de requisições simultâneas no Dashboard
+- Colocar tratamento de erro consistente em todos os widgets (sem promise rejeitada “solta”).
+- Introduzir retry controlado e janela de refetch mais estável (evitar tempestade de requisições em foco/reconexão).
+- Arquivos-alvo: `src/pages/admin/Dashboard.tsx` e componentes em `src/components/admin/dashboard/*`.
 
-The component renders the document type in a centered `<div>` badge (lines 506-522) and centers brand/process info. The `stripOpeningMarkers` function also removes the specific resource type line from the AI content.
+4) Unificar chamadas a funções de backend feitas via `fetch`
+- Substituir padrões diretos por invocação padronizada com timeout/retry e mensagens de erro amigáveis.
+- Priorizar pontos de alto uso: contratos, criação de cobrança, assinatura e envios.
+- Arquivos-alvo iniciais: `src/components/admin/contracts/*`, `src/pages/admin/RevistaINPI.tsx`, `src/pages/AssinarDocumento.tsx`.
 
-## Changes
+5) Observabilidade e validação final
+- Adicionar logs técnicos mínimos (somente dev) com causa classificada: timeout, offline, rede instável, permissão.
+- Validar em cenário real: login admin, abertura do dashboard, navegação entre módulos, reconexão após queda curta.
 
-**File**: `src/components/admin/INPIResourcePDFPreview.tsx`
+Testes de aceite (obrigatórios):
+1) Login admin com rede normal e com oscilação (sem travar em “Verificando…”).
+2) Dashboard abre sem “explosão” de erros no console durante reconexão.
+3) Após queda rápida de internet e retorno, sessão volta sem exigir múltiplos logins.
+4) Fluxos críticos (contratos/cobrança/assinatura) mostram erro claro e recuperam no retry.
 
-### 1. Build the specific resource type label
-
-Add a helper to map `resourceType` to the correct full label (e.g., `oposicao` → `MANIFESTAÇÃO À OPOSIÇÃO`), then construct the title as `RECURSO ADMINISTRATIVO – {LABEL}`.
-
-### 2. Replace centered badge with left-aligned title block (web preview)
-
-Replace the centered badge div (lines 506-522) with:
-- `RECURSO ADMINISTRATIVO – MANIFESTAÇÃO À OPOSIÇÃO` — bold, left-aligned, navy color
-- `MARCA: {BRAND_NAME}` — bold, left-aligned, navy color
-
-### 3. Replace centered badge with left-aligned title block (PDF generator)
-
-In `handleDownloadPDF` (lines 224-248), replace the centered badge rendering with left-aligned bold text at the same position.
-
-### 4. Ensure addressing and metadata stay left-aligned
-
-The addressing block ("EXCELENTÍSSIMO SENHOR...") and metadata lines (Processo, Marca, Classe, etc.) are already in the AI content and rendered by `renderContent()`. They just need to remain left-aligned — no changes needed there since `isMetadataLine` and `isHeadingLine` already handle them.
-
-### Resource Type Label Map
-
-```typescript
-const RESOURCE_TYPE_LABELS: Record<string, string> = {
-  oposicao: 'MANIFESTAÇÃO À OPOSIÇÃO',
-  indeferimento: 'RECURSO CONTRA INDEFERIMENTO',
-  exigencia_merito: 'CUMPRIMENTO DE EXIGÊNCIA DE MÉRITO',
-  notificacao_extrajudicial: 'NOTIFICAÇÃO EXTRAJUDICIAL',
-  troca_procurador: 'PETIÇÃO DE TROCA DE PROCURADOR',
-  nomeacao_procurador: 'PETIÇÃO DE NOMEAÇÃO DE PROCURADOR',
-};
-```
-
+Detalhes técnicos (resumo):
+- Sem alteração de banco de dados.
+- Sem mexer em `src/integrations/supabase/client.ts` (arquivo gerado).
+- Foco em hardening de frontend: auth bootstrap, retries centralizados, controle de concorrência e tratamento de erro por módulo.
