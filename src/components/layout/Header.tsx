@@ -199,7 +199,7 @@ const Header = () => {
 
             {/* Mobile Menu Button */}
             <button
-              className="p-2 text-foreground"
+              className={`p-2 ${isScrolled ? 'text-foreground' : 'text-white'}`}
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-label="Menu"
             >
