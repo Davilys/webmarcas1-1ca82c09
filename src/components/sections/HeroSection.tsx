@@ -8,6 +8,7 @@ import ClientLogosMarquee from "@/components/sections/ClientLogosSection";
 import consultant1 from "@/assets/consultants/consultant-1.jpg";
 import consultant2 from "@/assets/consultants/consultant-2.jpg";
 import consultant3 from "@/assets/consultants/consultant-3.jpg";
+import webmarcasLogo from "@/assets/webmarcas-logo-transparent.png";
 
 const HeroSection = () => {
   const { t } = useLanguage();
@@ -37,8 +38,16 @@ const HeroSection = () => {
   ];
 
   return (
-    <section id="home" className="relative hero-glow overflow-x-clip overflow-y-visible">
-      <div className="absolute inset-0 bg-hero-gradient" />
+    <section id="home" className="relative overflow-x-clip overflow-y-visible" style={{ background: 'linear-gradient(135deg, #2946d9 0%, #3B5CFC 40%, #4a6aff 100%)' }}>
+      {/* Watermark logo */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+        <img 
+          src={webmarcasLogo} 
+          alt="" 
+          className="w-[600px] h-[600px] lg:w-[800px] lg:h-[800px] object-contain opacity-[0.06] select-none"
+          aria-hidden="true"
+        />
+      </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-14 relative z-10 max-w-7xl">
         {/* Two-column hero */}
@@ -53,7 +62,7 @@ const HeroSection = () => {
             </div>
 
             {/* Heading */}
-            <h1 className="font-display text-[2.5rem] sm:text-5xl xl:text-[3.5rem] font-bold leading-[1.15] mb-6">
+            <h1 className="font-display text-[2.5rem] sm:text-5xl xl:text-[3.5rem] font-bold leading-[1.15] mb-6 text-white">
               {t("hero.title")}{" "}
               <span className="inline-block overflow-hidden h-[1.15em] align-bottom relative">
                 <AnimatePresence mode="wait">
@@ -63,7 +72,7 @@ const HeroSection = () => {
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: '-100%', opacity: 0 }}
                     transition={{ duration: 0.5, ease: "easeInOut" }}
-                    className="inline-block gradient-text"
+                    className="inline-block text-yellow-300"
                   >
                     {phrases[phraseIndex]}
                   </motion.span>
@@ -72,7 +81,7 @@ const HeroSection = () => {
             </h1>
 
             {/* Subtitle */}
-            <p className="text-base md:text-lg text-muted-foreground max-w-lg mx-auto lg:mx-0 mb-10">
+            <p className="text-base md:text-lg text-white/80 max-w-lg mx-auto lg:mx-0 mb-10">
               {t("hero.subtitle")}
             </p>
 
@@ -114,12 +123,12 @@ const HeroSection = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-              className="flex flex-col items-center gap-3 p-5 rounded-2xl bg-card/60 backdrop-blur-sm text-center"
+              className="flex flex-col items-center gap-3 p-5 rounded-2xl bg-white/10 backdrop-blur-sm text-center"
             >
-              <div className={`p-3 rounded-xl ${item.bgColor}`}>
-                <item.icon className={`w-6 h-6 ${item.color}`} />
+              <div className={`p-3 rounded-xl bg-white/15`}>
+                <item.icon className="w-6 h-6 text-white" />
               </div>
-              <span className="text-sm font-medium text-foreground leading-tight">{item.label}</span>
+              <span className="text-sm font-medium text-white leading-tight">{item.label}</span>
             </motion.div>
           ))}
         </div>
@@ -134,14 +143,14 @@ const HeroSection = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.5 + index * 0.1 }}
             >
-              <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold gradient-text mb-2">
+              <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">
                 <AnimatedCounter 
                   value={stat.value} 
                   suffix={stat.suffix}
                   duration={2.5}
                 />
               </div>
-              <div className="text-sm md:text-base text-muted-foreground font-medium">
+              <div className="text-sm md:text-base text-white/70 font-medium">
                 {stat.label}
               </div>
             </motion.div>
