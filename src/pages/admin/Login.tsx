@@ -48,11 +48,6 @@ export default function AdminLogin() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        toast.error('Você está sem internet. Verifique sua conexão e tente novamente.');
-        return;
-      }
-
       let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'] | null = null;
       let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['error'] | null = null;
 
