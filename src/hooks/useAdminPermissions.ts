@@ -135,6 +135,8 @@ export function useAdminPermissions(userId?: string) {
     },
     enabled: !!targetUserId,
     staleTime: 30000,
+    retry: connectivityRetry,
+    retryDelay: connectivityRetryDelay,
   });
 
   const hasPermission = (key: PermissionKey, action: PermissionAction): boolean => {
