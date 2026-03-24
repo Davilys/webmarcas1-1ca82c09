@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useMemo } from 'react';
+import { ReactNode, useState, useEffect, useMemo, useCallback } from 'react';
 import { AdminErrorBoundary } from '@/components/admin/ErrorBoundary';
 import { MobileBottomNav } from '@/components/admin/MobileBottomNav';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
