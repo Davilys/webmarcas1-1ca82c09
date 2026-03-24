@@ -23,12 +23,15 @@ interface INPIResourcePDFPreviewProps {
 }
 
 const isNotificacao = (type?: string) => type === 'notificacao_extrajudicial';
+const isRespostaNotificacao = (type?: string) => type === 'resposta_notificacao_extrajudicial';
+const isExtrajudicial = (type?: string) => isNotificacao(type) || isRespostaNotificacao(type);
 
 const RESOURCE_TYPE_LABELS: Record<string, string> = {
   oposicao: 'MANIFESTAÇÃO À OPOSIÇÃO',
   indeferimento: 'RECURSO CONTRA INDEFERIMENTO',
   exigencia_merito: 'CUMPRIMENTO DE EXIGÊNCIA DE MÉRITO',
   notificacao_extrajudicial: 'NOTIFICAÇÃO EXTRAJUDICIAL',
+  resposta_notificacao_extrajudicial: 'RESPOSTA À NOTIFICAÇÃO EXTRAJUDICIAL',
   troca_procurador: 'PETIÇÃO DE TROCA DE PROCURADOR',
   nomeacao_procurador: 'PETIÇÃO DE NOMEAÇÃO DE PROCURADOR',
 };
@@ -59,6 +62,7 @@ const stripOpeningMarkers = (text: string): string => {
   cleaned = cleaned.replace(/^\s*RECURSO ADMINISTRATIVO\s*[–—-]\s*.+$/gm, '');
   cleaned = cleaned.replace(/^\s*MARCA:\s*[A-ZÁÉÍÓÚÀÂÊÔÃÕÇ\s.]+$/gm, '');
   cleaned = cleaned.replace(/^\s*NOTIFICAÇÃO EXTRAJUDICIAL\s*$/gim, '');
+  cleaned = cleaned.replace(/^\s*RESPOSTA\s*[ÀA]\s*NOTIFICAÇÃO\s*EXTRAJUDICIAL\s*$/gim, '');
   cleaned = cleaned.replace(/^\s*PETIÇÃO DE (TROCA|NOMEAÇÃO) DE PROCURADOR\s*$/gim, '');
 
   // Deduplicate addressing + metadata block if it appears more than once
@@ -96,7 +100,7 @@ const stripClosingFromContent = (text: string, resourceType?: string): string =>
   }
   cleaned = cleaned.replace(/\n\s*Termos em que,?\s*\n\s*Pede deferimento\.?\s*\n[\s\S]*$/i, '');
   
-  if (isNotificacao(resourceType)) {
+  if (isExtrajudicial(resourceType)) {
     cleaned = cleaned.replace(/\n\s*São Paulo,\s*\d{1,2}\s*de\s*\w+\s*de\s*\d{4}[\s\S]*$/i, '');
     cleaned = cleaned.replace(/\n\s*Davilys Danques[\s\S]*$/i, '');
   }
@@ -138,6 +142,8 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const isNotif = isNotificacao(resourceType);
+  const isRespostaNotif = isRespostaNotificacao(resourceType);
+  const isExtrajudicialDoc = isExtrajudicial(resourceType);
   const isProcuradorPetition = resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador';
   const cleanedContent = stripOpeningMarkers(cleanMarkdown(content));
   const bodyContent = stripClosingFromContent(cleanedContent, resourceType);
@@ -148,6 +154,8 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
 
   const documentTitle = isNotif
     ? 'Notificação Extrajudicial'
+    : isRespostaNotif
+      ? 'Resposta à Notificação Extrajudicial'
     : isProcuradorPetition
       ? resourceType === 'troca_procurador'
         ? 'Petição de Troca de Procurador'
@@ -156,6 +164,8 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
   const documentTitleUpper = documentTitle.toUpperCase();
   const pdfFileName = isNotif
     ? `Notificacao_Extrajudicial_${resource.brand_name?.replace(/\s+/g, '_') || 'WebMarcas'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`
+    : isRespostaNotif
+      ? `Resposta_Notificacao_Extrajudicial_${format(new Date(), 'yyyy-MM-dd')}.pdf`
     : isProcuradorPetition
       ? `${resourceType === 'troca_procurador' ? 'Peticao_Troca_Procurador' : 'Peticao_Nomeacao_Procurador'}_${resource.brand_name?.replace(/\s+/g, '_') || 'INPI'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`
       : `Recurso_${resource.brand_name?.replace(/\s+/g, '_') || 'INPI'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
@@ -254,9 +264,10 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
       yPos += 8;
 
       // ── Document Title Badge (centered) ──
-      const typeLabel = getResourceTypeLabel(resourceType);
       const badgeTitle = isNotif
         ? 'NOTIFICAÇÃO EXTRAJUDICIAL'
+        : isRespostaNotif
+          ? 'RESPOSTA À NOTIFICAÇÃO EXTRAJUDICIAL'
         : isProcuradorPetition
           ? documentTitleUpper
           : 'RECURSO ADMINISTRATIVO';
@@ -392,7 +403,7 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(60, 60, 60);
 
-      if (!isNotif) {
+      if (!isExtrajudicialDoc) {
         // Standard INPI resource closing
         pdf.text('Termos em que,', pageWidth / 2, yPos, { align: 'center' });
         yPos += 8;
@@ -426,7 +437,7 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
       pdf.setTextColor(80, 80, 80);
       pdf.text('Procurador', pageWidth / 2, yPos + 6, { align: 'center' });
 
-      if (!isNotif && !isProcuradorPetition) {
+      if (!isExtrajudicialDoc && !isProcuradorPetition) {
         // Only show CPF for standard INPI appeal resources
         pdf.text('CPF 393.239.118-79', pageWidth / 2, yPos + 12, { align: 'center' });
       }
@@ -554,6 +565,8 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
               <p className="text-white font-bold tracking-wide text-sm uppercase">
                 {isNotif
                   ? 'NOTIFICAÇÃO EXTRAJUDICIAL'
+                    : isRespostaNotif
+                      ? 'RESPOSTA À NOTIFICAÇÃO EXTRAJUDICIAL'
                   : isProcuradorPetition
                     ? documentTitleUpper
                     : 'RECURSO ADMINISTRATIVO'}
@@ -578,7 +591,7 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
 
           {/* Signature */}
           <div className="mt-16 text-center">
-            {!isNotif && (
+            {!isExtrajudicialDoc && (
               <>
                 <p className="mb-4" style={{ color: '#374151' }}>Termos em que,</p>
                 <p className="mb-4" style={{ color: '#374151' }}>Pede deferimento.</p>
@@ -597,7 +610,7 @@ export function INPIResourcePDFPreview({ resource, content, resourceType }: INPI
               <div className="w-52 mx-auto mb-3" style={{ height: '2px', background: '#1e3a5f' }} />
               <p className="font-semibold text-base" style={{ color: '#1e3a5f' }}>Davilys Danques de Oliveira Cunha</p>
               <p className="text-sm" style={{ color: '#555' }}>Procurador</p>
-              {!isNotif && !isProcuradorPetition && (
+              {!isExtrajudicialDoc && !isProcuradorPetition && (
                 <p className="text-sm" style={{ color: '#777' }}>CPF 393.239.118-79</p>
               )}
             </div>
