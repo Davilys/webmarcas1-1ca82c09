@@ -2272,6 +2272,8 @@ export default function RecursosINPI() {
                       <p className="text-muted-foreground">
                         {resourceType === 'notificacao_extrajudicial' 
                           ? `Elaborando Notificação Extrajudicial com estratégia "${agent.style}" e fundamentação legal completa...`
+                          : resourceType === 'resposta_notificacao_extrajudicial'
+                          ? `Analisando notificação recebida e elaborando defesa com estratégia "${agent.style}" e jurisprudência real...`
                           : `Aplicando estratégia "${agent.style}" com jurisprudência real e fundamentação completa...`
                         }
                       </p>
