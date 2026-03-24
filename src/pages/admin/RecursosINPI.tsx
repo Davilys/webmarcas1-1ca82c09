@@ -923,12 +923,15 @@ export default function RecursosINPI() {
 
   const getVisibleSteps = () => {
     if (resourceType === 'notificacao_extrajudicial') {
-      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'procurador-data');
+      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'procurador-data' && s.key !== 'resposta-notificacao-data');
+    }
+    if (isRespostaNotificacao) {
+      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'notificacao-data' && s.key !== 'procurador-data');
     }
     if (isProcuradorType) {
-      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'notificacao-data');
+      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'notificacao-data' && s.key !== 'resposta-notificacao-data');
     }
-    return STEPS_FLOW.filter(s => s.key !== 'notificacao-data' && s.key !== 'procurador-data');
+    return STEPS_FLOW.filter(s => s.key !== 'notificacao-data' && s.key !== 'procurador-data' && s.key !== 'resposta-notificacao-data');
   };
 
   const currentStepIndex = getVisibleSteps().findIndex(s => s.key === step);
