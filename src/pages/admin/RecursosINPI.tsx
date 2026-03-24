@@ -634,6 +634,72 @@ export default function RecursosINPI() {
     }
   };
 
+  const processRespostaNotificacao = async () => {
+    if (multipleFiles.length === 0) {
+      toast.error('Anexe pelo menos o PDF da notificação extrajudicial recebida');
+      return;
+    }
+    setIsProcessing(true);
+    setStep('processing');
+
+    try {
+      const agent = AI_AGENTS[selectedAgent];
+
+      const filesBase64 = await Promise.all(
+        multipleFiles.map(async (f) => ({
+          base64: await fileToBase64(f),
+          type: f.type,
+          name: f.name,
+        }))
+      );
+
+      const { data, error } = await supabase.functions.invoke('process-inpi-resource', {
+        body: {
+          resourceType: 'resposta_notificacao_extrajudicial',
+          agentStrategy: agent.promptExtra,
+          agentName: agent.name,
+          files: filesBase64,
+          userInstructions,
+        }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Erro ao processar resposta');
+
+      setExtractedData(data.extracted_data);
+      setDraftContent(data.resource_content);
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: insertedResource, error: insertError } = await supabase
+        .from('inpi_resources')
+        .insert({
+          user_id: user?.id,
+          resource_type: 'resposta_notificacao_extrajudicial',
+          process_number: data.extracted_data?.process_number || null,
+          brand_name: data.extracted_data?.brand_name || null,
+          holder: data.extracted_data?.holder || null,
+          examiner_or_opponent: data.extracted_data?.examiner_or_opponent || null,
+          draft_content: data.resource_content,
+          status: 'pending_review'
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      setCurrentResourceId(insertedResource.id);
+      setProcessingProgress(100);
+      setTimeout(() => setStep('review'), 500);
+      toast.success(`Resposta à Notificação gerada com sucesso pela estratégia ${agent.name}!`);
+    } catch (error) {
+      console.error('Error processing resposta notificacao:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar resposta');
+      setStep('resposta-notificacao-data');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const processProcurador = async () => {
     if (!procuradorData.titular || !procuradorData.marca) {
       toast.error('Preencha pelo menos o nome do titular e da marca');
