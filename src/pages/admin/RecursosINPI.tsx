@@ -1045,6 +1045,18 @@ export default function RecursosINPI() {
                   approved: resources.filter(r => r.resource_type === 'notificacao_extrajudicial' && r.status === 'approved').length,
                 },
                 { 
+                  label: 'Resposta Notificação', 
+                  subtitle: 'Defesa extrajudicial',
+                  count: dispatchStats.resposta_notificacao_extrajudicial, 
+                  icon: Shield, 
+                  gradient: 'from-cyan-500 to-sky-600',
+                  glowColor: 'hsla(190, 90%, 50%, 0.15)',
+                  ringColor: 'stroke-cyan-500',
+                  ringBg: 'stroke-cyan-500/15',
+                  tagBg: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
+                  approved: resources.filter(r => r.resource_type === 'resposta_notificacao_extrajudicial' && r.status === 'approved').length,
+                },
+                { 
                   label: 'Troca Procurador', 
                   subtitle: 'Revogação e nomeação',
                   count: dispatchStats.troca_procurador, 
