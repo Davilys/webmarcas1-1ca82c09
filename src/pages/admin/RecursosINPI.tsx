@@ -846,6 +846,7 @@ export default function RecursosINPI() {
     exigencia_merito: resources.filter(r => r.resource_type === 'exigencia_merito').length,
     oposicao: resources.filter(r => r.resource_type === 'oposicao').length,
     notificacao_extrajudicial: resources.filter(r => r.resource_type === 'notificacao_extrajudicial').length,
+    resposta_notificacao_extrajudicial: resources.filter(r => r.resource_type === 'resposta_notificacao_extrajudicial').length,
     troca_procurador: resources.filter(r => r.resource_type === 'troca_procurador').length,
     nomeacao_procurador: resources.filter(r => r.resource_type === 'nomeacao_procurador').length,
   };
