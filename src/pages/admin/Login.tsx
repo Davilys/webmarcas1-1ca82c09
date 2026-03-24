@@ -66,22 +66,22 @@ export default function AdminLogin() {
         }
       );
 
-      if (error || !signInResult) {
-        if (error.message.includes('Invalid login credentials')) {
+      const authError = error ?? signInResult?.error ?? null;
+
+      if (authError || !signInResult?.data?.user) {
+        if (authError?.message?.includes('Invalid login credentials')) {
           toast.error('Email ou senha incorretos');
         } else if (wasConnectivityError) {
-          toast.error(getConnectivityErrorMessage(error));
+          toast.error(getConnectivityErrorMessage(authError));
         } else {
-          toast.error(error.message);
+          toast.error(authError?.message || 'Não foi possível realizar login.');
         }
         return;
       }
 
-      if (signInResult.user) {
-        // Permissões e role são validadas centralmente no AdminLayout
-        toast.success('Login realizado!');
-        navigate('/admin/dashboard', { replace: true });
-      }
+      // Permissões e role são validadas centralmente no AdminLayout
+      toast.success('Login realizado!');
+      navigate('/admin/dashboard', { replace: true });
     } catch (error) {
       toast.error(getConnectivityErrorMessage(error));
     } finally {
