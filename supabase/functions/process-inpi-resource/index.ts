@@ -733,12 +733,8 @@ serve(async (req) => {
     // ═════════════════════════════════════════════════════
     if (resourceType === 'resposta_notificacao_extrajudicial') {
       const { files, userInstructions } = body;
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!LOVABLE_API_KEY) {
-        return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY não configurada' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
 
-      console.log('=== RESPOSTA NOTIFICAÇÃO (Lovable AI Gateway) ===');
+      console.log('=== RESPOSTA NOTIFICAÇÃO (OpenAI Responses API) ===');
       console.log('Agent:', agentName, '| Files:', files?.length || 0);
 
       const systemPrompt = `#instruction
