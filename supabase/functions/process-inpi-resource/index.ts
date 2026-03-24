@@ -810,20 +810,20 @@ ${userInstructions ? '#instrucoes_adicionais_do_usuario\n' + userInstructions : 
 
 Responda APENAS com o texto completo da RESPOSTA À NOTIFICAÇÃO (mínimo 4.000 palavras). SEM JSON. SEM explicações.`;
 
-      // Build messages for Lovable AI Gateway (OpenAI-compatible format)
-      const userMessageContent: any[] = [
+      // Build user content parts for OpenAI Responses API
+      const userContent: any[] = [
         { type: 'text', text: 'Analise a NOTIFICAÇÃO EXTRAJUDICIAL anexada e elabore uma RESPOSTA/DEFESA JURÍDICA COMPLETA com no mínimo 4.000 palavras, refutando todas as alegações do notificante.' }
       ];
 
       if (files && Array.isArray(files)) {
         for (const file of files) {
           if (file.type === 'application/pdf') {
-            userMessageContent.push({
+            userContent.push({
               type: 'file',
               file: { filename: file.name || 'notificacao.pdf', file_data: `data:application/pdf;base64,${file.base64}` }
             });
           } else if (file.type?.startsWith('image/')) {
-            userMessageContent.push({
+            userContent.push({
               type: 'image_url',
               image_url: { url: `data:${file.type};base64,${file.base64}` }
             });
@@ -831,40 +831,17 @@ Responda APENAS com o texto completo da RESPOSTA À NOTIFICAÇÃO (mínimo 4.000
         }
       }
 
-      const gatewayResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-pro',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessageContent },
-          ],
-          max_tokens: 16000,
-          temperature: 0.25,
-        }),
-      });
-
-      if (!gatewayResponse.ok) {
-        const errText = await gatewayResponse.text();
-        console.error('Lovable AI Gateway error:', gatewayResponse.status, errText.substring(0, 300));
-        if (gatewayResponse.status === 429) {
-          return new Response(JSON.stringify({ error: 'Limite de requisições excedido. Aguarde e tente novamente.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
-        if (gatewayResponse.status === 402) {
-          return new Response(JSON.stringify({ error: 'Créditos de IA esgotados. Adicione créditos.' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
-        return new Response(JSON.stringify({ error: 'Erro no gateway de IA: ' + gatewayResponse.status }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const parts = convertToResponsesFormat(userContent);
+      const result = await callOpenAI(OPENAI_API_KEY, systemPrompt, parts, 16000);
+      
+      if (result.error) {
+        console.error('OpenAI error for resposta_notificacao:', result.status, result.error.substring(0, 300));
+        return new Response(JSON.stringify({ error: `Erro IA: ${result.status}` }), { status: result.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      const aiData = await gatewayResponse.json();
-      const rawContent = aiData.choices?.[0]?.message?.content || '';
-      console.log('Resposta Notificação complete:', rawContent.length, 'chars (~', Math.round(rawContent.split(/\s+/).length), 'words)');
+      const finalContent = cleanAIContent(result.content);
+      console.log('Resposta Notificação complete:', finalContent.length, 'chars (~', Math.round(finalContent.split(/\s+/).length), 'words)');
 
-      const finalContent = cleanAIContent(rawContent);
       if (finalContent.length < 500) {
         return new Response(JSON.stringify({ error: 'Conteúdo incompleto. Tente novamente.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
