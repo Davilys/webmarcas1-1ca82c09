@@ -11,6 +11,7 @@ const RESOURCE_TYPE_LABELS: Record<string, string> = {
   exigencia_merito: 'CUMPRIMENTO DE EXIGÊNCIA DE MÉRITO / RECURSO ADMINISTRATIVO',
   oposicao: 'MANIFESTAÇÃO À OPOSIÇÃO',
   notificacao_extrajudicial: 'NOTIFICAÇÃO EXTRAJUDICIAL',
+  resposta_notificacao_extrajudicial: 'RESPOSTA A NOTIFICAÇÃO EXTRAJUDICIAL',
   troca_procurador: 'PETIÇÃO DE TROCA DE PROCURADOR',
   nomeacao_procurador: 'PETIÇÃO DE NOMEAÇÃO DE PROCURADOR'
 };
