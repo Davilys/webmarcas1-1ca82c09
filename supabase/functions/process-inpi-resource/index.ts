@@ -38,7 +38,7 @@ async function callOpenAI(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-2024-11-20',
+      model: 'gpt-5',
       input: inputMessages,
       max_output_tokens: maxTokens,
       temperature,
