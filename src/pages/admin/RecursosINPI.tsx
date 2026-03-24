@@ -2032,6 +2032,121 @@ export default function RecursosINPI() {
             </motion.div>
           )}
 
+          {/* RESPOSTA A NOTIFICAÇÃO EXTRAJUDICIAL */}
+          {step === 'resposta-notificacao-data' && (
+            <motion.div key="resposta-notificacao-data" {...fadeIn} className="space-y-6">
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-bold">Resposta a Notificação Extrajudicial</h2>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Anexe o PDF da notificação extrajudicial recebida. A IA irá analisar e elaborar uma defesa jurídica robusta.
+                </p>
+              </div>
+
+              {/* Upload da Notificação */}
+              <Card className="border-cyan-500/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Upload className="h-5 w-5 text-cyan-500" />
+                    Anexar Notificação Recebida *
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Anexe o PDF da notificação extrajudicial recebida e documentos de suporte (provas, registros de marca, etc.)
+                  </p>
+                  <div 
+                    onClick={() => multiFileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-cyan-500/25 hover:border-cyan-500/50 rounded-xl cursor-pointer transition-colors hover:bg-cyan-500/5"
+                  >
+                    <Upload className="h-6 w-6 text-cyan-500 mb-2" />
+                    <p className="text-sm font-medium">Clique para selecionar arquivos</p>
+                    <p className="text-xs text-muted-foreground">PDF da notificação recebida + documentos de suporte (até 10 arquivos)</p>
+                  </div>
+                  <input 
+                    ref={multiFileInputRef} 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp" 
+                    multiple 
+                    className="hidden" 
+                    onChange={handleMultiFileSelect} 
+                  />
+                  {multipleFiles.length > 0 && (
+                    <div className="space-y-2">
+                      {multipleFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-3 p-3 bg-cyan-500/5 rounded-xl border border-cyan-500/10">
+                          {f.type.startsWith('image/') ? (
+                            <ImageIcon className="h-5 w-5 text-blue-500 shrink-0" />
+                          ) : (
+                            <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{f.name}</p>
+                            <p className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeMultiFile(i)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <p className="text-xs text-muted-foreground text-center">{multipleFiles.length}/10 arquivo(s)</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Instruções adicionais */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-primary" />
+                    Instruções Adicionais (Opcional)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    placeholder="Descreva o contexto da sua defesa, argumentos específicos que deseja incluir, informações sobre seu uso legítimo da marca, provas de anterioridade, etc..."
+                    value={userInstructions}
+                    onChange={(e) => setUserInstructions(e.target.value)}
+                    rows={5}
+                    className="rounded-xl resize-none"
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Info box */}
+              <div className="p-4 bg-cyan-500/5 rounded-xl border border-cyan-500/20">
+                <div className="flex items-start gap-3">
+                  <Brain className="h-5 w-5 text-cyan-500 mt-0.5 shrink-0" />
+                  <div className="text-sm">
+                    <p className="font-medium mb-1">O que a IA irá fazer:</p>
+                    <ul className="space-y-1 text-muted-foreground">
+                      <li>• Analisar integralmente a notificação extrajudicial recebida</li>
+                      <li>• Identificar fundamentos legais e alegações do notificante</li>
+                      <li>• Elaborar defesa robusta refutando cada ponto da notificação</li>
+                      <li>• Fundamentar com jurisprudência real (STJ, TRF-2, TRF-3)</li>
+                      <li>• Aplicar a LPI, Manual de Marcas do INPI e doutrina especializada</li>
+                      <li>• Demonstrar legitimidade do uso e/ou coexistência pacífica</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setStep('select-agent')} className="rounded-xl">Voltar</Button>
+                <Button 
+                  onClick={processDocument}
+                  disabled={multipleFiles.length === 0}
+                  size="lg" 
+                  className={`flex-1 gap-3 rounded-xl h-14 text-base shadow-xl bg-gradient-to-r ${agent.color} hover:opacity-90 transition-opacity`}
+                >
+                  <Zap className="h-5 w-5" />
+                  Gerar Defesa com {agent.name}
+                  <ArrowRight className="h-4 w-4 ml-auto" />
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
           {/* UPLOAD */}
           {step === 'upload' && (
             <motion.div key="upload" {...fadeIn}>
