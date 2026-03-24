@@ -79,7 +79,9 @@ export default function AdminLogin() {
         return;
       }
 
-      // Permissões e role são validadas centralmente no AdminLayout
+      // Pre-cache admin status so AdminLayout skips verification
+      sessionStorage.setItem('admin_verified', 'true');
+      sessionStorage.setItem('admin_user_id', signInResult.data.user.id);
       toast.success('Login realizado!');
       navigate('/admin/dashboard', { replace: true });
     } catch (error) {

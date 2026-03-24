@@ -405,9 +405,18 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
 
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const checkAdmin = async () => {
+  const checkAdmin = useCallback(async () => {
     setAuthError(null);
     try {
+      // Fast path: if sessionStorage already has verified admin for current session, skip network
+      const ssAdmin = sessionStorage.getItem('admin_verified');
+      const ssUserId = sessionStorage.getItem('admin_user_id');
+      if (ssAdmin === 'true' && ssUserId) {
+        setIsAdmin(true);
+        setAdminUserId(ssUserId);
+        return;
+      }
+
       const { data: { user } } = await withTimeout(supabase.auth.getUser(), 12000);
       
       if (!user) {
@@ -415,13 +424,6 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
         sessionStorage.removeItem('admin_user_id');
         setIsAdmin(null);
         navigate('/cliente/login');
-        return;
-      }
-
-      // If already verified in this session for the same user, skip RPC call
-      if (cachedAdmin === 'true' && cachedUserId === user.id) {
-        setIsAdmin(true);
-        setAdminUserId(user.id);
         return;
       }
 
@@ -433,7 +435,7 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
       if (error) {
         if (isConnectivityError(error)) {
           // If we have a cached admin status, trust it instead of showing error
-          if (cachedAdmin === 'true' && cachedUserId === user.id) {
+          if (ssAdmin === 'true' && ssUserId === user.id) {
             setIsAdmin(true);
             setAdminUserId(user.id);
             return;
@@ -460,10 +462,11 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
       setAdminUserId(user.id);
     } catch (err) {
       if (isConnectivityError(err)) {
-        // Trust cache on connectivity errors
-        if (cachedAdmin === 'true' && cachedUserId) {
+        const ssAdmin = sessionStorage.getItem('admin_verified');
+        const ssUserId = sessionStorage.getItem('admin_user_id');
+        if (ssAdmin === 'true' && ssUserId) {
           setIsAdmin(true);
-          setAdminUserId(cachedUserId);
+          setAdminUserId(ssUserId);
           return;
         }
         setAuthError('Falha de conexão com o servidor. Tente novamente.');
@@ -472,23 +475,25 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
         navigate('/cliente/login');
       }
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     checkAdmin();
 
-    // Listen for auth state changes to clear cache on sign out
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         sessionStorage.removeItem('admin_verified');
         sessionStorage.removeItem('admin_user_id');
         setIsAdmin(null);
         setAdminUserId(null);
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Keep cache in sync after token refresh
+        sessionStorage.setItem('admin_user_id', session.user.id);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [checkAdmin]);
 
   // Centralized permission guard: redirect if user can't access current route
   useEffect(() => {
