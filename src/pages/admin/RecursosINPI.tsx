@@ -853,6 +853,7 @@ export default function RecursosINPI() {
   const maxDispatch = Math.max(...Object.values(dispatchStats), 1);
 
   const isProcuradorType = resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador';
+  const isRespostaNotificacao = resourceType === 'resposta_notificacao_extrajudicial';
 
   const getVisibleSteps = () => {
     if (resourceType === 'notificacao_extrajudicial') {
