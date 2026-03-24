@@ -82,6 +82,7 @@ const RESOURCE_TYPE_LABELS: Record<string, string> = {
   exigencia_merito: 'Exigência de Mérito',
   oposicao: 'Manifestação à Oposição',
   notificacao_extrajudicial: 'Notificação Extrajudicial',
+  resposta_notificacao_extrajudicial: 'Resposta a Notificação Extrajudicial',
   troca_procurador: 'Troca de Procurador',
   nomeacao_procurador: 'Nomeação de Procurador'
 };
