@@ -211,6 +211,9 @@ export function BackupSettings() {
         </div>
       </SettingsCard>
 
+      {/* Import / Restore */}
+      <BackupImportSection />
+
       {/* Import History */}
       <SettingsCard
         icon={History}
