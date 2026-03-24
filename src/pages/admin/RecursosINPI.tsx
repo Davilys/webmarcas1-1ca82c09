@@ -112,6 +112,12 @@ const RESOURCE_TYPE_CONFIG: Record<string, { icon: typeof Gavel; color: string; 
     gradient: 'from-purple-500/10 to-purple-600/5 border-purple-500/20 hover:border-purple-500/40',
     description: 'Para notificar pessoa ou empresa que esteja usando sua marca indevidamente. Documento jurídico completo com fundamentação legal.'
   },
+  resposta_notificacao_extrajudicial: {
+    icon: Shield,
+    color: 'text-cyan-500',
+    gradient: 'from-cyan-500/10 to-cyan-600/5 border-cyan-500/20 hover:border-cyan-500/40',
+    description: 'Para elaborar defesa jurídica em resposta a uma notificação extrajudicial recebida. A IA analisará o PDF da notificação e criará uma defesa robusta com jurisprudência real.'
+  },
   troca_procurador: {
     icon: UserMinus,
     color: 'text-orange-500',
