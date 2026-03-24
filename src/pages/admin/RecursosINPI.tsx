@@ -75,13 +75,14 @@ interface ProcuradorData {
   motivo: string;
 }
 
-type Step = 'list' | 'select-type' | 'select-agent' | 'notificacao-data' | 'procurador-data' | 'upload' | 'processing' | 'review' | 'approved';
+type Step = 'list' | 'select-type' | 'select-agent' | 'notificacao-data' | 'procurador-data' | 'resposta-notificacao-data' | 'upload' | 'processing' | 'review' | 'approved';
 
 const RESOURCE_TYPE_LABELS: Record<string, string> = {
   indeferimento: 'Recurso contra Indeferimento',
   exigencia_merito: 'Exigência de Mérito',
   oposicao: 'Manifestação à Oposição',
   notificacao_extrajudicial: 'Notificação Extrajudicial',
+  resposta_notificacao_extrajudicial: 'Resposta a Notificação Extrajudicial',
   troca_procurador: 'Troca de Procurador',
   nomeacao_procurador: 'Nomeação de Procurador'
 };
@@ -110,6 +111,12 @@ const RESOURCE_TYPE_CONFIG: Record<string, { icon: typeof Gavel; color: string; 
     color: 'text-purple-500',
     gradient: 'from-purple-500/10 to-purple-600/5 border-purple-500/20 hover:border-purple-500/40',
     description: 'Para notificar pessoa ou empresa que esteja usando sua marca indevidamente. Documento jurídico completo com fundamentação legal.'
+  },
+  resposta_notificacao_extrajudicial: {
+    icon: Shield,
+    color: 'text-cyan-500',
+    gradient: 'from-cyan-500/10 to-cyan-600/5 border-cyan-500/20 hover:border-cyan-500/40',
+    description: 'Para elaborar defesa jurídica em resposta a uma notificação extrajudicial recebida. A IA analisará o PDF da notificação e criará uma defesa robusta com jurisprudência real.'
   },
   troca_procurador: {
     icon: UserMinus,
@@ -237,6 +244,7 @@ const STEPS_FLOW = [
   { key: 'select-agent', label: 'Estratégia', icon: Brain },
   { key: 'notificacao-data', label: 'Dados', icon: FileText },
   { key: 'procurador-data', label: 'Dados', icon: UserCheck },
+  { key: 'resposta-notificacao-data', label: 'Documento', icon: Upload },
   { key: 'upload', label: 'Documento', icon: Upload },
   { key: 'processing', label: 'IA Processando', icon: Zap },
   { key: 'review', label: 'Revisão', icon: Edit3 },
@@ -489,6 +497,9 @@ export default function RecursosINPI() {
     if (resourceType === 'notificacao_extrajudicial') {
       return processNotificacao();
     }
+    if (resourceType === 'resposta_notificacao_extrajudicial') {
+      return processRespostaNotificacao();
+    }
     if (resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador') {
       return processProcurador();
     }
@@ -618,6 +629,72 @@ export default function RecursosINPI() {
       console.error('Error processing notificacao:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao processar notificação');
       setStep('notificacao-data');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const processRespostaNotificacao = async () => {
+    if (multipleFiles.length === 0) {
+      toast.error('Anexe pelo menos o PDF da notificação extrajudicial recebida');
+      return;
+    }
+    setIsProcessing(true);
+    setStep('processing');
+
+    try {
+      const agent = AI_AGENTS[selectedAgent];
+
+      const filesBase64 = await Promise.all(
+        multipleFiles.map(async (f) => ({
+          base64: await fileToBase64(f),
+          type: f.type,
+          name: f.name,
+        }))
+      );
+
+      const { data, error } = await supabase.functions.invoke('process-inpi-resource', {
+        body: {
+          resourceType: 'resposta_notificacao_extrajudicial',
+          agentStrategy: agent.promptExtra,
+          agentName: agent.name,
+          files: filesBase64,
+          userInstructions,
+        }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Erro ao processar resposta');
+
+      setExtractedData(data.extracted_data);
+      setDraftContent(data.resource_content);
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: insertedResource, error: insertError } = await supabase
+        .from('inpi_resources')
+        .insert({
+          user_id: user?.id,
+          resource_type: 'resposta_notificacao_extrajudicial',
+          process_number: data.extracted_data?.process_number || null,
+          brand_name: data.extracted_data?.brand_name || null,
+          holder: data.extracted_data?.holder || null,
+          examiner_or_opponent: data.extracted_data?.examiner_or_opponent || null,
+          draft_content: data.resource_content,
+          status: 'pending_review'
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      setCurrentResourceId(insertedResource.id);
+      setProcessingProgress(100);
+      setTimeout(() => setStep('review'), 500);
+      toast.success(`Resposta à Notificação gerada com sucesso pela estratégia ${agent.name}!`);
+    } catch (error) {
+      console.error('Error processing resposta notificacao:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar resposta');
+      setStep('resposta-notificacao-data');
     } finally {
       setIsProcessing(false);
     }
@@ -835,21 +912,26 @@ export default function RecursosINPI() {
     exigencia_merito: resources.filter(r => r.resource_type === 'exigencia_merito').length,
     oposicao: resources.filter(r => r.resource_type === 'oposicao').length,
     notificacao_extrajudicial: resources.filter(r => r.resource_type === 'notificacao_extrajudicial').length,
+    resposta_notificacao_extrajudicial: resources.filter(r => r.resource_type === 'resposta_notificacao_extrajudicial').length,
     troca_procurador: resources.filter(r => r.resource_type === 'troca_procurador').length,
     nomeacao_procurador: resources.filter(r => r.resource_type === 'nomeacao_procurador').length,
   };
   const maxDispatch = Math.max(...Object.values(dispatchStats), 1);
 
   const isProcuradorType = resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador';
+  const isRespostaNotificacao = resourceType === 'resposta_notificacao_extrajudicial';
 
   const getVisibleSteps = () => {
     if (resourceType === 'notificacao_extrajudicial') {
-      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'procurador-data');
+      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'procurador-data' && s.key !== 'resposta-notificacao-data');
+    }
+    if (isRespostaNotificacao) {
+      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'notificacao-data' && s.key !== 'procurador-data');
     }
     if (isProcuradorType) {
-      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'notificacao-data');
+      return STEPS_FLOW.filter(s => s.key !== 'upload' && s.key !== 'notificacao-data' && s.key !== 'resposta-notificacao-data');
     }
-    return STEPS_FLOW.filter(s => s.key !== 'notificacao-data' && s.key !== 'procurador-data');
+    return STEPS_FLOW.filter(s => s.key !== 'notificacao-data' && s.key !== 'procurador-data' && s.key !== 'resposta-notificacao-data');
   };
 
   const currentStepIndex = getVisibleSteps().findIndex(s => s.key === step);
@@ -964,6 +1046,18 @@ export default function RecursosINPI() {
                   ringBg: 'stroke-purple-500/15',
                   tagBg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
                   approved: resources.filter(r => r.resource_type === 'notificacao_extrajudicial' && r.status === 'approved').length,
+                },
+                { 
+                  label: 'Resposta Notificação', 
+                  subtitle: 'Defesa extrajudicial',
+                  count: dispatchStats.resposta_notificacao_extrajudicial, 
+                  icon: Shield, 
+                  gradient: 'from-cyan-500 to-sky-600',
+                  glowColor: 'hsla(190, 90%, 50%, 0.15)',
+                  ringColor: 'stroke-cyan-500',
+                  ringBg: 'stroke-cyan-500/15',
+                  tagBg: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
+                  approved: resources.filter(r => r.resource_type === 'resposta_notificacao_extrajudicial' && r.status === 'approved').length,
                 },
                 { 
                   label: 'Troca Procurador', 
@@ -1372,6 +1466,16 @@ export default function RecursosINPI() {
                   >
                     <agent.icon className="h-5 w-5" />
                     Usar {agent.name} e Preencher Dados
+                    <ArrowRight className="h-4 w-4 ml-auto" />
+                  </Button>
+                ) : isRespostaNotificacao ? (
+                  <Button 
+                    onClick={() => setStep('resposta-notificacao-data')} 
+                    size="lg" 
+                    className={`flex-1 gap-3 rounded-xl h-14 text-base shadow-xl bg-gradient-to-r ${agent.color} hover:opacity-90 transition-opacity`}
+                  >
+                    <agent.icon className="h-5 w-5" />
+                    Usar {agent.name} e Anexar Notificação
                     <ArrowRight className="h-4 w-4 ml-auto" />
                   </Button>
                 ) : isProcuradorType ? (
@@ -1928,6 +2032,121 @@ export default function RecursosINPI() {
             </motion.div>
           )}
 
+          {/* RESPOSTA A NOTIFICAÇÃO EXTRAJUDICIAL */}
+          {step === 'resposta-notificacao-data' && (
+            <motion.div key="resposta-notificacao-data" {...fadeIn} className="space-y-6">
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-bold">Resposta a Notificação Extrajudicial</h2>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Anexe o PDF da notificação extrajudicial recebida. A IA irá analisar e elaborar uma defesa jurídica robusta.
+                </p>
+              </div>
+
+              {/* Upload da Notificação */}
+              <Card className="border-cyan-500/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Upload className="h-5 w-5 text-cyan-500" />
+                    Anexar Notificação Recebida *
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Anexe o PDF da notificação extrajudicial recebida e documentos de suporte (provas, registros de marca, etc.)
+                  </p>
+                  <div 
+                    onClick={() => multiFileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-cyan-500/25 hover:border-cyan-500/50 rounded-xl cursor-pointer transition-colors hover:bg-cyan-500/5"
+                  >
+                    <Upload className="h-6 w-6 text-cyan-500 mb-2" />
+                    <p className="text-sm font-medium">Clique para selecionar arquivos</p>
+                    <p className="text-xs text-muted-foreground">PDF da notificação recebida + documentos de suporte (até 10 arquivos)</p>
+                  </div>
+                  <input 
+                    ref={multiFileInputRef} 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp" 
+                    multiple 
+                    className="hidden" 
+                    onChange={handleMultiFileSelect} 
+                  />
+                  {multipleFiles.length > 0 && (
+                    <div className="space-y-2">
+                      {multipleFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-3 p-3 bg-cyan-500/5 rounded-xl border border-cyan-500/10">
+                          {f.type.startsWith('image/') ? (
+                            <ImageIcon className="h-5 w-5 text-blue-500 shrink-0" />
+                          ) : (
+                            <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{f.name}</p>
+                            <p className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeMultiFile(i)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <p className="text-xs text-muted-foreground text-center">{multipleFiles.length}/10 arquivo(s)</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Instruções adicionais */}
+              <Card className="border-border/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-primary" />
+                    Instruções Adicionais (Opcional)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    placeholder="Descreva o contexto da sua defesa, argumentos específicos que deseja incluir, informações sobre seu uso legítimo da marca, provas de anterioridade, etc..."
+                    value={userInstructions}
+                    onChange={(e) => setUserInstructions(e.target.value)}
+                    rows={5}
+                    className="rounded-xl resize-none"
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Info box */}
+              <div className="p-4 bg-cyan-500/5 rounded-xl border border-cyan-500/20">
+                <div className="flex items-start gap-3">
+                  <Brain className="h-5 w-5 text-cyan-500 mt-0.5 shrink-0" />
+                  <div className="text-sm">
+                    <p className="font-medium mb-1">O que a IA irá fazer:</p>
+                    <ul className="space-y-1 text-muted-foreground">
+                      <li>• Analisar integralmente a notificação extrajudicial recebida</li>
+                      <li>• Identificar fundamentos legais e alegações do notificante</li>
+                      <li>• Elaborar defesa robusta refutando cada ponto da notificação</li>
+                      <li>• Fundamentar com jurisprudência real (STJ, TRF-2, TRF-3)</li>
+                      <li>• Aplicar a LPI, Manual de Marcas do INPI e doutrina especializada</li>
+                      <li>• Demonstrar legitimidade do uso e/ou coexistência pacífica</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => setStep('select-agent')} className="rounded-xl">Voltar</Button>
+                <Button 
+                  onClick={processDocument}
+                  disabled={multipleFiles.length === 0}
+                  size="lg" 
+                  className={`flex-1 gap-3 rounded-xl h-14 text-base shadow-xl bg-gradient-to-r ${agent.color} hover:opacity-90 transition-opacity`}
+                >
+                  <Zap className="h-5 w-5" />
+                  Gerar Defesa com {agent.name}
+                  <ArrowRight className="h-4 w-4 ml-auto" />
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
           {/* UPLOAD */}
           {step === 'upload' && (
             <motion.div key="upload" {...fadeIn}>
@@ -2053,6 +2272,8 @@ export default function RecursosINPI() {
                       <p className="text-muted-foreground">
                         {resourceType === 'notificacao_extrajudicial' 
                           ? `Elaborando Notificação Extrajudicial com estratégia "${agent.style}" e fundamentação legal completa...`
+                          : resourceType === 'resposta_notificacao_extrajudicial'
+                          ? `Analisando notificação recebida e elaborando defesa com estratégia "${agent.style}" e jurisprudência real...`
                           : `Aplicando estratégia "${agent.style}" com jurisprudência real e fundamentação completa...`
                         }
                       </p>
@@ -2072,6 +2293,8 @@ export default function RecursosINPI() {
                     <div className="flex flex-wrap justify-center gap-2 pt-2">
                       {(resourceType === 'notificacao_extrajudicial' 
                         ? ['Analisando dados', 'Processando provas', 'Fundamentação legal', 'Elaborando notificação', 'Revisão final']
+                        : resourceType === 'resposta_notificacao_extrajudicial'
+                        ? ['Lendo notificação', 'Identificando alegações', 'Fundamentação legal', 'Elaborando defesa', 'Revisão final']
                         : ['Lendo PDF', 'Extraindo dados', 'Analisando fundamentos', 'Aplicando estratégia', 'Elaborando recurso']
                       ).map((label, i) => (
                         <Badge key={i} variant="outline" className={`text-xs ${processingProgress > (i + 1) * 18 ? 'border-primary/50 text-primary' : 'text-muted-foreground'}`}>

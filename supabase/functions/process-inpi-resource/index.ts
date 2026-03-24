@@ -11,6 +11,7 @@ const RESOURCE_TYPE_LABELS: Record<string, string> = {
   exigencia_merito: 'CUMPRIMENTO DE EXIGÊNCIA DE MÉRITO / RECURSO ADMINISTRATIVO',
   oposicao: 'MANIFESTAÇÃO À OPOSIÇÃO',
   notificacao_extrajudicial: 'NOTIFICAÇÃO EXTRAJUDICIAL',
+  resposta_notificacao_extrajudicial: 'RESPOSTA A NOTIFICAÇÃO EXTRAJUDICIAL',
   troca_procurador: 'PETIÇÃO DE TROCA DE PROCURADOR',
   nomeacao_procurador: 'PETIÇÃO DE NOMEAÇÃO DE PROCURADOR'
 };
@@ -720,6 +721,118 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: true,
         extracted_data: {},
+        resource_content: finalContent,
+        resource_type: resourceType,
+        resource_type_label: RESOURCE_TYPE_LABELS[resourceType]
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ═════════════════════════════════════════════════════
+    // RESPOSTA A NOTIFICAÇÃO EXTRAJUDICIAL FLOW (single pass)
+    // ═════════════════════════════════════════════════════
+    if (resourceType === 'resposta_notificacao_extrajudicial') {
+      const { files, userInstructions } = body;
+      
+      const systemPrompt = `#instruction
+
+Você é um ADVOGADO ESPECIALISTA EM PROPRIEDADE INDUSTRIAL de ELITE,
+com décadas de atuação em DEFESA DE MARCAS e CONTENCIOSO MARCÁRIO.
+
+Sua tarefa é elaborar uma RESPOSTA/DEFESA JURÍDICA COMPLETA a uma NOTIFICAÇÃO EXTRAJUDICIAL recebida pelo cliente.
+O documento deve ter NO MÍNIMO 4.000 palavras (equivalente a 10+ páginas).
+
+⚠️ CONTEXTO: O cliente RECEBEU uma notificação extrajudicial de terceiro alegando uso indevido de marca.
+Você deve DEFENDER o cliente, demonstrando a LEGITIMIDADE do uso e REFUTANDO as alegações do notificante.
+
+#estrutura_obrigatoria
+
+RESPOSTA À NOTIFICAÇÃO EXTRAJUDICIAL
+
+I – IDENTIFICAÇÃO DAS PARTES E DO OBJETO
+(MÍNIMO 500 palavras)
+- Identificar as partes com base na notificação recebida (notificante e notificado)
+- Descrever o objeto da notificação
+- Contextualizar a situação factual
+
+II – DA SÍNTESE DAS ALEGAÇÕES DO NOTIFICANTE
+(MÍNIMO 600 palavras)
+- Resumir CADA alegação feita pelo notificante na notificação
+- Transcrever os fundamentos legais utilizados pelo notificante
+- Identificar as pretensões e prazos impostos
+
+III – DA DEFESA E REFUTAÇÃO DAS ALEGAÇÕES
+(MÍNIMO 1.500 palavras — SEÇÃO MAIS IMPORTANTE)
+- Refutar CADA alegação do notificante com argumentação jurídica robusta
+- Demonstrar a LEGITIMIDADE do uso da marca pelo notificado
+- Analisar a ANTERIORIDADE do uso (quando aplicável)
+- Demonstrar DISTINÇÃO SUFICIENTE entre as marcas (fonética, visual, ideológica)
+- Aplicar o PRINCÍPIO DA ESPECIALIDADE (classes NCL diferentes, segmentos distintos)
+- Demonstrar COEXISTÊNCIA PACÍFICA no mercado
+- Demonstrar a BOA-FÉ do notificado
+- Questionar a LEGITIMIDADE do notificante para formular tal pedido
+
+IV – DA FUNDAMENTAÇÃO JURÍDICA
+(MÍNIMO 1.000 palavras)
+- Fundamentar com a Lei da Propriedade Industrial (Lei 9.279/96)
+- Aplicar o Manual de Marcas do INPI
+- Citar doutrina especializada (Denis Borges Barbosa, Gama Cerqueira)
+- Aplicar princípios constitucionais (livre iniciativa, livre concorrência)
+
+V – DA JURISPRUDÊNCIA APLICÁVEL
+(MÍNIMO 600 palavras)
+⚠️ APENAS jurisprudência REAL e VERIFICÁVEL
+
+VI – DA CONCLUSÃO E POSICIONAMENTO
+(MÍNIMO 400 palavras)
+
+#encerramento_obrigatorio
+
+Sem mais para o momento, firmamos a presente.
+
+São Paulo, ${currentDate}.
+
+_______________________________________
+Davilys Danques de Oliveira Cunha
+Procurador(a) Constituído(a)
+
+WEBMARCAS INTELLIGENCE PI™
+CNPJ: 39.528.012/0001-29
+
+${LEGAL_KNOWLEDGE}
+
+${getAgentIdentity(agentName, agentStrategy)}
+
+${userInstructions ? '#instrucoes_adicionais_do_usuario\n' + userInstructions : ''}
+
+Responda APENAS com o texto completo da RESPOSTA À NOTIFICAÇÃO (mínimo 4.000 palavras). SEM JSON. SEM explicações.`;
+
+      const userContent: any[] = [{ type: 'text', text: 'Analise a NOTIFICAÇÃO EXTRAJUDICIAL anexada e elabore uma RESPOSTA/DEFESA JURÍDICA COMPLETA com no mínimo 4.000 palavras, refutando todas as alegações do notificante.' }];
+      if (files && Array.isArray(files)) {
+        for (const file of files) {
+          if (file.type === 'application/pdf') {
+            userContent.push({ type: 'file', file: { filename: file.name || 'doc.pdf', file_data: `data:application/pdf;base64,${file.base64}` } });
+          } else if (file.type?.startsWith('image/')) {
+            userContent.push({ type: 'image_url', image_url: { url: `data:${file.type};base64,${file.base64}` } });
+          }
+        }
+      }
+
+      const parts = convertToResponsesFormat(userContent);
+      const result = await callOpenAI(OPENAI_API_KEY, systemPrompt, parts, 16000, 0.25);
+      if (result.error) {
+        return new Response(JSON.stringify({ error: 'Erro IA: ' + result.status }), { status: result.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      
+      const finalContent = cleanAIContent(result.content);
+      if (finalContent.length < 500) {
+        return new Response(JSON.stringify({ error: 'Conteúdo incompleto. Tente novamente.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const extractedData = enrichExtractedData({}, finalContent);
+
+      return new Response(JSON.stringify({
+        success: true,
+        extracted_data: extractedData,
         resource_content: finalContent,
         resource_type: resourceType,
         resource_type_label: RESOURCE_TYPE_LABELS[resourceType]
