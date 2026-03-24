@@ -151,8 +151,8 @@ export function BackupImportSection() {
         // Insert in batches of 50
         for (let i = 0; i < items.length; i += 50) {
           const batch = items.slice(i, i + 50);
-          const { error } = await (supabase
-            .from(tableName) as any)
+          const { error } = await (supabase as any)
+            .from(tableName)
             .upsert(batch, { onConflict: 'id', ignoreDuplicates: true });
 
           if (error) {
