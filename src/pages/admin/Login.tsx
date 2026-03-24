@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,11 @@ import { toast } from 'sonner';
 import { Mail, Lock, Loader2, Shield } from 'lucide-react';
 import logo from '@/assets/webmarcas-logo.png';
 
-import { withTimeout, wait, isConnectivityError as isFetchConnectivityError } from '@/lib/networkResilience';
+import {
+  resilientCall,
+  getConnectivityErrorMessage,
+  withTimeout,
+} from '@/lib/networkResilience';
 
 const MAX_NETWORK_RETRIES = 3;
 const BASE_RETRY_DELAY_MS = 800;
@@ -21,6 +25,27 @@ export default function AdminLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  useEffect(() => {
+    let mounted = true;
+
+    const redirectIfSessionExists = async () => {
+      const { data } = await withTimeout(supabase.auth.getSession(), REQUEST_TIMEOUT_MS);
+      if (!mounted) return;
+
+      if (data.session) {
+        navigate('/admin/dashboard', { replace: true });
+      }
+    };
+
+    redirectIfSessionExists().catch(() => {
+      // Silent: if session check fails, user can still login manually
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [navigate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -28,160 +53,37 @@ export default function AdminLogin() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
-      let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'] | null = null;
-      let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['error'] | null = null;
-
-      for (let attempt = 1; attempt <= MAX_NETWORK_RETRIES; attempt++) {
-        const result = await withTimeout(
+      const { data: signInResult, error, wasConnectivityError } = await resilientCall(
+        () =>
           supabase.auth.signInWithPassword({
             email: normalizedEmail,
             password,
           }),
-          REQUEST_TIMEOUT_MS
-        );
-
-        data = result.data;
-        error = result.error;
-
-        if (!error || !isFetchConnectivityError(error.message) || attempt === MAX_NETWORK_RETRIES) {
-          break;
+        {
+          maxRetries: MAX_NETWORK_RETRIES,
+          baseDelay: BASE_RETRY_DELAY_MS,
+          timeoutMs: REQUEST_TIMEOUT_MS,
         }
+      );
 
-        await wait(BASE_RETRY_DELAY_MS * attempt);
-      }
-
-      if (error) {
+      if (error || !signInResult) {
         if (error.message.includes('Invalid login credentials')) {
           toast.error('Email ou senha incorretos');
-        } else if (isFetchConnectivityError(error.message)) {
-          toast.error('Falha de conexão com o servidor. Tente novamente em alguns segundos.');
+        } else if (wasConnectivityError) {
+          toast.error(getConnectivityErrorMessage(error));
         } else {
           toast.error(error.message);
         }
         return;
       }
 
-      // Check if user is admin
-      if (data.user) {
-        let roleData: { role: string } | null = null;
-        let roleError: { message: string } | null = null;
-
-        for (let attempt = 1; attempt <= MAX_NETWORK_RETRIES; attempt++) {
-          const roleResult = await withTimeout(
-            Promise.resolve(
-              supabase
-                .from('user_roles')
-                .select('role')
-                .eq('user_id', data.user.id)
-                .eq('role', 'admin')
-                .maybeSingle()
-            ),
-            REQUEST_TIMEOUT_MS
-          );
-
-          roleData = roleResult.data;
-          roleError = roleResult.error;
-
-          if (!roleError || !isFetchConnectivityError(roleError.message) || attempt === MAX_NETWORK_RETRIES) {
-            break;
-          }
-
-          await wait(BASE_RETRY_DELAY_MS * attempt);
-        }
-
-        if (roleError) {
-          await supabase.auth.signOut();
-          toast.error(
-            isFetchConnectivityError(roleError.message)
-              ? 'Instabilidade de conexão ao validar seu acesso. Tente novamente.'
-              : 'Não foi possível validar suas permissões de administrador.'
-          );
-          return;
-        }
-
-        if (roleData) {
-          // Master admin goes to dashboard directly
-          const MASTER_ADMIN_EMAIL = 'davillys@gmail.com';
-          if (data.user.email === MASTER_ADMIN_EMAIL) {
-            toast.success('Login de administrador realizado!');
-            navigate('/admin/dashboard');
-          } else {
-            // Fetch permissions to find first allowed route
-            let perms: { permission_key: string; can_view: boolean }[] | null = null;
-            let permsError: { message: string } | null = null;
-
-            for (let attempt = 1; attempt <= MAX_NETWORK_RETRIES; attempt++) {
-              const permsResult = await withTimeout(
-                Promise.resolve(
-                  supabase
-                    .from('admin_permissions')
-                    .select('permission_key, can_view')
-                    .eq('user_id', data.user.id)
-                    .eq('can_view', true)
-                ),
-                REQUEST_TIMEOUT_MS
-              );
-
-              perms = permsResult.data;
-              permsError = permsResult.error;
-
-              if (!permsError || !isFetchConnectivityError(permsError.message) || attempt === MAX_NETWORK_RETRIES) {
-                break;
-              }
-
-              await wait(BASE_RETRY_DELAY_MS * attempt);
-            }
-
-            if (permsError) {
-              toast.error(
-                isFetchConnectivityError(permsError.message)
-                  ? 'Login realizado, mas houve instabilidade ao carregar permissões. Tente novamente.'
-                  : 'Login realizado, mas não foi possível carregar permissões de acesso.'
-              );
-              navigate('/admin/configuracoes');
-              return;
-            }
-
-            const PATH_MAP: Record<string, string> = {
-              dashboard: '/admin/dashboard',
-              leads: '/admin/leads',
-              clients: '/admin/clientes',
-              contracts: '/admin/contratos',
-              contract_templates: '/admin/modelos-contrato',
-              documents: '/admin/documentos',
-              financial: '/admin/financeiro',
-              emails: '/admin/emails',
-              live_chat: '/admin/chat-ao-vivo',
-              notifications: '/admin/notificacoes',
-              inpi_magazine: '/admin/revista-inpi',
-              publications: '/admin/publicacao',
-              inpi_resources: '/admin/recursos-inpi',
-              awards: '/admin/premiacao',
-              settings: '/admin/configuracoes',
-            };
-
-            // Ordered keys matching menu order
-            const orderedKeys = ['dashboard','leads','clients','contracts','contract_templates','documents','financial','emails','live_chat','notifications','inpi_magazine','publications','inpi_resources','awards','settings'];
-            const permSet = new Set(perms?.map(p => p.permission_key) || []);
-            const firstAllowed = orderedKeys.find(k => permSet.has(k));
-            const targetRoute = firstAllowed ? PATH_MAP[firstAllowed] : '/admin/configuracoes';
-
-            toast.success('Login de administrador realizado!');
-            navigate(targetRoute);
-          }
-        } else {
-          // Not an admin - sign out and show error
-          await supabase.auth.signOut();
-          toast.error('Acesso negado. Esta área é restrita a administradores.');
-        }
+      if (signInResult.user) {
+        // Permissões e role são validadas centralmente no AdminLayout
+        toast.success('Login realizado!');
+        navigate('/admin/dashboard', { replace: true });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '';
-      toast.error(
-        isFetchConnectivityError(errorMessage)
-          ? 'Falha de conexão com o servidor. Tente novamente em alguns segundos.'
-          : 'Erro ao fazer login'
-      );
+      toast.error(getConnectivityErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
