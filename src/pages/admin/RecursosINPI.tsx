@@ -244,6 +244,7 @@ const STEPS_FLOW = [
   { key: 'select-agent', label: 'Estratégia', icon: Brain },
   { key: 'notificacao-data', label: 'Dados', icon: FileText },
   { key: 'procurador-data', label: 'Dados', icon: UserCheck },
+  { key: 'resposta-notificacao-data', label: 'Documento', icon: Upload },
   { key: 'upload', label: 'Documento', icon: Upload },
   { key: 'processing', label: 'IA Processando', icon: Zap },
   { key: 'review', label: 'Revisão', icon: Edit3 },
