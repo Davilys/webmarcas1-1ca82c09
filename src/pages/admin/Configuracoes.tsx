@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { GeneralSettings } from '@/components/admin/settings/GeneralSettings';
 import { IntegrationSettings } from '@/components/admin/settings/IntegrationSettings';
 import { APIWebhooksSettings } from '@/components/admin/settings/APIWebhooksSettings';
@@ -261,7 +260,7 @@ export default function AdminConfiguracoes() {
   const activeItem = ALL_ITEMS.find(i => i.value === activeTab) || ALL_ITEMS[0];
 
   return (
-    <AdminLayout>
+    <>
       <div className="relative min-h-full pb-8">
 
         {/* ── Background particles ── */}
@@ -449,6 +448,6 @@ export default function AdminConfiguracoes() {
           </motion.main>
         </div>
       </div>
-    </AdminLayout>
+    </>
   );
 }

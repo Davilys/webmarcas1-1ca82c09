@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -794,7 +793,7 @@ export default function RevistaINPI() {
   const indeferimentos = entries.filter(e => (e.dispatch_text || '').toLowerCase().includes('indeferid'));
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-8">
         {/* ═══ HERO HEADER ═══ */}
         <motion.div
@@ -1817,6 +1816,6 @@ export default function RevistaINPI() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
   );
 }

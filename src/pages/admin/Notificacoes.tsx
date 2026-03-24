@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -697,7 +696,7 @@ export default function AdminNotificacoes() {
   ];
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 pb-24 md:pb-8">
 
         {/* ── HEADER ───────────────────────────────────────── */}
@@ -1317,6 +1316,6 @@ export default function AdminNotificacoes() {
           />
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }

@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -822,7 +821,7 @@ export default function Premiacao() {
   );
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4">
@@ -1350,6 +1349,6 @@ export default function Premiacao() {
       </div>
 
       {entryFormDialog}
-    </AdminLayout>
+    </>
   );
 }

@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -857,7 +856,7 @@ export default function RecursosINPI() {
   const agent = AI_AGENTS[selectedAgent];
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         {/* Premium Header */}
         <motion.div {...fadeIn} className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background border border-primary/10 p-6 md:p-8">
@@ -2295,6 +2294,6 @@ export default function RecursosINPI() {
       </button>
 
       <INPILegalChatDialog open={showLegalChat} onOpenChange={setShowLegalChat} />
-    </AdminLayout>
+    </>
   );
 }

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { RevenueChart } from '@/components/admin/dashboard/RevenueChart';
 import { GeographicChart } from '@/components/admin/dashboard/GeographicChart';
 import { BusinessSectorChart } from '@/components/admin/dashboard/BusinessSectorChart';
@@ -569,7 +568,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <AdminLayout>
+    <>
       {/* HUD wrapper — contido na área do layout, sem escape lateral */}
       <div className="relative w-full min-w-0 overflow-x-hidden">
         {/* Partículas e grid ficam no fundo, sem alterar largura */}
@@ -800,6 +799,6 @@ export default function AdminDashboard() {
 
         </div>
       </div>
-    </AdminLayout>
+    </>
   );
 }

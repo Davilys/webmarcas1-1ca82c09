@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -303,7 +302,7 @@ export default function AdminProcessos() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="relative min-h-full">
         {/* Background */}
         <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
@@ -550,6 +549,6 @@ export default function AdminProcessos() {
           )}
         </AnimatePresence>
       </div>
-    </AdminLayout>
+    </>
   );
 }

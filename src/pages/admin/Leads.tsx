@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -583,7 +582,7 @@ export default function AdminLeads() {
   ];
 
   return (
-    <AdminLayout>
+    <>
       <div className="relative rounded-2xl overflow-hidden bg-background">
         <div className="relative z-10 space-y-5">
 
@@ -878,6 +877,6 @@ export default function AdminLeads() {
         leads={messageLeads}
         onSent={fetchLeads}
       />
-    </AdminLayout>
+    </>
   );
 }

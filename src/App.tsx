@@ -2,8 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, Outlet } from "react-router-dom";
 import { useEffect, lazy, Suspense } from "react";
+import { connectivityRetry, connectivityRetryDelay } from "@/lib/networkResilience";
 
 const SectionRedirect = ({ section }: { section: string }) => {
   const navigate = useNavigate();
@@ -81,8 +82,27 @@ const PageLoader = () => (
   </div>
 );
 
-// Initialize query client
-const queryClient = new QueryClient();
+// Lazy-load AdminLayout once for route wrapper
+const AdminLayout = lazy(() => import("@/components/admin/AdminLayout").then(m => ({ default: m.AdminLayout })));
+
+const AdminRouteWrapper = () => (
+  <AdminLayout>
+    <Outlet />
+  </AdminLayout>
+);
+
+// Initialize query client with resilient defaults
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,     // 5 min
+      gcTime: 10 * 60 * 1000,        // 10 min
+      retry: connectivityRetry,
+      retryDelay: connectivityRetryDelay,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
 <QueryClientProvider client={queryClient}>
@@ -133,24 +153,25 @@ const App = () => (
               <Route path="/cliente/analise-inteligente" element={<ClienteAnaliseInteligente />} />
               {/* Painel Administrativo */}
               <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/leads" element={<AdminLeads />} />
-              <Route path="/admin/clientes" element={<AdminClientes />} />
-              <Route path="/admin/contratos" element={<AdminContratos />} />
-              <Route path="/admin/modelos-contrato" element={<AdminModelosContrato />} />
-              <Route path="/admin/processos" element={<AdminProcessos />} />
-              <Route path="/admin/documentos" element={<AdminDocumentos />} />
-              <Route path="/admin/financeiro" element={<AdminFinanceiro />} />
-              <Route path="/admin/notificacoes" element={<AdminNotificacoes />} />
-              <Route path="/admin/recursos-inpi" element={<AdminRecursosINPI />} />
-              <Route path="/admin/revista-inpi" element={<AdminRevistaINPI />} />
-              <Route path="/admin/publicacao" element={<AdminPublicacoes />} />
-              <Route path="/admin/configuracoes" element={<AdminConfiguracoes />} />
-              
-              <Route path="/admin/emails" element={<AdminEmails />} />
-              <Route path="/admin/chat-ao-vivo" element={<AdminChatAoVivo />} />
-              <Route path="/admin/premiacao" element={<AdminPremiacao />} />
-              <Route path="/admin/marketing" element={<AdminMarketingIntelligence />} />
+              <Route path="/admin" element={<AdminRouteWrapper />}>
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="leads" element={<AdminLeads />} />
+                <Route path="clientes" element={<AdminClientes />} />
+                <Route path="contratos" element={<AdminContratos />} />
+                <Route path="modelos-contrato" element={<AdminModelosContrato />} />
+                <Route path="processos" element={<AdminProcessos />} />
+                <Route path="documentos" element={<AdminDocumentos />} />
+                <Route path="financeiro" element={<AdminFinanceiro />} />
+                <Route path="notificacoes" element={<AdminNotificacoes />} />
+                <Route path="recursos-inpi" element={<AdminRecursosINPI />} />
+                <Route path="revista-inpi" element={<AdminRevistaINPI />} />
+                <Route path="publicacao" element={<AdminPublicacoes />} />
+                <Route path="configuracoes" element={<AdminConfiguracoes />} />
+                <Route path="emails" element={<AdminEmails />} />
+                <Route path="chat-ao-vivo" element={<AdminChatAoVivo />} />
+                <Route path="premiacao" element={<AdminPremiacao />} />
+                <Route path="marketing" element={<AdminMarketingIntelligence />} />
+              </Route>
               
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

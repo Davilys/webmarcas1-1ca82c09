@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import {
   MessageCircle,
   ExternalLink,
@@ -290,8 +289,8 @@ function ChatAoVivoContent() {
 
 export default function ChatAoVivo() {
   return (
-    <AdminLayout>
+    <>
       <ChatAoVivoContent />
-    </AdminLayout>
+    </>
   );
 }

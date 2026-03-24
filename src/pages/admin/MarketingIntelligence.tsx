@@ -1,4 +1,3 @@
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   BarChart3, Settings, Users, Brain, Megaphone, Activity, Target,
@@ -25,7 +24,7 @@ import { Separator } from '@/components/ui/separator';
 
 export default function MarketingIntelligence() {
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Marketing Intelligence</h1>
@@ -136,6 +135,6 @@ export default function MarketingIntelligence() {
           </TabsContent>
         </Tabs>
       </div>
-    </AdminLayout>
+    </>
   );
 }
