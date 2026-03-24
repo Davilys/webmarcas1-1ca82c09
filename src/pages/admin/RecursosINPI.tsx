@@ -853,7 +853,13 @@ export default function RecursosINPI() {
 
       setSelectedResource(updatedResource);
       setStep('approved');
-      toast.success(resourceType === 'notificacao_extrajudicial' ? 'Notificação aprovada!' : 'Recurso aprovado!');
+      toast.success(
+        resourceType === 'notificacao_extrajudicial'
+          ? 'Notificação aprovada!'
+          : resourceType === 'resposta_notificacao_extrajudicial'
+            ? 'Resposta à Notificação aprovada!'
+            : 'Recurso aprovado!'
+      );
       fetchResources();
     } catch (error) {
       console.error('Error approving resource:', error);
@@ -2384,7 +2390,11 @@ export default function RecursosINPI() {
                     </Button>
                     <Button onClick={handleApproveResource} className="flex-1 gap-2 rounded-xl h-11 shadow-lg shadow-primary/15">
                       <CheckCircle2 className="h-4 w-4" />
-                      {resourceType === 'notificacao_extrajudicial' ? 'Aprovar Notificação Final' : 'Aprovar Recurso Final'}
+                      {resourceType === 'notificacao_extrajudicial'
+                        ? 'Aprovar Notificação Final'
+                        : resourceType === 'resposta_notificacao_extrajudicial'
+                          ? 'Aprovar Resposta Final'
+                          : 'Aprovar Recurso Final'}
                     </Button>
                   </div>
                 </CardContent>
@@ -2408,13 +2418,18 @@ export default function RecursosINPI() {
                       <CheckCircle2 className="h-8 w-8 text-emerald-500" />
                     </motion.div>
                     <h3 className="text-xl font-bold">
-                      {resourceType === 'notificacao_extrajudicial' ? 'Notificação Aprovada com Sucesso!' : 'Recurso Aprovado com Sucesso!'}
+                      {resourceType === 'notificacao_extrajudicial'
+                        ? 'Notificação Aprovada com Sucesso!'
+                        : resourceType === 'resposta_notificacao_extrajudicial'
+                          ? 'Resposta à Notificação Aprovada com Sucesso!'
+                          : 'Recurso Aprovado com Sucesso!'}
                     </h3>
                     <p className="text-muted-foreground max-w-md mx-auto">
-                      {resourceType === 'notificacao_extrajudicial' 
+                      {resourceType === 'notificacao_extrajudicial'
                         ? 'A notificação foi aprovada e está pronta para geração do PDF final com papel timbrado oficial da WebMarcas.'
-                        : 'O recurso foi aprovado e está pronto para geração do PDF final com papel timbrado oficial.'
-                      }
+                        : resourceType === 'resposta_notificacao_extrajudicial'
+                          ? 'A resposta à notificação foi aprovada e está pronta para geração do PDF final com papel timbrado oficial da WebMarcas.'
+                          : 'O recurso foi aprovado e está pronto para geração do PDF final com papel timbrado oficial.'}
                     </p>
                   </div>
                   
@@ -2451,7 +2466,11 @@ export default function RecursosINPI() {
                     </Button>
                     <Button variant="ghost" onClick={resetFlow} className="gap-2 rounded-xl h-12">
                       <Plus className="h-4 w-4" />
-                      {resourceType === 'notificacao_extrajudicial' ? 'Nova Notificação' : 'Novo Recurso'}
+                      {resourceType === 'notificacao_extrajudicial'
+                        ? 'Nova Notificação'
+                        : resourceType === 'resposta_notificacao_extrajudicial'
+                          ? 'Nova Resposta à Notificação'
+                          : 'Novo Recurso'}
                     </Button>
                   </div>
                 </CardContent>
@@ -2466,14 +2485,15 @@ export default function RecursosINPI() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                {selectedResource?.resource_type === 'notificacao_extrajudicial' 
+                {selectedResource?.resource_type === 'notificacao_extrajudicial'
                   ? 'Notificação Extrajudicial — Papel Timbrado'
-                  : selectedResource?.resource_type === 'troca_procurador'
-                    ? 'Petição de Troca de Procurador — Papel Timbrado'
-                    : selectedResource?.resource_type === 'nomeacao_procurador'
-                      ? 'Petição de Nomeação de Procurador — Papel Timbrado'
-                      : 'Recurso Administrativo — Papel Timbrado'
-                }
+                  : selectedResource?.resource_type === 'resposta_notificacao_extrajudicial'
+                    ? 'Resposta à Notificação Extrajudicial — Papel Timbrado'
+                    : selectedResource?.resource_type === 'troca_procurador'
+                      ? 'Petição de Troca de Procurador — Papel Timbrado'
+                      : selectedResource?.resource_type === 'nomeacao_procurador'
+                        ? 'Petição de Nomeação de Procurador — Papel Timbrado'
+                        : 'Recurso Administrativo — Papel Timbrado'}
               </DialogTitle>
             </DialogHeader>
             {selectedResource && (
