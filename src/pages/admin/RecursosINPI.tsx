@@ -2293,6 +2293,8 @@ export default function RecursosINPI() {
                     <div className="flex flex-wrap justify-center gap-2 pt-2">
                       {(resourceType === 'notificacao_extrajudicial' 
                         ? ['Analisando dados', 'Processando provas', 'Fundamentação legal', 'Elaborando notificação', 'Revisão final']
+                        : resourceType === 'resposta_notificacao_extrajudicial'
+                        ? ['Lendo notificação', 'Identificando alegações', 'Fundamentação legal', 'Elaborando defesa', 'Revisão final']
                         : ['Lendo PDF', 'Extraindo dados', 'Analisando fundamentos', 'Aplicando estratégia', 'Elaborando recurso']
                       ).map((label, i) => (
                         <Badge key={i} variant="outline" className={`text-xs ${processingProgress > (i + 1) * 18 ? 'border-primary/50 text-primary' : 'text-muted-foreground'}`}>
