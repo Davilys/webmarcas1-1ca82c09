@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -402,7 +401,7 @@ export default function ModelosContrato() {
   }, [templates, search, filterStatus]);
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
 
         {/* ─── HERO HEADER ──────────────────────────────── */}
@@ -614,6 +613,6 @@ export default function ModelosContrato() {
           />
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
   );
 }

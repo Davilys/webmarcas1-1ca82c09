@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { EmailSidebar } from '@/components/admin/email/EmailSidebar';
 import { EmailList } from '@/components/admin/email/EmailList';
 import { EmailView } from '@/components/admin/email/EmailView';
@@ -272,7 +271,7 @@ export default function Emails() {
   );
 
   return (
-    <AdminLayout>
+    <>
       <div className="flex flex-col h-[calc(100vh-4rem)] gap-0 -mx-4 -mt-4">
         {/* Hero Header */}
         <div className="relative overflow-hidden bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b border-border/50 px-4 md:px-6 pt-4 md:pt-5 pb-3 md:pb-4 flex-shrink-0">
@@ -360,6 +359,6 @@ export default function Emails() {
           </div>
         </div>
       </div>
-    </AdminLayout>
+    </>
   );
 }

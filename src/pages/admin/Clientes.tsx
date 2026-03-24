@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo, lazy, Suspense, useCallback } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -407,7 +406,7 @@ export default function AdminClientes() {
   }, [filteredClients]);
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5">
         {/* ── HERO HEADER ──────────────────────────────────────────── */}
         <motion.div
@@ -795,6 +794,6 @@ export default function AdminClientes() {
           onSaved={() => setStagesVersion(v => v + 1)}
         />
       </div>
-    </AdminLayout>
+    </>
   );
 }

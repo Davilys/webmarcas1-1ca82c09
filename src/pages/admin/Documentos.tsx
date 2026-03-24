@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -717,7 +716,7 @@ export default function AdminDocumentos() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="relative min-h-full space-y-5 pb-8">
 
         {/* ── Background particles ── */}
@@ -1033,6 +1032,6 @@ export default function AdminDocumentos() {
         onOpenChange={setPreviewOpen}
         document={previewDoc}
       />
-    </AdminLayout>
+    </>
   );
 }

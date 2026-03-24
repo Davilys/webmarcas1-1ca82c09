@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react';
-import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -362,7 +361,7 @@ export default function AdminFinanceiro() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6 p-1">
 
         {/* ── HEADER ─────────────────────────────── */}
@@ -860,6 +859,6 @@ export default function AdminFinanceiro() {
           )}
         </motion.div>
       </div>
-    </AdminLayout>
+    </>
   );
 }
