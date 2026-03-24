@@ -82,8 +82,27 @@ const PageLoader = () => (
   </div>
 );
 
-// Initialize query client
-const queryClient = new QueryClient();
+// Lazy-load AdminLayout once for route wrapper
+const AdminLayout = lazy(() => import("@/components/admin/AdminLayout").then(m => ({ default: m.AdminLayout })));
+
+const AdminRouteWrapper = () => (
+  <AdminLayout>
+    <Outlet />
+  </AdminLayout>
+);
+
+// Initialize query client with resilient defaults
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,     // 5 min
+      gcTime: 10 * 60 * 1000,        // 10 min
+      retry: connectivityRetry,
+      retryDelay: connectivityRetryDelay,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
 <QueryClientProvider client={queryClient}>
