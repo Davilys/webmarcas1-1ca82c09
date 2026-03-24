@@ -497,6 +497,9 @@ export default function RecursosINPI() {
     if (resourceType === 'notificacao_extrajudicial') {
       return processNotificacao();
     }
+    if (resourceType === 'resposta_notificacao_extrajudicial') {
+      return processRespostaNotificacao();
+    }
     if (resourceType === 'troca_procurador' || resourceType === 'nomeacao_procurador') {
       return processProcurador();
     }
