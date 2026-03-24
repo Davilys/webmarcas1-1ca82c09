@@ -75,7 +75,7 @@ interface ProcuradorData {
   motivo: string;
 }
 
-type Step = 'list' | 'select-type' | 'select-agent' | 'notificacao-data' | 'procurador-data' | 'upload' | 'processing' | 'review' | 'approved';
+type Step = 'list' | 'select-type' | 'select-agent' | 'notificacao-data' | 'procurador-data' | 'resposta-notificacao-data' | 'upload' | 'processing' | 'review' | 'approved';
 
 const RESOURCE_TYPE_LABELS: Record<string, string> = {
   indeferimento: 'Recurso contra Indeferimento',
