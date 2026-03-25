@@ -1208,6 +1208,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     setValidationErrors({});
     setCurrentTab('personal');
     setPaymentMethod(null);
+    setPromotionalValue('');
     setPixPaymentDate(undefined);
     setBoletoVencimentoDate(undefined);
     setDistratoMultaDueDate(undefined);
