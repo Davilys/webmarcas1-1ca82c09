@@ -342,51 +342,86 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     }
   };
 
-  const fetchData = async () => {
-    // Busca todos os clientes (juridico e comercial) com paginação para ultrapassar limite de 1000 do Supabase
-    const fetchAllProfiles = async (): Promise<Profile[]> => {
-      const allProfiles: Profile[] = [];
-      let offset = 0;
-      const batchSize = 1000;
-      let hasMore = true;
+  const fetchData = async (retryCount = 0) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
 
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, full_name, email, phone, company_name, cpf_cnpj, cpf, cnpj, address, neighborhood, city, state, zip_code')
-          .order('full_name')
-          .range(offset, offset + batchSize - 1);
-
-        if (error) break;
-        if (data && data.length > 0) {
-          allProfiles.push(...data);
-          offset += batchSize;
-          hasMore = data.length === batchSize;
-        } else {
-          hasMore = false;
+      // Aguarda hidratação da sessão para evitar requests com token anônimo (retorno vazio)
+      if (!session) {
+        if (retryCount < 8) {
+          setTimeout(() => fetchData(retryCount + 1), 400);
+          return;
         }
+        toast.error('Sessão expirada. Faça login novamente para carregar os modelos.');
+        return;
       }
-      return allProfiles;
-    };
 
-    const [allProfiles, templatesRes] = await Promise.all([
-      fetchAllProfiles(),
-      supabase.from('contract_templates')
-        .select('id, name, content, variables')
-        .eq('is_active', true)
-        .order('name'),
-    ]);
+      // Busca todos os clientes (jurídico e comercial) com paginação para ultrapassar limite de 1000
+      const fetchAllProfiles = async (): Promise<Profile[]> => {
+        const allProfiles: Profile[] = [];
+        let offset = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-    setProfiles(allProfiles);
-    setTemplates(templatesRes.data || []);
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, phone, company_name, cpf_cnpj, cpf, cnpj, address, neighborhood, city, state, zip_code')
+            .order('full_name')
+            .range(offset, offset + batchSize - 1);
 
-    // Auto-select the standard "Padrão" contract template
-    const standardTemplate = templatesRes.data?.find(t => 
-      t.name.toLowerCase().includes('padrão') && t.name.toLowerCase().includes('registro de marca')
-    );
-    if (standardTemplate) {
-      setSelectedTemplate(standardTemplate);
-      setFormData(prev => ({ ...prev, template_id: standardTemplate.id }));
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            allProfiles.push(...data);
+            offset += batchSize;
+            hasMore = data.length === batchSize;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        return allProfiles;
+      };
+
+      const [allProfiles, templatesRes] = await Promise.all([
+        fetchAllProfiles(),
+        supabase
+          .from('contract_templates')
+          .select('id, name, content, variables')
+          .eq('is_active', true)
+          .order('name'),
+      ]);
+
+      if (templatesRes.error) throw templatesRes.error;
+
+      // Retry curto para cobrir corrida eventual pós-login
+      if ((templatesRes.data?.length ?? 0) === 0 && retryCount < 2) {
+        setTimeout(() => fetchData(retryCount + 1), 350);
+        return;
+      }
+
+      setProfiles(allProfiles);
+      setTemplates(templatesRes.data || []);
+
+      // Auto-select do template padrão de registro
+      const standardTemplate = templatesRes.data?.find((t) =>
+        t.name.toLowerCase().includes('padrão') && t.name.toLowerCase().includes('registro de marca')
+      );
+
+      if (standardTemplate) {
+        setSelectedTemplate(standardTemplate);
+        setFormData((prev) => ({ ...prev, template_id: standardTemplate.id }));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar clientes/modelos de contrato:', error);
+
+      if (retryCount < 2) {
+        setTimeout(() => fetchData(retryCount + 1), 500);
+        return;
+      }
+
+      toast.error('Falha ao carregar modelos de contrato.');
     }
   };
 
