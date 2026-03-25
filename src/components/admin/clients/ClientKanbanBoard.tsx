@@ -91,6 +91,7 @@ export const PIPELINE_STAGES = [
   { id: 'deferimento', label: 'Deferimento', color: 'from-emerald-500 to-emerald-600', borderColor: 'border-emerald-500', bgColor: 'bg-emerald-50 dark:bg-emerald-950/30', textColor: 'text-emerald-700 dark:text-emerald-300', description: 'Pedido aprovado! Aguardando pagamento da taxa de concessão.' },
   { id: 'certificados', label: 'Certificados', color: 'from-teal-500 to-teal-600', borderColor: 'border-teal-500', bgColor: 'bg-teal-50 dark:bg-teal-950/30', textColor: 'text-teal-700 dark:text-teal-300', description: 'Marca registrada. Certificado emitido pelo INPI.' },
   { id: 'renovacao', label: 'Renovação', color: 'from-cyan-500 to-cyan-600', borderColor: 'border-cyan-500', bgColor: 'bg-cyan-50 dark:bg-cyan-950/30', textColor: 'text-cyan-700 dark:text-cyan-300', description: 'Próximo da renovação decenal. Ação necessária.' },
+  { id: 'arquivado', label: 'Arquivado', color: 'from-zinc-500 to-zinc-600', borderColor: 'border-zinc-500', bgColor: 'bg-zinc-50 dark:bg-zinc-950/30', textColor: 'text-zinc-700 dark:text-zinc-300', description: 'Processo arquivado no INPI.' },
   { id: 'distrato', label: 'Distrato', color: 'from-gray-500 to-gray-600', borderColor: 'border-gray-500', bgColor: 'bg-gray-50 dark:bg-gray-950/30', textColor: 'text-gray-700 dark:text-gray-300', description: 'Cliente encerrou contrato ou serviço cancelado.' },
 ];
 
