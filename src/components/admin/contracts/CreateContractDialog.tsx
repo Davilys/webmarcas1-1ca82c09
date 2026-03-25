@@ -528,6 +528,10 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         const val = isCorporativoTemplate ? 1621 : 398;
         return `Boleto Recorrente - R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês`;
       }
+      case 'recorrente_promocional': {
+        const promoVal = promotionalValue ? parseFloat(promotionalValue) : 0;
+        return `Valor Promocional Recorrente - R$ ${promoVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês`;
+      }
       default: return 'Nenhuma (sem cobrança)';
     }
   };
