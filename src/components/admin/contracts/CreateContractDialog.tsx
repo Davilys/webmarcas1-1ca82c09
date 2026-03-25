@@ -229,7 +229,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
   ]);
 
   // Payment method - matching public form (null = no charge)
-  const [paymentMethod, setPaymentMethod] = useState<'avista' | 'cartao6x' | 'boleto3x' | 'recorrente_cartao' | 'recorrente_boleto' | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'avista' | 'cartao6x' | 'boleto3x' | 'recorrente_cartao' | 'recorrente_boleto' | 'recorrente_promocional' | null>(null);
+  const [promotionalValue, setPromotionalValue] = useState<string>('');
   
   // Optional payment dates for PIX and Boleto (Admin can customize)
   const [pixPaymentDate, setPixPaymentDate] = useState<Date | undefined>(undefined);
@@ -485,6 +486,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         if (isCorporativoTemplate) return 1621;
         if (isPremiumTemplate) return 398 * quantity;
         return null;
+      case 'recorrente_promocional':
+        return promotionalValue ? parseFloat(promotionalValue) : null;
       default: return null;
     }
   };
@@ -501,6 +504,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         if (isCorporativoTemplate) return 1621;
         if (isPremiumTemplate) return 398;
         return null;
+      case 'recorrente_promocional':
+        return promotionalValue ? parseFloat(promotionalValue) : null;
       default: return null;
     }
   };
@@ -522,6 +527,10 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       case 'recorrente_boleto': {
         const val = isCorporativoTemplate ? 1621 : 398;
         return `Boleto Recorrente - R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês`;
+      }
+      case 'recorrente_promocional': {
+        const promoVal = promotionalValue ? parseFloat(promotionalValue) : 0;
+        return `Valor Promocional Recorrente - R$ ${promoVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês`;
       }
       default: return 'Nenhuma (sem cobrança)';
     }
@@ -1199,6 +1208,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
     setValidationErrors({});
     setCurrentTab('personal');
     setPaymentMethod(null);
+    setPromotionalValue('');
     setPixPaymentDate(undefined);
     setBoletoVencimentoDate(undefined);
     setDistratoMultaDueDate(undefined);
@@ -2830,6 +2840,67 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                                 <p className="text-xs text-muted-foreground">/mês</p>
                               </div>
                             </div>
+                          </div>
+
+                          {/* Valor Promocional Recorrente */}
+                          <div className="space-y-2">
+                            <div
+                              onClick={() => setPaymentMethod('recorrente_promocional')}
+                              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                paymentMethod === 'recorrente_promocional'
+                                  ? 'border-primary bg-primary/5'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-4 h-4 rounded-full border-2 ${
+                                    paymentMethod === 'recorrente_promocional' 
+                                      ? 'border-primary bg-primary' 
+                                      : 'border-muted-foreground'
+                                  }`}>
+                                    {paymentMethod === 'recorrente_promocional' && (
+                                      <div className="w-full h-full flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-white rounded-full" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">Valor Promocional — Recorrente</p>
+                                    <p className="text-sm text-muted-foreground">Valor personalizado mensal</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  {promotionalValue ? (
+                                    <>
+                                      <p className="text-2xl font-bold text-green-600">R$ {parseFloat(promotionalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                      <p className="text-xs text-muted-foreground">/mês</p>
+                                    </>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">Definir valor</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {paymentMethod === 'recorrente_promocional' && (
+                              <div className="ml-7 p-3 bg-muted/30 rounded-lg border border-border">
+                                <Label className="text-sm font-medium">Valor mensal promocional (R$) *</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="1"
+                                  value={promotionalValue}
+                                  onChange={(e) => setPromotionalValue(e.target.value)}
+                                  placeholder="Ex: 800,00"
+                                  className="mt-2"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Este valor será cobrado mensalmente de forma recorrente no Asaas e registrado no contrato.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </>
                       ) : (
