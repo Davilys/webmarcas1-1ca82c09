@@ -2215,10 +2215,10 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
                       }
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="pointer-events-auto">
                       <SelectValue placeholder="Selecione o modelo" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="pointer-events-auto z-[100]">
                       {[...templates].sort((a, b) => {
                         const aName = a.name.toLowerCase();
                         const bName = b.name.toLowerCase();
