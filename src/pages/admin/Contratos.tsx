@@ -323,7 +323,24 @@ export default function AdminContratos() {
       const { data, error } = await supabase
         .from('contracts')
         .select(`
-          *,
+          id,
+          contract_number,
+          subject,
+          contract_value,
+          start_date,
+          end_date,
+          signature_status,
+          signature_expires_at,
+          signed_at,
+          visible_to_client,
+          user_id,
+          created_at,
+          contract_type_id,
+          description,
+          payment_method,
+          asaas_payment_id,
+          template_id,
+          document_type,
           contract_type:contract_types(name),
           contract_template:contract_templates(name),
           profile:profiles(full_name, phone)
