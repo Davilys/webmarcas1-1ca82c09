@@ -1322,7 +1322,11 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()}>
+      <DialogContent 
+        className="max-w-3xl max-h-[90vh] overflow-y-auto" 
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
