@@ -486,6 +486,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         if (isCorporativoTemplate) return 1621;
         if (isPremiumTemplate) return 398 * quantity;
         return null;
+      case 'recorrente_promocional':
+        return promotionalValue ? parseFloat(promotionalValue) : null;
       default: return null;
     }
   };
@@ -502,6 +504,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
         if (isCorporativoTemplate) return 1621;
         if (isPremiumTemplate) return 398;
         return null;
+      case 'recorrente_promocional':
+        return promotionalValue ? parseFloat(promotionalValue) : null;
       default: return null;
     }
   };
