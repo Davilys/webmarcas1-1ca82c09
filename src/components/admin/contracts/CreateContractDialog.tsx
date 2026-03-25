@@ -229,7 +229,8 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
   ]);
 
   // Payment method - matching public form (null = no charge)
-  const [paymentMethod, setPaymentMethod] = useState<'avista' | 'cartao6x' | 'boleto3x' | 'recorrente_cartao' | 'recorrente_boleto' | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'avista' | 'cartao6x' | 'boleto3x' | 'recorrente_cartao' | 'recorrente_boleto' | 'recorrente_promocional' | null>(null);
+  const [promotionalValue, setPromotionalValue] = useState<string>('');
   
   // Optional payment dates for PIX and Boleto (Admin can customize)
   const [pixPaymentDate, setPixPaymentDate] = useState<Date | undefined>(undefined);
