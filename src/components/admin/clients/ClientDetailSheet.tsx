@@ -2722,7 +2722,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                       ncl_classes: brand.ncl_classes ? brand.ncl_classes.join(', ') : '',
                                       business_area: brand.business_area || '',
                                       status: brand.status || 'em_andamento',
-                                      pipeline_stage: brand.pipeline_stage || 'protocolado',
+                                      pipeline_stage: normalizePipelineStageId(brand.pipeline_stage) || 'protocolado',
                                       deposit_date: brand.deposit_date || '',
                                       grant_date: brand.grant_date || '',
                                       expiry_date: brand.expiry_date || '',
