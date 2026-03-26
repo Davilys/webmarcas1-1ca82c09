@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { ALL_BACKUP_TABLES, TYPE_TO_TABLE } from '@/lib/backupTables';
 
-type ImportTarget = 'auto' | string; // 'auto' or any table name
+type ImportTarget = 'auto' | string;
 
 interface ImportResult {
   total: number;
@@ -22,12 +22,45 @@ interface ImportResult {
   errors: string[];
 }
 
-// Group tables by category for the select
+const CHUNK_SIZE = 200;
+const MAX_RETRIES = 3;
+
 const groupedTables = ALL_BACKUP_TABLES.reduce((acc, t) => {
   if (!acc[t.category]) acc[t.category] = [];
   acc[t.category].push(t);
   return acc;
 }, {} as Record<string, typeof ALL_BACKUP_TABLES>);
+
+async function invokeRestoreWithRetry(
+  table: string,
+  rows: Record<string, unknown>[],
+  retries = MAX_RETRIES
+): Promise<{ imported: number; failed: number; errors: string[] }> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const { data, error } = await supabase.functions.invoke('restore-backup', {
+        body: { table, rows },
+      });
+
+      if (error) {
+        if (attempt < retries) {
+          await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
+          continue;
+        }
+        return { imported: 0, failed: rows.length, errors: [error.message || 'Edge Function error'] };
+      }
+
+      return data as { imported: number; failed: number; errors: string[] };
+    } catch (err: any) {
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
+        continue;
+      }
+      return { imported: 0, failed: rows.length, errors: [err.message || 'Network error'] };
+    }
+  }
+  return { imported: 0, failed: rows.length, errors: ['Max retries exceeded'] };
+}
 
 export function BackupImportSection() {
   const [importing, setImporting] = useState(false);
@@ -35,7 +68,9 @@ export function BackupImportSection() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Record<string, unknown>[] | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, tableName: '' });
+  const [importProgress, setImportProgress] = useState({ 
+    current: 0, total: 0, tableName: '', recordsImported: 0, recordsTotal: 0 
+  });
 
   const parseFile = async (file: File): Promise<Record<string, unknown>[]> => {
     const text = await file.text();
@@ -43,11 +78,7 @@ export function BackupImportSection() {
 
     if (ext === 'json') {
       const json = JSON.parse(text);
-      if (Array.isArray(json)) {
-        return json;
-      }
-      // Handle grouped format: { "leads": [...], "profiles": [...], ... }
-      // or { "data": { "leads": [...] }, ... } or { "tables": { ... } }
+      if (Array.isArray(json)) return json;
       const source = json.data ?? json.tables ?? json;
       if (typeof source === 'object' && source !== null) {
         const keys = Object.keys(source);
@@ -60,7 +91,6 @@ export function BackupImportSection() {
           });
         }
       }
-      // Single object fallback
       return [json];
     } else if (ext === 'csv') {
       const lines = text.split('\n').filter(l => l.trim());
@@ -87,12 +117,9 @@ export function BackupImportSection() {
       const parsed = await parseFile(file);
       setPreview(parsed.slice(0, 5));
 
-      // Auto-detect target
       if (target === 'auto' && parsed.length > 0) {
         const first = parsed[0];
-        if (first._type && typeof first._type === 'string') {
-          // Mixed backup file - keep auto
-        } else {
+        if (!(first._type && typeof first._type === 'string')) {
           const keys = Object.keys(first);
           if (keys.includes('brand_name') && keys.includes('phone') && keys.includes('source')) {
             setTarget('leads');
@@ -115,9 +142,9 @@ export function BackupImportSection() {
 
     try {
       const records = await parseFile(selectedFile);
-      let imported = 0;
-      let failed = 0;
-      const errors: string[] = [];
+      let totalImported = 0;
+      let totalFailed = 0;
+      const allErrors: string[] = [];
 
       // Group records by destination table
       const grouped: Record<string, Record<string, unknown>[]> = {};
@@ -126,67 +153,51 @@ export function BackupImportSection() {
         let tableName: string;
 
         if (target !== 'auto') {
-          // Direct target selected
           tableName = target;
         } else if (record._type && typeof record._type === 'string') {
-          // Mixed backup with _type field
           const resolved = TYPE_TO_TABLE[record._type as string];
           if (!resolved) {
-            errors.push(`Tipo desconhecido: ${record._type}`);
-            failed++;
+            allErrors.push(`Tipo desconhecido: ${record._type}`);
+            totalFailed++;
             continue;
           }
           tableName = resolved;
         } else {
-          errors.push('Registro sem _type e sem destino selecionado');
-          failed++;
+          allErrors.push('Registro sem _type e sem destino selecionado');
+          totalFailed++;
           continue;
         }
 
-        const clean = { ...record };
-        delete clean._type;
-
         if (!grouped[tableName]) grouped[tableName] = [];
-        grouped[tableName].push(clean);
+        grouped[tableName].push(record);
       }
 
       const tableNames = Object.keys(grouped);
-      let tableIndex = 0;
+      const totalRecordsToProcess = Object.values(grouped).reduce((s, arr) => s + arr.length, 0);
 
-      for (const [tableName, items] of Object.entries(grouped)) {
-        tableIndex++;
+      for (let ti = 0; ti < tableNames.length; ti++) {
+        const tableName = tableNames[ti];
+        const items = grouped[tableName];
         const tableInfo = ALL_BACKUP_TABLES.find(t => t.name === tableName);
-        setImportProgress({
-          current: tableIndex,
-          total: tableNames.length,
-          tableName: tableInfo?.label || tableName,
-        });
+        const tableLabel = tableInfo?.label || tableName;
 
-        // Insert in batches of 50
-        for (let i = 0; i < items.length; i += 50) {
-          const batch = items.slice(i, i + 50);
-          // Try upsert with id if records have id, otherwise plain insert
-          const hasIds = batch.every(r => r.id);
-          let error: any;
-          if (hasIds) {
-            const res = await (supabase as any)
-              .from(tableName)
-              .upsert(batch, { onConflict: 'id', ignoreDuplicates: true });
-            error = res.error;
-          } else {
-            // Remove id fields and do plain insert
-            const cleanBatch = batch.map(r => { const { id, ...rest } = r as any; return rest; });
-            const res = await (supabase as any)
-              .from(tableName)
-              .insert(cleanBatch);
-            error = res.error;
-          }
+        // Split into chunks of CHUNK_SIZE
+        for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+          const chunk = items.slice(i, i + CHUNK_SIZE);
 
-          if (error) {
-            errors.push(`Erro em ${tableInfo?.label || tableName} (lote ${Math.floor(i / 50) + 1}): ${error.message}`);
-            failed += batch.length;
-          } else {
-            imported += batch.length;
+          setImportProgress({
+            current: ti + 1,
+            total: tableNames.length,
+            tableName: tableLabel,
+            recordsImported: totalImported,
+            recordsTotal: totalRecordsToProcess,
+          });
+
+          const result = await invokeRestoreWithRetry(tableName, chunk);
+          totalImported += result.imported;
+          totalFailed += result.failed;
+          if (result.errors.length > 0) {
+            allErrors.push(`${tableLabel}: ${result.errors.join('; ')}`);
           }
         }
       }
@@ -197,24 +208,24 @@ export function BackupImportSection() {
         import_type: target === 'auto' ? 'backup_restore_completo' : `backup_${target}`,
         file_name: selectedFile.name,
         total_records: records.length,
-        imported_records: imported,
-        failed_records: failed,
-        errors: errors.length > 0 ? errors : null,
+        imported_records: totalImported,
+        failed_records: totalFailed,
+        errors: allErrors.length > 0 ? allErrors : null,
         imported_by: userData?.user?.id || null,
       });
 
-      setResult({ total: records.length, imported, failed, errors });
+      setResult({ total: records.length, imported: totalImported, failed: totalFailed, errors: allErrors });
 
-      if (failed === 0) {
-        toast.success(`${imported} registros importados com sucesso!`);
+      if (totalFailed === 0) {
+        toast.success(`${totalImported} registros importados com sucesso!`);
       } else {
-        toast.warning(`${imported} importados, ${failed} falharam`);
+        toast.warning(`${totalImported} importados, ${totalFailed} falharam`);
       }
     } catch (err: any) {
       toast.error(`Erro na importação: ${err.message}`);
     } finally {
       setImporting(false);
-      setImportProgress({ current: 0, total: 0, tableName: '' });
+      setImportProgress({ current: 0, total: 0, tableName: '', recordsImported: 0, recordsTotal: 0 });
     }
   };
 
@@ -223,7 +234,7 @@ export function BackupImportSection() {
       icon={Upload}
       iconColor="text-emerald-500"
       title="Importar / Restaurar Backup"
-      description="Restaure dados a partir de um arquivo JSON ou CSV exportado (suporta todas as tabelas)"
+      description="Restaure dados via servidor assíncrono — suporta bancos grandes (31k+ registros) com retry automático"
     >
       <div className="space-y-4">
         <div className="flex items-center gap-4">
@@ -269,10 +280,16 @@ export function BackupImportSection() {
                 <span className="font-medium">Importando: {importProgress.tableName}</span>
               </span>
               <span className="text-muted-foreground">
-                {importProgress.current} de {importProgress.total} tabelas
+                Tabela {importProgress.current} de {importProgress.total}
               </span>
             </div>
-            <Progress value={(importProgress.current / importProgress.total) * 100} className="h-2" />
+            <Progress 
+              value={(importProgress.recordsImported / Math.max(importProgress.recordsTotal, 1)) * 100} 
+              className="h-2" 
+            />
+            <div className="text-xs text-muted-foreground text-center">
+              {importProgress.recordsImported.toLocaleString()} registros processados de {importProgress.recordsTotal.toLocaleString()}
+            </div>
           </div>
         )}
 
@@ -308,17 +325,17 @@ export function BackupImportSection() {
                   <AlertTriangle className="h-4 w-4" />
                 )}
                 <span className="font-medium">
-                  {result.imported} de {result.total} registros importados
-                  {result.failed > 0 && ` (${result.failed} falhas)`}
+                  {result.imported.toLocaleString()} de {result.total.toLocaleString()} registros importados
+                  {result.failed > 0 && ` (${result.failed.toLocaleString()} falhas)`}
                 </span>
               </div>
               {result.errors.length > 0 && (
                 <ul className="text-xs mt-1 space-y-0.5 ml-6">
-                  {result.errors.slice(0, 5).map((e, i) => (
+                  {result.errors.slice(0, 10).map((e, i) => (
                     <li key={i}>• {e}</li>
                   ))}
-                  {result.errors.length > 5 && (
-                    <li className="text-muted-foreground">... e mais {result.errors.length - 5} erros</li>
+                  {result.errors.length > 10 && (
+                    <li className="text-muted-foreground">... e mais {result.errors.length - 10} erros</li>
                   )}
                 </ul>
               )}
@@ -333,7 +350,7 @@ export function BackupImportSection() {
             className="flex-1"
           >
             {importing ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importando...</>
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importando via servidor...</>
             ) : (
               <><Upload className="h-4 w-4 mr-2" /> Importar Dados</>
             )}
@@ -341,8 +358,8 @@ export function BackupImportSection() {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          ⚠️ Registros com IDs existentes serão ignorados. Novos registros receberão IDs automáticos.
-          Suporta backup completo com campo <code>_type</code> para distribuição automática entre tabelas.
+          🚀 Importação assíncrona via servidor — chunks de {CHUNK_SIZE} registros com retry automático (até {MAX_RETRIES}x).
+          Registros com IDs existentes serão <strong>atualizados</strong> (upsert). Suporta backup completo com campo <code>_type</code>.
         </p>
       </div>
     </SettingsCard>
