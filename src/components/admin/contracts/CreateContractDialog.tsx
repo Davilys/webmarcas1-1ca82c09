@@ -494,6 +494,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
       multipleBrands: brandQuantity > 1 ? brandsArray : undefined,
       selectedClasses: selectedClasses.length > 0 ? selectedClasses : undefined,
       classDescriptions: selectedClasses.length > 0 ? classDescs : undefined,
+      promotionalValue: paymentMethod === 'recorrente_promocional' && promotionalValue ? parseFloat(promotionalValue) : undefined,
     });
   };
 
