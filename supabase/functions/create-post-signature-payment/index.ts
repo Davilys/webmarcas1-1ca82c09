@@ -98,6 +98,12 @@ serve(async (req) => {
     // CORREÇÃO: Usar o valor do contrato salvo no banco (já calculado com múltiplas marcas)
     const savedContractValue = contract.contract_value;
     
+    // Check if this is a recurring promotional payment
+    const isRecurringPromotional = paymentMethod === 'recorrente_promocional';
+    const isRecurringBoleto = paymentMethod === 'recorrente_boleto';
+    const isRecurringCartao = paymentMethod === 'recorrente_cartao';
+    const isAnyRecurring = isRecurringPromotional || isRecurringBoleto || isRecurringCartao;
+    
     // Determine payment configuration based on method using dynamic pricing
     let billingType: string;
     let totalValue: number;
@@ -108,7 +114,6 @@ serve(async (req) => {
       case 'cartao6x':
         billingType = 'CREDIT_CARD';
         installmentCount = pricing.cardInstallments || DEFAULT_PRICING.cardInstallments;
-        // CORREÇÃO: Se o contrato tem valor salvo, usar ele. Senão, fallback para cálculo padrão
         if (savedContractValue && savedContractValue > 0) {
           totalValue = savedContractValue;
           installmentValue = Math.round(totalValue / installmentCount * 100) / 100;
@@ -120,7 +125,6 @@ serve(async (req) => {
       case 'boleto3x':
         billingType = 'BOLETO';
         installmentCount = pricing.boletoInstallments || DEFAULT_PRICING.boletoInstallments;
-        // CORREÇÃO: Mesmo padrão - usar valor salvo se existir
         if (savedContractValue && savedContractValue > 0) {
           totalValue = savedContractValue;
           installmentValue = Math.round(totalValue / installmentCount * 100) / 100;
@@ -129,11 +133,18 @@ serve(async (req) => {
           totalValue = installmentCount * installmentValue;
         }
         break;
+      case 'recorrente_promocional':
+      case 'recorrente_boleto':
+      case 'recorrente_cartao':
+        billingType = isRecurringCartao ? 'CREDIT_CARD' : 'BOLETO';
+        installmentCount = 1;
+        totalValue = savedContractValue && savedContractValue > 0 ? savedContractValue : 0;
+        installmentValue = totalValue;
+        break;
       case 'avista':
       default:
         billingType = 'PIX';
         installmentCount = 1;
-        // CORREÇÃO: Usar valor salvo se existir
         if (savedContractValue && savedContractValue > 0) {
           totalValue = savedContractValue;
         } else {
