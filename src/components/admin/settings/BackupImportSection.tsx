@@ -145,7 +145,6 @@ export function BackupImportSection() {
 
         const clean = { ...record };
         delete clean._type;
-        delete clean.id; // Let DB generate new IDs
 
         if (!grouped[tableName]) grouped[tableName] = [];
         grouped[tableName].push(clean);
@@ -166,9 +165,22 @@ export function BackupImportSection() {
         // Insert in batches of 50
         for (let i = 0; i < items.length; i += 50) {
           const batch = items.slice(i, i + 50);
-          const { error } = await (supabase as any)
-            .from(tableName)
-            .upsert(batch, { onConflict: 'id', ignoreDuplicates: true });
+          // Try upsert with id if records have id, otherwise plain insert
+          const hasIds = batch.every(r => r.id);
+          let error: any;
+          if (hasIds) {
+            const res = await (supabase as any)
+              .from(tableName)
+              .upsert(batch, { onConflict: 'id', ignoreDuplicates: true });
+            error = res.error;
+          } else {
+            // Remove id fields and do plain insert
+            const cleanBatch = batch.map(r => { const { id, ...rest } = r as any; return rest; });
+            const res = await (supabase as any)
+              .from(tableName)
+              .insert(cleanBatch);
+            error = res.error;
+          }
 
           if (error) {
             errors.push(`Erro em ${tableInfo?.label || tableName} (lote ${Math.floor(i / 50) + 1}): ${error.message}`);
