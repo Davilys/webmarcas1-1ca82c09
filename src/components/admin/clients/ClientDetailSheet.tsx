@@ -2679,7 +2679,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                               <div><Label>Fase do Pipeline</Label>
                                 <Select value={newProcess.pipeline_stage} onValueChange={(v) => setNewProcess({...newProcess, pipeline_stage: v})}>
                                   <SelectTrigger><SelectValue /></SelectTrigger>
-                                  <SelectContent>{PIPELINE_STAGES.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}</SelectContent>
+                                  <SelectContent>{activeStages.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}</SelectContent>
                                 </Select>
                               </div>
                               <div><Label>Área de Atuação</Label><Input placeholder="Ex: Tecnologia" value={newProcess.business_area} onChange={(e) => setNewProcess({...newProcess, business_area: e.target.value})} /></div>
@@ -2696,7 +2696,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                       ) : (
                       <AnimatePresence>
                         {clientBrands.map((brand, i) => {
-                          const stageInfo = PIPELINE_STAGES.find(s => s.id === brand.pipeline_stage) || PIPELINE_STAGES[0];
+                          const stageInfo = activeStages.find(s => s.id === brand.pipeline_stage) || activeStages[0];
                           const isExpanded = expandedBrandId === brand.id;
                           return (
                             <div key={brand.id}>
@@ -2874,7 +2874,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                           <Select value={editingBrandData.pipeline_stage || 'protocolado'} onValueChange={(v) => setEditingBrandData((p: any) => ({ ...p, pipeline_stage: v }))}>
                                             <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                              {PIPELINE_STAGES.map(stage => (
+                                              {activeStages.map(stage => (
                                                 <SelectItem key={stage.id} value={stage.id}>{stage.label}</SelectItem>
                                               ))}
                                             </SelectContent>
