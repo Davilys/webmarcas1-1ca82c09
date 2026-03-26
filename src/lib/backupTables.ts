@@ -7,6 +7,19 @@ export interface BackupTable {
   category: string;
 }
 
+export const TABLE_WHITELIST = [
+  'leads', 'profiles', 'contracts',
+  'brand_processes', 'invoices', 'documents', 'inpi_resources', 'process_events', 'publicacoes_marcas',
+  'contract_attachments', 'contract_comments', 'contract_notes', 'contract_tasks', 'contract_templates', 'contract_types', 'contract_renewal_history',
+  'chat_messages', 'notifications', 'notification_templates', 'email_templates', 'email_logs', 'email_inbox', 'email_accounts',
+  'marketing_campaigns', 'marketing_attribution', 'marketing_config', 'marketing_ab_tests', 'marketing_ab_variants', 'marketing_audience_suggestions', 'marketing_budget_alerts',
+  'client_remarketing_campaigns', 'client_remarketing_queue', 'lead_remarketing_campaigns', 'lead_remarketing_queue',
+  'client_activities', 'client_notes', 'client_appointments', 'lead_activities',
+  'rpi_uploads', 'rpi_entries', 'inpi_knowledge_base', 'inpi_sync_logs',
+  'system_settings', 'admin_permissions', 'user_roles', 'notification_logs', 'channel_notification_templates', 'ai_providers', 'ai_usage_logs', 'login_history', 'signature_audit_log', 'import_logs',
+  'award_entries', 'conversations', 'conversation_messages', 'conversation_participants', 'call_signals', 'upsell_engine_config', 'upsell_engine_weights', 'promotion_expiration_logs', 'viability_searches',
+] as const;
+
 export const ALL_BACKUP_TABLES: BackupTable[] = [
   // Dados Principais
   { name: 'leads', label: 'Leads', category: 'Dados Principais' },
