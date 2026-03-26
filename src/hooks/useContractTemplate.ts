@@ -600,6 +600,15 @@ export function replaceContractVariables(
     .replace(/\{\{data_extenso\}\}/g, currentDate)
     .replace(/\{\{data\}\}/g, new Date().toLocaleDateString('pt-BR'));
 
+  // When promotional value is set, replace hardcoded amounts in the corporate template
+  if (paymentMethod === 'recorrente_promocional' && data.promotionalValue) {
+    const promoFormatted = data.promotionalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    // Replace hardcoded R$ 1.621,00 in clause 5.1 and 5.3
+    result = result.replace(/R\$\s*1\.621,00/g, `R$ ${promoFormatted}`);
+    // Replace the written-out amount
+    result = result.replace(/\(mil seiscentos e vinte e um reais\)/g, `(${numberToPortuguese(data.promotionalValue)})`);
+  }
+
   // Handle brand name replacement
   if (data.multipleBrands && data.multipleBrands.length > 1) {
     const brandsInline = formatMultipleBrandsInline(data.multipleBrands);
