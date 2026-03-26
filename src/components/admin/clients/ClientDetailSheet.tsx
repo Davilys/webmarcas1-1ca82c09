@@ -2696,7 +2696,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                       ) : (
                       <AnimatePresence>
                         {clientBrands.map((brand, i) => {
-                          const stageInfo = PIPELINE_STAGES.find(s => s.id === brand.pipeline_stage) || PIPELINE_STAGES[0];
+                          const stageInfo = activeStages.find(s => s.id === brand.pipeline_stage) || activeStages[0];
                           const isExpanded = expandedBrandId === brand.id;
                           return (
                             <div key={brand.id}>
