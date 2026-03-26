@@ -126,6 +126,72 @@ export function BackupSettings() {
     URL.revokeObjectURL(url);
   };
 
+  const exportSQL = async () => {
+    setExporting('sql');
+    const tables = ALL_BACKUP_TABLES;
+    const sqlLines: string[] = [];
+    let totalRecords = 0;
+
+    sqlLines.push('-- WebMarcas SQL Dump');
+    sqlLines.push(`-- Gerado em: ${new Date().toISOString()}`);
+    sqlLines.push('-- Formato: INSERT statements para migração');
+    sqlLines.push('BEGIN;');
+    sqlLines.push('');
+
+    try {
+      for (let i = 0; i < tables.length; i++) {
+        const t = tables[i];
+        setExportProgress({ current: i + 1, total: tables.length, tableName: t.label });
+
+        try {
+          const rows = await fetchAllFromTable(supabase, t.name);
+          if (rows.length === 0) continue;
+
+          sqlLines.push(`-- Tabela: ${t.name} (${rows.length} registros)`);
+
+          const columns = Object.keys(rows[0]);
+          const colList = columns.map(c => `"${c}"`).join(', ');
+
+          for (const row of rows) {
+            const values = columns.map(col => {
+              const val = row[col];
+              if (val === null || val === undefined) return 'NULL';
+              if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+              if (typeof val === 'number') return String(val);
+              if (typeof val === 'object') {
+                return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
+              }
+              return `'${String(val).replace(/'/g, "''")}'`;
+            });
+            sqlLines.push(`INSERT INTO public."${t.name}" (${colList}) VALUES (${values.join(', ')}) ON CONFLICT (id) DO NOTHING;`);
+          }
+          sqlLines.push('');
+          totalRecords += rows.length;
+        } catch {
+          sqlLines.push(`-- ERRO ao exportar tabela: ${t.name} (pulada)`);
+        }
+      }
+
+      sqlLines.push('COMMIT;');
+
+      const content = sqlLines.join('\n');
+      const blob = new Blob([content], { type: 'application/sql' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `webmarcas_dump_${Date.now()}.sql`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success(`SQL exportado: ${totalRecords} registros de ${tables.length} tabelas!`);
+    } catch {
+      toast.error('Erro ao gerar SQL');
+    } finally {
+      setExporting(null);
+      setExportProgress({ current: 0, total: 0, tableName: '' });
+    }
+  };
+
   const isExporting = exporting !== null;
 
   return (
