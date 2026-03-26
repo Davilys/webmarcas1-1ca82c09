@@ -2874,7 +2874,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                           <Select value={editingBrandData.pipeline_stage || 'protocolado'} onValueChange={(v) => setEditingBrandData((p: any) => ({ ...p, pipeline_stage: v }))}>
                                             <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                              {PIPELINE_STAGES.map(stage => (
+                                              {activeStages.map(stage => (
                                                 <SelectItem key={stage.id} value={stage.id}>{stage.label}</SelectItem>
                                               ))}
                                             </SelectContent>
