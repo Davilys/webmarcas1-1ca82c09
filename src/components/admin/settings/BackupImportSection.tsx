@@ -43,7 +43,25 @@ export function BackupImportSection() {
 
     if (ext === 'json') {
       const json = JSON.parse(text);
-      return Array.isArray(json) ? json : [json];
+      if (Array.isArray(json)) {
+        return json;
+      }
+      // Handle grouped format: { "leads": [...], "profiles": [...], ... }
+      // or { "data": { "leads": [...] }, ... } or { "tables": { ... } }
+      const source = json.data ?? json.tables ?? json;
+      if (typeof source === 'object' && source !== null) {
+        const keys = Object.keys(source);
+        const hasArrayValues = keys.some(k => Array.isArray(source[k]));
+        if (hasArrayValues) {
+          return keys.flatMap(tableName => {
+            const rows = source[tableName];
+            if (!Array.isArray(rows)) return [];
+            return rows.map((r: any) => ({ ...r, _type: r._type ?? tableName }));
+          });
+        }
+      }
+      // Single object fallback
+      return [json];
     } else if (ext === 'csv') {
       const lines = text.split('\n').filter(l => l.trim());
       if (lines.length < 2) throw new Error('CSV vazio');
