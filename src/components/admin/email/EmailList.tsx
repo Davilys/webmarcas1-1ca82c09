@@ -25,17 +25,25 @@ interface EmailListProps {
 export function EmailList({ folder, onSelectEmail, accountId, accountEmail }: EmailListProps) {
   const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
+  const isSyncingRef = useRef(false);
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('sync-imap-inbox', {
-        body: { account_id: accountId }
-      });
-      if (error) throw error;
-      return data;
+      if (isSyncingRef.current) throw new Error('Sincronização já em andamento');
+      isSyncingRef.current = true;
+      try {
+        const { data, error } = await supabase.functions.invoke('sync-imap-inbox', {
+          body: { account_id: accountId }
+        });
+        if (error) throw error;
+        return data;
+      } finally {
+        isSyncingRef.current = false;
+      }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['email-stats'] });
       const inboxCount = data.inbox?.synced || 0;
       const sentCount = data.sent?.synced || 0;
       toast.success(`Sincronização concluída! ${inboxCount} recebidos e ${sentCount} enviados novos.`);
@@ -177,12 +185,15 @@ export function EmailList({ folder, onSelectEmail, accountId, accountEmail }: Em
   });
 
   // Silent background IMAP sync on mount and every 3 minutes
+  // Uses a ref flag to prevent overlapping syncs
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     if (!accountId) return;
 
-    // Silent sync (no toast)
+    // Silent sync (no toast) with overlap guard
     const silentSync = async () => {
+      if (isSyncingRef.current) return; // skip if already syncing
+      isSyncingRef.current = true;
       try {
         await supabase.functions.invoke('sync-imap-inbox', {
           body: { account_id: accountId }
@@ -190,6 +201,8 @@ export function EmailList({ folder, onSelectEmail, accountId, accountEmail }: Em
         queryClient.invalidateQueries({ queryKey: ['emails'] });
       } catch (e) {
         console.error('Silent sync error:', e);
+      } finally {
+        isSyncingRef.current = false;
       }
     };
 
