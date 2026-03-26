@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   HardDrive, Download, FileJson, FileSpreadsheet, History, 
-  Loader2, CheckCircle2, AlertCircle, Database
+  Loader2, CheckCircle2, AlertCircle, Database, FileCode2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
