@@ -719,6 +719,7 @@ export function CreateContractDialog({ open, onOpenChange, onSuccess, leadId }: 
           classDescriptions: selectedClasses.length > 0 
             ? selectedClasses.map(c => NCL_CLASS_DESCRIPTIONS[c] || `Classe ${c}`) 
             : undefined,
+          promotionalValue: paymentMethod === 'recorrente_promocional' && promotionalValue ? parseFloat(promotionalValue) : undefined,
         });
       }
     }
