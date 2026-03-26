@@ -187,7 +187,6 @@ export function EmailList({ folder, onSelectEmail, accountId, accountEmail }: Em
   // Silent background IMAP sync on mount and every 3 minutes
   // Uses a ref flag to prevent overlapping syncs
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isSyncingRef = useRef(false);
   useEffect(() => {
     if (!accountId) return;
 
