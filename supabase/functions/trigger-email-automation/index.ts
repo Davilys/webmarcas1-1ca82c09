@@ -4,7 +4,7 @@ import { Resend } from "npm:resend@2.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 interface TriggerRequest {
@@ -171,11 +171,10 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Determine from address — MUST use verified domain for Resend
-    const VERIFIED_FROM_DOMAIN = 'webmarcas.net';
-    const VERIFIED_FROM_EMAIL = `noreply@${VERIFIED_FROM_DOMAIN}`;
-    const displayName = emailAccount?.display_name || 'WebMarcas';
-    const fromAddress = `${displayName} <${VERIFIED_FROM_EMAIL}>`;
+    // Determine from address
+    const fromAddress = emailAccount?.display_name 
+      ? `${emailAccount.display_name} <${emailAccount.email_address}>`
+      : emailAccount?.email_address || "WebMarcas <noreply@webmarcas.net>";
 
     // Wrap body in professional HTML template
     const htmlContent = `
@@ -215,7 +214,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { error: logError } = await supabase
       .from('email_logs')
       .insert({
-        from_email: VERIFIED_FROM_EMAIL,
+        from_email: emailAccount?.email_address || 'noreply@webmarcas.net',
         to_email: data.email,
         subject: subject,
         body: body.replace(/<[^>]*>/g, '').substring(0, 500),
