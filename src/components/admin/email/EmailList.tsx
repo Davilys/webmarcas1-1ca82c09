@@ -28,14 +28,21 @@ export function EmailList({ folder, onSelectEmail, accountId, accountEmail }: Em
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('sync-imap-inbox', {
-        body: { account_id: accountId }
-      });
-      if (error) throw error;
-      return data;
+      if (isSyncingRef.current) throw new Error('Sincronização já em andamento');
+      isSyncingRef.current = true;
+      try {
+        const { data, error } = await supabase.functions.invoke('sync-imap-inbox', {
+          body: { account_id: accountId }
+        });
+        if (error) throw error;
+        return data;
+      } finally {
+        isSyncingRef.current = false;
+      }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['email-stats'] });
       const inboxCount = data.inbox?.synced || 0;
       const sentCount = data.sent?.synced || 0;
       toast.success(`Sincronização concluída! ${inboxCount} recebidos e ${sentCount} enviados novos.`);
