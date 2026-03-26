@@ -215,7 +215,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { error: logError } = await supabase
       .from('email_logs')
       .insert({
-        from_email: emailAccount?.email_address || 'noreply@webmarcas.net',
+        from_email: VERIFIED_FROM_EMAIL,
         to_email: data.email,
         subject: subject,
         body: body.replace(/<[^>]*>/g, '').substring(0, 500),
