@@ -342,7 +342,8 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
       .maybeSingle()
       .then(({ data }) => {
         if (data?.value && typeof data.value === 'object' && 'stages' in (data.value as any)) {
-          setDynamicServiceStages((data.value as any).stages);
+          const normalizedStages = sanitizePipelineStagesConfig((data.value as any).stages);
+          setDynamicServiceStages(normalizedStages.length > 0 ? normalizedStages : null);
         } else {
           setDynamicServiceStages(null);
         }
