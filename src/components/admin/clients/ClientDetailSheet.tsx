@@ -2679,7 +2679,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                               <div><Label>Fase do Pipeline</Label>
                                 <Select value={newProcess.pipeline_stage} onValueChange={(v) => setNewProcess({...newProcess, pipeline_stage: v})}>
                                   <SelectTrigger><SelectValue /></SelectTrigger>
-                                  <SelectContent>{PIPELINE_STAGES.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}</SelectContent>
+                                  <SelectContent>{activeStages.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}</SelectContent>
                                 </Select>
                               </div>
                               <div><Label>Área de Atuação</Label><Input placeholder="Ex: Tecnologia" value={newProcess.business_area} onChange={(e) => setNewProcess({...newProcess, business_area: e.target.value})} /></div>
