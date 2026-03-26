@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import type { ClientWithProcess } from './ClientKanbanBoard';
 import { PIPELINE_STAGES, COMMERCIAL_PIPELINE_STAGES } from './ClientKanbanBoard';
+import { normalizePipelineStageId, sanitizePipelineStagesConfig } from '@/lib/pipelineStage';
 import { ServiceActionPanel } from './ServiceActionPanel';
 import { usePricing } from '@/hooks/usePricing';
 import { EmailCompose } from '@/components/admin/email/EmailCompose';
@@ -341,7 +342,8 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
       .maybeSingle()
       .then(({ data }) => {
         if (data?.value && typeof data.value === 'object' && 'stages' in (data.value as any)) {
-          setDynamicServiceStages((data.value as any).stages);
+          const normalizedStages = sanitizePipelineStagesConfig((data.value as any).stages);
+          setDynamicServiceStages(normalizedStages.length > 0 ? normalizedStages : null);
         } else {
           setDynamicServiceStages(null);
         }
@@ -2720,7 +2722,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                       ncl_classes: brand.ncl_classes ? brand.ncl_classes.join(', ') : '',
                                       business_area: brand.business_area || '',
                                       status: brand.status || 'em_andamento',
-                                      pipeline_stage: brand.pipeline_stage || 'protocolado',
+                                      pipeline_stage: normalizePipelineStageId(brand.pipeline_stage) || 'protocolado',
                                       deposit_date: brand.deposit_date || '',
                                       grant_date: brand.grant_date || '',
                                       expiry_date: brand.expiry_date || '',
@@ -2871,7 +2873,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                         </div>
                                         <div className="space-y-1.5 col-span-2">
                                           <Label className="text-xs">Fase do Pipeline</Label>
-                                          <Select value={editingBrandData.pipeline_stage || 'protocolado'} onValueChange={(v) => setEditingBrandData((p: any) => ({ ...p, pipeline_stage: v }))}>
+                                          <Select value={normalizePipelineStageId(editingBrandData.pipeline_stage) || 'protocolado'} onValueChange={(v) => setEditingBrandData((p: any) => ({ ...p, pipeline_stage: v }))}>
                                             <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                                             <SelectContent>
                                               {activeStages.map(stage => (
@@ -2925,6 +2927,10 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                               const nclParsed = editingBrandData.ncl_classes
                                                 ? editingBrandData.ncl_classes.split(',').map((c: string) => parseInt(c.trim(), 10)).filter((n: number) => !isNaN(n))
                                                 : null;
+                                              const normalizedPipelineStage =
+                                                normalizePipelineStageId(editingBrandData.pipeline_stage) ||
+                                                normalizePipelineStageId(brand.pipeline_stage) ||
+                                                'protocolado';
                                               const { error } = await supabase.from('brand_processes').update({
                                                 brand_name: editingBrandData.brand_name,
                                                 process_number: editingBrandData.process_number || null,
@@ -2932,7 +2938,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                                 ncl_classes: nclParsed && nclParsed.length > 0 ? nclParsed : null,
                                                 business_area: editingBrandData.business_area || null,
                                                 status: editingBrandData.status,
-                                                pipeline_stage: editingBrandData.pipeline_stage,
+                                                pipeline_stage: normalizedPipelineStage,
                                                 deposit_date: editingBrandData.deposit_date || null,
                                                 grant_date: editingBrandData.grant_date || null,
                                                 expiry_date: editingBrandData.expiry_date || null,

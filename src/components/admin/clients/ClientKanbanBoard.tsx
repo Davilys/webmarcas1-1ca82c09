@@ -16,6 +16,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { normalizePipelineStageId, sanitizePipelineStagesConfig } from '@/lib/pipelineStage';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -121,7 +122,8 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
       .maybeSingle()
       .then(({ data }) => {
         if (data?.value && typeof data.value === 'object' && 'stages' in (data.value as any)) {
-          setDynamicStages((data.value as any).stages);
+          const normalizedStages = sanitizePipelineStagesConfig<typeof PIPELINE_STAGES[number]>((data.value as any).stages);
+          setDynamicStages(normalizedStages.length > 0 ? normalizedStages : null);
         } else {
           setDynamicStages(null);
         }
@@ -169,13 +171,15 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
   const handleDrop = async (e: React.DragEvent, stageId: string) => {
     e.preventDefault();
     setDragOverStage(null);
-    
+
     if (!draggedClient) {
       setDraggedClient(null);
       return;
     }
 
-    if (draggedClient.pipeline_stage === stageId) {
+    const normalizedStageId = normalizePipelineStageId(stageId) || defaultStage;
+
+    if (draggedClient.pipeline_stage === normalizedStageId) {
       setDraggedClient(null);
       return;
     }
@@ -185,7 +189,7 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
         // Cliente já tem processo - apenas atualiza o estágio
         const { error } = await supabase
           .from('brand_processes')
-          .update({ pipeline_stage: stageId })
+          .update({ pipeline_stage: normalizedStageId })
           .eq('id', draggedClient.process_id);
 
         if (error) throw error;
@@ -196,15 +200,15 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
           .insert({
             user_id: draggedClient.id,
             brand_name: draggedClient.company_name || draggedClient.full_name || 'Sem nome',
-            pipeline_stage: stageId,
+            pipeline_stage: normalizedStageId,
             status: 'em_andamento'
           });
 
         if (error) throw error;
       }
       
-      const stageName = activePipelineStages.find(s => s.id === stageId)?.label || 
-                        PIPELINE_STAGES.find(s => s.id === stageId)?.label;
+      const stageName = activePipelineStages.find(s => s.id === normalizedStageId)?.label || 
+                        PIPELINE_STAGES.find(s => s.id === normalizedStageId)?.label;
       toast.success(`✅ Cliente movido para ${stageName}`);
       onRefresh();
     } catch (error) {
