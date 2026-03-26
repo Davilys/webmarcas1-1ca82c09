@@ -2873,7 +2873,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                         </div>
                                         <div className="space-y-1.5 col-span-2">
                                           <Label className="text-xs">Fase do Pipeline</Label>
-                                          <Select value={editingBrandData.pipeline_stage || 'protocolado'} onValueChange={(v) => setEditingBrandData((p: any) => ({ ...p, pipeline_stage: v }))}>
+                                          <Select value={normalizePipelineStageId(editingBrandData.pipeline_stage) || 'protocolado'} onValueChange={(v) => setEditingBrandData((p: any) => ({ ...p, pipeline_stage: v }))}>
                                             <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                                             <SelectContent>
                                               {activeStages.map(stage => (
