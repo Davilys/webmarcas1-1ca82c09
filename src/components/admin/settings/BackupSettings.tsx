@@ -39,11 +39,12 @@ export function BackupSettings() {
     const key = `${tableName}-${fmt}`;
     setExporting(key);
     try {
-      const data = await fetchAllFromTable(supabase, tableName);
-      if (data.length === 0) {
+      const rawData = await fetchAllFromTable(supabase, tableName);
+      if (rawData.length === 0) {
         toast.error('Nenhum dado para exportar');
         return;
       }
+      const data = rawData.map(r => ({ ...r, _type: tableName }));
       downloadData(data, `webmarcas_${tableName}_${Date.now()}`, fmt);
       toast.success(`${data.length} registros de ${typeLabel} exportados!`);
     } catch {
