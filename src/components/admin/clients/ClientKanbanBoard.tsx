@@ -207,8 +207,8 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
         if (error) throw error;
       }
       
-      const stageName = activePipelineStages.find(s => s.id === stageId)?.label || 
-                        PIPELINE_STAGES.find(s => s.id === stageId)?.label;
+      const stageName = activePipelineStages.find(s => s.id === normalizedStageId)?.label || 
+                        PIPELINE_STAGES.find(s => s.id === normalizedStageId)?.label;
       toast.success(`✅ Cliente movido para ${stageName}`);
       onRefresh();
     } catch (error) {
