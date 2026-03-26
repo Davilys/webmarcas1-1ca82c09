@@ -171,10 +171,11 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Determine from address
-    const fromAddress = emailAccount?.display_name 
-      ? `${emailAccount.display_name} <${emailAccount.email_address}>`
-      : emailAccount?.email_address || "WebMarcas <noreply@webmarcas.net>";
+    // Determine from address — MUST use verified domain for Resend
+    const VERIFIED_FROM_DOMAIN = 'webmarcas.net';
+    const VERIFIED_FROM_EMAIL = `noreply@${VERIFIED_FROM_DOMAIN}`;
+    const displayName = emailAccount?.display_name || 'WebMarcas';
+    const fromAddress = `${displayName} <${VERIFIED_FROM_EMAIL}>`;
 
     // Wrap body in professional HTML template
     const htmlContent = `
