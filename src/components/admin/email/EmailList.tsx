@@ -177,12 +177,16 @@ export function EmailList({ folder, onSelectEmail, accountId, accountEmail }: Em
   });
 
   // Silent background IMAP sync on mount and every 3 minutes
+  // Uses a ref flag to prevent overlapping syncs
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isSyncingRef = useRef(false);
   useEffect(() => {
     if (!accountId) return;
 
-    // Silent sync (no toast)
+    // Silent sync (no toast) with overlap guard
     const silentSync = async () => {
+      if (isSyncingRef.current) return; // skip if already syncing
+      isSyncingRef.current = true;
       try {
         await supabase.functions.invoke('sync-imap-inbox', {
           body: { account_id: accountId }
@@ -190,6 +194,8 @@ export function EmailList({ folder, onSelectEmail, accountId, accountEmail }: Em
         queryClient.invalidateQueries({ queryKey: ['emails'] });
       } catch (e) {
         console.error('Silent sync error:', e);
+      } finally {
+        isSyncingRef.current = false;
       }
     };
 
