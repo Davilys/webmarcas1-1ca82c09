@@ -25,6 +25,7 @@ interface EmailListProps {
 export function EmailList({ folder, onSelectEmail, accountId, accountEmail }: EmailListProps) {
   const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
+  const isSyncingRef = useRef(false);
 
   const syncMutation = useMutation({
     mutationFn: async () => {
