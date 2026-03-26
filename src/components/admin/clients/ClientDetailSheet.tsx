@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import type { ClientWithProcess } from './ClientKanbanBoard';
 import { PIPELINE_STAGES, COMMERCIAL_PIPELINE_STAGES } from './ClientKanbanBoard';
+import { normalizePipelineStageId, sanitizePipelineStagesConfig } from '@/lib/pipelineStage';
 import { ServiceActionPanel } from './ServiceActionPanel';
 import { usePricing } from '@/hooks/usePricing';
 import { EmailCompose } from '@/components/admin/email/EmailCompose';
