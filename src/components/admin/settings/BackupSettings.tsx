@@ -278,7 +278,8 @@ export function BackupSettings() {
                   {exporting === 'all-csv' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
                   <Database className="h-3 w-3 mr-1" /> Tudo ({ALL_BACKUP_TABLES.length} tabelas)
                 </Button>
-          </div>
+              </div>
+            </div>
 
           {/* SQL Export */}
           <div className="p-4 rounded-xl border bg-muted/30 space-y-3 md:col-span-2">
