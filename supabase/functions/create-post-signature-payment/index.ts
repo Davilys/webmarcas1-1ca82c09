@@ -98,6 +98,12 @@ serve(async (req) => {
     // CORREÇÃO: Usar o valor do contrato salvo no banco (já calculado com múltiplas marcas)
     const savedContractValue = contract.contract_value;
     
+    // Check if this is a recurring promotional payment
+    const isRecurringPromotional = paymentMethod === 'recorrente_promocional';
+    const isRecurringBoleto = paymentMethod === 'recorrente_boleto';
+    const isRecurringCartao = paymentMethod === 'recorrente_cartao';
+    const isAnyRecurring = isRecurringPromotional || isRecurringBoleto || isRecurringCartao;
+    
     // Determine payment configuration based on method using dynamic pricing
     let billingType: string;
     let totalValue: number;
@@ -108,7 +114,6 @@ serve(async (req) => {
       case 'cartao6x':
         billingType = 'CREDIT_CARD';
         installmentCount = pricing.cardInstallments || DEFAULT_PRICING.cardInstallments;
-        // CORREÇÃO: Se o contrato tem valor salvo, usar ele. Senão, fallback para cálculo padrão
         if (savedContractValue && savedContractValue > 0) {
           totalValue = savedContractValue;
           installmentValue = Math.round(totalValue / installmentCount * 100) / 100;
@@ -120,7 +125,6 @@ serve(async (req) => {
       case 'boleto3x':
         billingType = 'BOLETO';
         installmentCount = pricing.boletoInstallments || DEFAULT_PRICING.boletoInstallments;
-        // CORREÇÃO: Mesmo padrão - usar valor salvo se existir
         if (savedContractValue && savedContractValue > 0) {
           totalValue = savedContractValue;
           installmentValue = Math.round(totalValue / installmentCount * 100) / 100;
@@ -129,11 +133,18 @@ serve(async (req) => {
           totalValue = installmentCount * installmentValue;
         }
         break;
+      case 'recorrente_promocional':
+      case 'recorrente_boleto':
+      case 'recorrente_cartao':
+        billingType = isRecurringCartao ? 'CREDIT_CARD' : 'BOLETO';
+        installmentCount = 1;
+        totalValue = savedContractValue && savedContractValue > 0 ? savedContractValue : 0;
+        installmentValue = totalValue;
+        break;
       case 'avista':
       default:
         billingType = 'PIX';
         installmentCount = 1;
-        // CORREÇÃO: Usar valor salvo se existir
         if (savedContractValue && savedContractValue > 0) {
           totalValue = savedContractValue;
         } else {
@@ -258,6 +269,134 @@ serve(async (req) => {
             holderCpfCnpj: cpfCnpj,
             holderPostalCode: profile.zip_code?.replace(/\D/g, '') || '',
             holderPhone: profile.phone?.replace(/\D/g, '') || '',
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========================================
+    // RECURRING PAYMENTS (Subscription via Asaas)
+    // ========================================
+    if (isAnyRecurring && totalValue > 0) {
+      // Create or find customer first
+      let customerId = null;
+      const cpfCnpj = profile.cpf_cnpj?.replace(/\D/g, '') || '';
+      
+      if (cpfCnpj) {
+        const searchResponse = await fetch(`${ASAAS_API_URL}/customers?cpfCnpj=${cpfCnpj}`, {
+          headers: { 'access_token': ASAAS_API_KEY, 'Content-Type': 'application/json' },
+        });
+        const searchData = await searchResponse.json();
+        if (searchData.data && searchData.data.length > 0) {
+          customerId = searchData.data[0].id;
+        }
+      }
+
+      if (!customerId) {
+        const customerPayload = {
+          name: profile.full_name || 'Cliente',
+          email: profile.email,
+          phone: profile.phone?.replace(/\D/g, '') || '',
+          cpfCnpj: cpfCnpj,
+          postalCode: profile.zip_code?.replace(/\D/g, '') || '',
+          address: profile.address || '',
+          addressNumber: 'S/N',
+          province: profile.city || '',
+          notificationDisabled: false,
+        };
+
+        const customerResponse = await fetch(`${ASAAS_API_URL}/customers`, {
+          method: 'POST',
+          headers: { 'access_token': ASAAS_API_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify(customerPayload),
+        });
+
+        const customerData = await customerResponse.json();
+        if (!customerResponse.ok) {
+          console.error('Asaas customer error:', customerData);
+          return new Response(
+            JSON.stringify({ error: 'Erro ao criar cliente no Asaas', details: customerData }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        customerId = customerData.id;
+      }
+
+      // Create Asaas subscription (recurring monthly)
+      const nextDueDate = new Date();
+      nextDueDate.setDate(nextDueDate.getDate() + 3);
+      const dueDateString = contract.custom_due_date || nextDueDate.toISOString().split('T')[0];
+
+      const subscriptionPayload = {
+        customer: customerId,
+        billingType,
+        value: totalValue,
+        nextDueDate: dueDateString,
+        cycle: 'MONTHLY',
+        description: `Assinatura Recorrente - ${contract.subject || 'Contrato'}`,
+        externalReference: contractId,
+      };
+
+      console.log('Creating Asaas subscription:', JSON.stringify(subscriptionPayload));
+
+      const subscriptionResponse = await fetch(`${ASAAS_API_URL}/subscriptions`, {
+        method: 'POST',
+        headers: { 'access_token': ASAAS_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscriptionPayload),
+      });
+
+      const subscriptionData = await subscriptionResponse.json();
+
+      if (!subscriptionResponse.ok) {
+        console.error('Asaas subscription error:', subscriptionData);
+        return new Response(
+          JSON.stringify({ error: 'Erro ao criar assinatura recorrente no Asaas', details: subscriptionData }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Asaas subscription created:', subscriptionData.id);
+
+      // Create internal invoice record
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .insert({
+          user_id: profile.id,
+          process_id: contract.process_id || null,
+          amount: totalValue,
+          status: 'pending',
+          due_date: dueDateString,
+          description: `Assinatura Recorrente - ${contract.subject || 'Contrato'}`,
+          asaas_invoice_id: subscriptionData.id,
+          payment_method: billingType,
+          asaas_customer_id: customerId,
+        })
+        .select()
+        .single();
+
+      if (invoiceError) {
+        console.error('Invoice creation error:', invoiceError);
+      }
+
+      // Update profile with asaas_customer_id
+      await supabase
+        .from('profiles')
+        .update({ asaas_customer_id: customerId })
+        .eq('id', profile.id);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          paymentMethod,
+          requiresCreditCardForm: false,
+          isRecurring: true,
+          data: {
+            subscriptionId: subscriptionData.id,
+            invoiceId: invoice?.id,
+            value: totalValue,
+            cycle: 'MONTHLY',
+            nextDueDate: dueDateString,
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

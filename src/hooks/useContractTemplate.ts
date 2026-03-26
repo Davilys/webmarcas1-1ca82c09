@@ -465,6 +465,12 @@ const formatMultipleBrandsInline = (brands: BrandItem[]): string => {
   ).join('. ') + '.';
 };
 
+// Convert number to written Portuguese (simplified for contract values)
+const numberToPortuguese = (value: number): string => {
+  const formatted = value.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  return `${formatted} reais`;
+};
+
 // Helper function to replace template variables with actual data
 export function replaceContractVariables(
   template: string,
@@ -492,6 +498,7 @@ export function replaceContractVariables(
     selectedClasses?: number[];
     classDescriptions?: string[];
     plan?: PlanType;
+    promotionalValue?: number;
   }
 ): string {
   const { personalData, brandData, paymentMethod } = data;
@@ -524,6 +531,13 @@ export function replaceContractVariables(
     }
     if (data.plan === 'corporativo') {
       return `• Assinatura mensal recorrente: R$ 1.621,00/mês — cobrada automaticamente via boleto ou cartão de crédito.`;
+    }
+
+    // Handle promotional recurring value
+    if (paymentMethod === 'recorrente_promocional' && data.promotionalValue) {
+      const promoVal = data.promotionalValue;
+      const promoFormatted = promoVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      return `• Assinatura mensal recorrente (valor promocional): R$ ${promoFormatted}/mês — cobrada automaticamente via boleto bancário.`;
     }
 
     const classCount = data.selectedClasses?.length || 0;
@@ -591,6 +605,15 @@ export function replaceContractVariables(
     .replace(/\{\{forma_pagamento_detalhada\}\}/g, getPaymentDetails())
     .replace(/\{\{data_extenso\}\}/g, currentDate)
     .replace(/\{\{data\}\}/g, new Date().toLocaleDateString('pt-BR'));
+
+  // When promotional value is set, replace hardcoded amounts in the corporate template
+  if (paymentMethod === 'recorrente_promocional' && data.promotionalValue) {
+    const promoFormatted = data.promotionalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    // Replace hardcoded R$ 1.621,00 in clause 5.1 and 5.3
+    result = result.replace(/R\$\s*1\.621,00/g, `R$ ${promoFormatted}`);
+    // Replace the written-out amount
+    result = result.replace(/\(mil seiscentos e vinte e um reais\)/g, `(${numberToPortuguese(data.promotionalValue)})`);
+  }
 
   // Handle brand name replacement
   if (data.multipleBrands && data.multipleBrands.length > 1) {
