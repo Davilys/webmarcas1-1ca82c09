@@ -465,6 +465,12 @@ const formatMultipleBrandsInline = (brands: BrandItem[]): string => {
   ).join('. ') + '.';
 };
 
+// Convert number to written Portuguese (simplified for contract values)
+const numberToPortuguese = (value: number): string => {
+  const formatted = value.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  return `${formatted} reais`;
+};
+
 // Helper function to replace template variables with actual data
 export function replaceContractVariables(
   template: string,
