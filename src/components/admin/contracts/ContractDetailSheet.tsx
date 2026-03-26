@@ -68,6 +68,20 @@ interface Comment { id: string; content: string; user_id: string | null; created
 interface Note { id: string; content: string; created_by: string | null; created_at: string; updated_at: string; }
 interface Task { id: string; title: string; description: string | null; completed: boolean | null; due_date: string | null; assigned_to: string | null; created_at: string; }
 interface RenewalHistory { id: string; renewed_at: string; new_end_date: string | null; new_value: number | null; previous_end_date: string | null; previous_value: number | null; notes: string | null; }
+interface ContractPreviewData {
+  id: string;
+  contract_html: string | null;
+  document_type: string | null;
+  client_signature_image: string | null;
+  blockchain_hash: string | null;
+  blockchain_timestamp: string | null;
+  blockchain_tx_id: string | null;
+  blockchain_network: string | null;
+  signature_ip: string | null;
+  signatory_name: string | null;
+  signatory_cpf: string | null;
+  signatory_cnpj: string | null;
+}
 
 interface ContractDetailSheetProps {
   contract: Contract | null;
@@ -149,6 +163,8 @@ export function ContractDetailSheet({ contract, open, onOpenChange, onUpdate }: 
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [loading, setLoading] = useState(false);
   const [generatingNewLink, setGeneratingNewLink] = useState(false);
+  const [previewData, setPreviewData] = useState<ContractPreviewData | null>(null);
+  const [loadingPreviewData, setLoadingPreviewData] = useState(false);
 
   // Comments
   const [newComment, setNewComment] = useState('');
@@ -174,6 +190,7 @@ export function ContractDetailSheet({ contract, open, onOpenChange, onUpdate }: 
 
   useEffect(() => {
     if (contract) {
+      setPreviewData(null);
       setFormData({
         subject: contract.subject || '',
         contract_value: contract.contract_value?.toString() || '',
@@ -184,8 +201,37 @@ export function ContractDetailSheet({ contract, open, onOpenChange, onUpdate }: 
         visible_to_client: contract.visible_to_client ?? true,
       });
       fetchContractData(contract.id);
+      fetchContractPreviewData(contract.id);
     }
   }, [contract]);
+
+  const fetchContractPreviewData = async (contractId: string): Promise<ContractPreviewData | null> => {
+    setLoadingPreviewData(true);
+    try {
+      const { data, error } = await supabase
+        .from('contracts')
+        .select('id, contract_html, document_type, client_signature_image, blockchain_hash, blockchain_timestamp, blockchain_tx_id, blockchain_network, signature_ip, signatory_name, signatory_cpf, signatory_cnpj')
+        .eq('id', contractId)
+        .single();
+
+      if (error) throw error;
+
+      const normalized = data as ContractPreviewData;
+      setPreviewData(normalized);
+      return normalized;
+    } catch (error) {
+      console.error('Error fetching contract preview data:', error);
+      return null;
+    } finally {
+      setLoadingPreviewData(false);
+    }
+  };
+
+  const getResolvedContract = () => {
+    if (!contract) return null;
+    if (!previewData || previewData.id !== contract.id) return contract;
+    return { ...contract, ...previewData };
+  };
 
   const fetchContractTypes = async () => {
     const { data } = await supabase.from('contract_types').select('*');
@@ -624,22 +670,37 @@ export function ContractDetailSheet({ contract, open, onOpenChange, onUpdate }: 
   };
 
   const openPreview = async (triggerPrint = false) => {
-    if (!contract?.contract_html) { toast.error('Documento sem conteúdo'); return; }
+    if (!contract) return;
+
+    let resolvedContract = getResolvedContract();
+
+    if (!resolvedContract?.contract_html) {
+      const fetchedData = await fetchContractPreviewData(contract.id);
+      if (fetchedData && fetchedData.id === contract.id) {
+        resolvedContract = { ...contract, ...fetchedData };
+      }
+    }
+
+    if (!resolvedContract?.contract_html) {
+      toast.error('Documento sem conteúdo');
+      return;
+    }
+
     const logoBase64 = await getLogoBase64ForPDF();
     const printHtml = generateDocumentPrintHTML(
-      (contract.document_type as any) || 'procuracao',
-      contract.contract_html,
-      contract.client_signature_image || null,
-      contract.blockchain_hash ? {
-        hash: contract.blockchain_hash,
-        timestamp: contract.blockchain_timestamp || '',
-        txId: contract.blockchain_tx_id || '',
-        network: contract.blockchain_network || '',
-        ipAddress: contract.signature_ip || '',
+      (resolvedContract.document_type as any) || 'contract',
+      resolvedContract.contract_html,
+      resolvedContract.client_signature_image || null,
+      resolvedContract.blockchain_hash ? {
+        hash: resolvedContract.blockchain_hash,
+        timestamp: resolvedContract.blockchain_timestamp || '',
+        txId: resolvedContract.blockchain_tx_id || '',
+        network: resolvedContract.blockchain_network || '',
+        ipAddress: resolvedContract.signature_ip || '',
       } : undefined,
-      contract.signatory_name || undefined,
-      contract.signatory_cpf || undefined,
-      contract.signatory_cnpj || undefined,
+      resolvedContract.signatory_name || undefined,
+      resolvedContract.signatory_cpf || undefined,
+      resolvedContract.signatory_cnpj || undefined,
       undefined, window.location.origin, logoBase64
     );
     const enhancedHtml = printHtml.replace('</head>', `
@@ -716,6 +777,10 @@ export function ContractDetailSheet({ contract, open, onOpenChange, onUpdate }: 
 
   if (!contract) return null;
 
+  const resolvedContract = getResolvedContract();
+  const documentContent = resolvedContract?.contract_html || '';
+  const documentType = (resolvedContract?.document_type as any) || 'contract';
+
   const signatureUrl = contract.signature_token ? `${getProductionBaseUrl()}/assinar/${contract.signature_token}` : null;
   const isExpired = contract.signature_expires_at ? new Date(contract.signature_expires_at) < new Date() : false;
   const isSigned = contract.signature_status === 'signed';
@@ -770,7 +835,15 @@ export function ContractDetailSheet({ contract, open, onOpenChange, onUpdate }: 
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setEmailDialogOpen(true)}>
                   <Mail className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => contract && fetchContractData(contract.id)}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={async () => {
+                    if (!contract) return;
+                    await Promise.all([fetchContractData(contract.id), fetchContractPreviewData(contract.id)]);
+                  }}
+                >
                   <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
                 </Button>
                 <DropdownMenu>
@@ -969,21 +1042,27 @@ export function ContractDetailSheet({ contract, open, onOpenChange, onUpdate }: 
                 {/* ─── DOCUMENT TAB ───────────────────────────────────────── */}
                 <TabsContent value="contract" className="mt-0">
                   <div className="border rounded-xl overflow-hidden">
-                    {contract.contract_html ? (
+                    {documentContent ? (
                       <DocumentRenderer
-                        documentType={(contract.document_type as any) || 'contract'}
-                        content={contract.contract_html}
-                        clientSignature={contract.client_signature_image}
-                        signatoryName={contract.signatory_name || undefined}
-                        signatoryCpf={contract.signatory_cpf || undefined}
-                        signatoryCnpj={contract.signatory_cnpj || undefined}
+                        documentType={documentType}
+                        content={documentContent}
+                        clientSignature={resolvedContract?.client_signature_image || null}
+                        signatoryName={resolvedContract?.signatory_name || undefined}
+                        signatoryCpf={resolvedContract?.signatory_cpf || undefined}
+                        signatoryCnpj={resolvedContract?.signatory_cnpj || undefined}
                         showCertificationSection={isSigned}
-                        blockchainSignature={contract.blockchain_hash ? {
-                          hash: contract.blockchain_hash, timestamp: contract.blockchain_timestamp || '',
-                          txId: contract.blockchain_tx_id || '', network: contract.blockchain_network || '',
-                          ipAddress: contract.signature_ip || '',
+                        blockchainSignature={resolvedContract?.blockchain_hash ? {
+                          hash: resolvedContract.blockchain_hash,
+                          timestamp: resolvedContract.blockchain_timestamp || '',
+                          txId: resolvedContract.blockchain_tx_id || '',
+                          network: resolvedContract.blockchain_network || '',
+                          ipAddress: resolvedContract.signature_ip || '',
                         } : undefined}
                       />
+                    ) : loadingPreviewData ? (
+                      <div className="flex items-center justify-center py-16">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
                     ) : (
                       <EmptyState icon={FileText} title="Nenhum documento" description="Este contrato não possui conteúdo definido" />
                     )}
