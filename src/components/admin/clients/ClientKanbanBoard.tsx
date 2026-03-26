@@ -122,7 +122,7 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
       .maybeSingle()
       .then(({ data }) => {
         if (data?.value && typeof data.value === 'object' && 'stages' in (data.value as any)) {
-          const normalizedStages = sanitizePipelineStagesConfig((data.value as any).stages);
+          const normalizedStages = sanitizePipelineStagesConfig<typeof PIPELINE_STAGES[number]>((data.value as any).stages);
           setDynamicStages(normalizedStages.length > 0 ? normalizedStages : null);
         } else {
           setDynamicStages(null);
