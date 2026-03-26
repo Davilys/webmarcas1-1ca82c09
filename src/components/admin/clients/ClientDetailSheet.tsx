@@ -2927,6 +2927,10 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                               const nclParsed = editingBrandData.ncl_classes
                                                 ? editingBrandData.ncl_classes.split(',').map((c: string) => parseInt(c.trim(), 10)).filter((n: number) => !isNaN(n))
                                                 : null;
+                                              const normalizedPipelineStage =
+                                                normalizePipelineStageId(editingBrandData.pipeline_stage) ||
+                                                normalizePipelineStageId(brand.pipeline_stage) ||
+                                                'protocolado';
                                               const { error } = await supabase.from('brand_processes').update({
                                                 brand_name: editingBrandData.brand_name,
                                                 process_number: editingBrandData.process_number || null,
@@ -2934,7 +2938,7 @@ export function ClientDetailSheet({ client: clientProp, open, onOpenChange, onUp
                                                 ncl_classes: nclParsed && nclParsed.length > 0 ? nclParsed : null,
                                                 business_area: editingBrandData.business_area || null,
                                                 status: editingBrandData.status,
-                                                pipeline_stage: editingBrandData.pipeline_stage,
+                                                pipeline_stage: normalizedPipelineStage,
                                                 deposit_date: editingBrandData.deposit_date || null,
                                                 grant_date: editingBrandData.grant_date || null,
                                                 expiry_date: editingBrandData.expiry_date || null,
