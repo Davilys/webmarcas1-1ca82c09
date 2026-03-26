@@ -145,7 +145,6 @@ export function BackupImportSection() {
 
         const clean = { ...record };
         delete clean._type;
-        delete clean.id; // Let DB generate new IDs
 
         if (!grouped[tableName]) grouped[tableName] = [];
         grouped[tableName].push(clean);
