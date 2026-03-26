@@ -527,6 +527,13 @@ export function replaceContractVariables(
       return `• Assinatura mensal recorrente: R$ 1.621,00/mês — cobrada automaticamente via boleto ou cartão de crédito.`;
     }
 
+    // Handle promotional recurring value
+    if (paymentMethod === 'recorrente_promocional' && data.promotionalValue) {
+      const promoVal = data.promotionalValue;
+      const promoFormatted = promoVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      return `• Assinatura mensal recorrente (valor promocional): R$ ${promoFormatted}/mês — cobrada automaticamente via boleto bancário.`;
+    }
+
     const classCount = data.selectedClasses?.length || 0;
     const brandCount = data.multipleBrands?.length || 1;
     const quantity = classCount > 0 ? classCount : brandCount;
