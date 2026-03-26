@@ -171,13 +171,15 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
   const handleDrop = async (e: React.DragEvent, stageId: string) => {
     e.preventDefault();
     setDragOverStage(null);
-    
+
     if (!draggedClient) {
       setDraggedClient(null);
       return;
     }
 
-    if (draggedClient.pipeline_stage === stageId) {
+    const normalizedStageId = normalizePipelineStageId(stageId) || defaultStage;
+
+    if (draggedClient.pipeline_stage === normalizedStageId) {
       setDraggedClient(null);
       return;
     }
@@ -187,7 +189,7 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
         // Cliente já tem processo - apenas atualiza o estágio
         const { error } = await supabase
           .from('brand_processes')
-          .update({ pipeline_stage: stageId })
+          .update({ pipeline_stage: normalizedStageId })
           .eq('id', draggedClient.process_id);
 
         if (error) throw error;
@@ -198,7 +200,7 @@ export function ClientKanbanBoard({ clients, onClientClick, onRefresh, filters, 
           .insert({
             user_id: draggedClient.id,
             brand_name: draggedClient.company_name || draggedClient.full_name || 'Sem nome',
-            pipeline_stage: stageId,
+            pipeline_stage: normalizedStageId,
             status: 'em_andamento'
           });
 
