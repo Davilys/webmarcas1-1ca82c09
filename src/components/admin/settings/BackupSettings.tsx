@@ -278,9 +278,24 @@ export function BackupSettings() {
                   {exporting === 'all-csv' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
                   <Database className="h-3 w-3 mr-1" /> Tudo ({ALL_BACKUP_TABLES.length} tabelas)
                 </Button>
-              </div>
-            </div>
           </div>
+
+          {/* SQL Export */}
+          <div className="p-4 rounded-xl border bg-muted/30 space-y-3 md:col-span-2">
+            <div className="flex items-center gap-2">
+              <FileCode2 className="h-5 w-5 text-violet-500" />
+              <span className="font-medium">Formato SQL (Migração)</span>
+              <Badge variant="outline" className="text-xs">Completo</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Gera INSERT statements para todas as tabelas — ideal para migrar dados entre projetos Supabase
+            </p>
+            <Button size="sm" onClick={exportSQL} disabled={isExporting}>
+              {exporting === 'sql' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+              <Database className="h-3 w-3 mr-1" /> Exportar SQL ({ALL_BACKUP_TABLES.length} tabelas)
+            </Button>
+          </div>
+        </div>
         </div>
       </SettingsCard>
 
