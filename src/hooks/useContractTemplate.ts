@@ -492,6 +492,7 @@ export function replaceContractVariables(
     selectedClasses?: number[];
     classDescriptions?: string[];
     plan?: PlanType;
+    promotionalValue?: number;
   }
 ): string {
   const { personalData, brandData, paymentMethod } = data;
