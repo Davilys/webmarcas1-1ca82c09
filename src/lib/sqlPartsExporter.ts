@@ -157,8 +157,11 @@ export async function exportSQLPartsZip(
       const partSuffix = chunks.length > 1 ? `_part${ci + 1}` : '';
       const fileName = `${String(fileIndex).padStart(3, '0')}_${tableName}${partSuffix}.sql`;
 
-      // Tables that reference auth.users need FK checks disabled
-      const needsDisableTriggers = ['profiles'].includes(tableName);
+      // Tables that reference auth.users need FK dropped temporarily
+      const fkConstraints: Record<string, string> = {
+        profiles: 'profiles_id_fkey',
+      };
+      const fkConstraint = fkConstraints[tableName];
 
       const headerLines = [
         `-- Tabela: ${tableName} (${label})`,
@@ -169,9 +172,9 @@ export async function exportSQLPartsZip(
         '',
       ];
 
-      if (needsDisableTriggers && ci === 0) {
-        headerLines.push(`-- Desabilitar triggers/FK temporariamente (tabela referencia auth.users)`);
-        headerLines.push(`ALTER TABLE public."${tableName}" DISABLE TRIGGER ALL;`);
+      if (fkConstraint && ci === 0) {
+        headerLines.push(`-- Remover FK temporariamente (tabela referencia auth.users)`);
+        headerLines.push(`ALTER TABLE public."${tableName}" DROP CONSTRAINT IF EXISTS ${fkConstraint};`);
         headerLines.push('');
       }
 
@@ -186,11 +189,12 @@ export async function exportSQLPartsZip(
 
       const body = generateInserts(tableName, chunks[ci]);
       
-      // Re-enable triggers on the last part of the table
+      // Re-add FK on the last part of the table
       const isLastPart = ci === chunks.length - 1;
       let footer = '';
-      if (needsDisableTriggers && isLastPart) {
-        footer += `\n\n-- Reabilitar triggers/FK\nALTER TABLE public."${tableName}" ENABLE TRIGGER ALL;`;
+      if (fkConstraint && isLastPart) {
+        footer += `\n\n-- Recriar FK (registros sem auth.users correspondente ficarão órfãos mas funcionais)`;
+        footer += `\nALTER TABLE public."${tableName}" ADD CONSTRAINT ${fkConstraint} FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;`;
       }
       footer += '\n\nCOMMIT;\n';
 
