@@ -157,6 +157,9 @@ export async function exportSQLPartsZip(
       const partSuffix = chunks.length > 1 ? `_part${ci + 1}` : '';
       const fileName = `${String(fileIndex).padStart(3, '0')}_${tableName}${partSuffix}.sql`;
 
+      // Tables that reference auth.users need FK checks disabled
+      const needsDisableTriggers = ['profiles'].includes(tableName);
+
       const headerLines = [
         `-- Tabela: ${tableName} (${label})`,
         `-- Registros: ${chunks[ci].length} de ${rows.length}`,
@@ -165,6 +168,12 @@ export async function exportSQLPartsZip(
         'BEGIN;',
         '',
       ];
+
+      if (needsDisableTriggers && ci === 0) {
+        headerLines.push(`-- Desabilitar triggers/FK temporariamente (tabela referencia auth.users)`);
+        headerLines.push(`ALTER TABLE public."${tableName}" DISABLE TRIGGER ALL;`);
+        headerLines.push('');
+      }
 
       // Add TRUNCATE only on the first part of each table
       if (ci === 0) {
