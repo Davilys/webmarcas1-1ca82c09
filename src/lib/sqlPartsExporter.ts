@@ -129,14 +129,23 @@ export async function exportSQLPartsZip(
       const partSuffix = chunks.length > 1 ? `_part${ci + 1}` : '';
       const fileName = `${String(fileIndex).padStart(3, '0')}_${tableName}${partSuffix}.sql`;
 
-      const header = [
+      const headerLines = [
         `-- Tabela: ${tableName} (${label})`,
         `-- Registros: ${chunks[ci].length} de ${rows.length}`,
         `-- Gerado em: ${new Date().toISOString()}`,
         '',
         'BEGIN;',
         '',
-      ].join('\n');
+      ];
+
+      // Add TRUNCATE only on the first part of each table
+      if (ci === 0) {
+        headerLines.push(`-- Limpar tabela antes de inserir para evitar duplicidade`);
+        headerLines.push(`TRUNCATE TABLE public."${tableName}" CASCADE;`);
+        headerLines.push('');
+      }
+
+      const header = headerLines.join('\n');
 
       const body = generateInserts(tableName, chunks[ci]);
       const footer = '\n\nCOMMIT;\n';
