@@ -23,7 +23,7 @@ serve(async (req) => {
       }
     );
 
-    const { email, password, fullName, fullAccess, permissions } = await req.json();
+    const { email, password, fullName, fullAccess, permissions, viewOwnClientsOnly } = await req.json();
 
     let userId: string;
 
