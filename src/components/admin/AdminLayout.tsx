@@ -285,23 +285,10 @@ function AdminSidebar() {
     return first?.href || '/admin/configuracoes';
   }, [permissions]);
 
-  // Keep a ref of the last valid menu items to prevent flash during refetch
-  const [cachedMenuItems, setCachedMenuItems] = useState<MenuItem[]>(menuItems);
-
-  // Filter menu items based on user permissions
+  // Filter menu items based on user permissions — show nothing until permissions load
   const filteredMenuItems = useMemo(() => {
-    if (!permissions) return cachedMenuItems; // Show cached items while loading/refetching
+    if (!permissions) return []; // Don't show any items until permissions are confirmed
     return menuItems.filter(item => permissions[item.permissionKey]?.can_view === true);
-  }, [permissions, cachedMenuItems]);
-
-  // Update cache when permissions are loaded
-  useEffect(() => {
-    if (permissions) {
-      const filtered = menuItems.filter(item => permissions[item.permissionKey]?.can_view === true);
-      if (filtered.length > 0) {
-        setCachedMenuItems(filtered);
-      }
-    }
   }, [permissions]);
 
   const handleLogout = async () => {
@@ -496,13 +483,14 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
   }, [checkAdmin]);
 
   // Centralized permission guard: redirect if user can't access current route
+  // Runs as soon as permissions are loaded (not null) — blocks even during initial load
   useEffect(() => {
-    if (isAdmin && !loadingPermissions && permissions) {
+    if (isAdmin && permissions) {
       if (!canAccessPath(location.pathname)) {
         navigate(getFirstPermittedRoute, { replace: true });
       }
     }
-  }, [isAdmin, loadingPermissions, permissions, location.pathname, canAccessPath, navigate, getFirstPermittedRoute]);
+  }, [isAdmin, permissions, location.pathname, canAccessPath, navigate, getFirstPermittedRoute]);
 
   if (authError) {
     return (

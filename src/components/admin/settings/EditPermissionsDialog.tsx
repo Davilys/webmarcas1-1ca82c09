@@ -44,10 +44,12 @@ export function EditPermissionsDialog({ open, onOpenChange, user }: EditPermissi
       if (!user) return;
 
       // Delete existing permissions
-      await supabase
+      const { error: deleteError } = await supabase
         .from('admin_permissions')
         .delete()
         .eq('user_id', user.id);
+
+      if (deleteError) throw deleteError;
 
       // If full access, don't insert section permissions
       if (!fullAccess) {

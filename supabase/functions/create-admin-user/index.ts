@@ -23,7 +23,7 @@ serve(async (req) => {
       }
     );
 
-    const { email, password, fullName, fullAccess, permissions } = await req.json();
+    const { email, password, fullName, fullAccess, permissions, viewOwnClientsOnly } = await req.json();
 
     let userId: string;
 
@@ -99,6 +99,26 @@ serve(async (req) => {
         if (permError) {
           console.error("Error inserting permissions:", permError);
         }
+      }
+    }
+
+    // Save clients_own_only permission if enabled
+    if (viewOwnClientsOnly) {
+      const { error: ownError } = await supabaseAdmin
+        .from("admin_permissions")
+        .upsert(
+          {
+            user_id: userId,
+            permission_key: "clients_own_only",
+            can_view: true,
+            can_edit: false,
+            can_delete: false,
+          },
+          { onConflict: "user_id,permission_key" }
+        );
+
+      if (ownError) {
+        console.error("Error saving clients_own_only:", ownError);
       }
     }
 

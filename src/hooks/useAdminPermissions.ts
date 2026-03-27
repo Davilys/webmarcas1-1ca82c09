@@ -108,10 +108,16 @@ export function useAdminPermissions(userId?: string) {
 
       if (error) throw error;
 
-      // Convert to map for easy access
+      // If no permission rows exist, this user has FULL ACCESS (no restrictions set)
+      const hasCustomPermissions = data && data.length > 0;
+
+      if (!hasCustomPermissions) {
+        return FULL_ACCESS_MAP;
+      }
+
+      // Convert to map for easy access — deny by default when custom permissions exist
       const permissionsMap: UserPermissions = {};
       
-      // Initialize with defaults — deny all by default for non-master admins
       CRM_SECTIONS.forEach(section => {
         permissionsMap[section.key] = {
           can_view: false,
@@ -121,16 +127,14 @@ export function useAdminPermissions(userId?: string) {
       });
 
       // Apply explicit permissions from the database
-      if (data && data.length > 0) {
-        data.forEach((perm) => {
-          const key = perm.permission_key as PermissionKey;
-          permissionsMap[key] = {
-            can_view: perm.can_view === true,
-            can_edit: perm.can_edit === true,
-            can_delete: perm.can_delete === true,
-          };
-        });
-      }
+      data.forEach((perm) => {
+        const key = perm.permission_key as PermissionKey;
+        permissionsMap[key] = {
+          can_view: perm.can_view === true,
+          can_edit: perm.can_edit === true,
+          can_delete: perm.can_delete === true,
+        };
+      });
 
       return permissionsMap;
     },
