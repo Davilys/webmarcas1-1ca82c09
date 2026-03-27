@@ -102,6 +102,26 @@ serve(async (req) => {
       }
     }
 
+    // Save clients_own_only permission if enabled
+    if (viewOwnClientsOnly) {
+      const { error: ownError } = await supabaseAdmin
+        .from("admin_permissions")
+        .upsert(
+          {
+            user_id: userId,
+            permission_key: "clients_own_only",
+            can_view: true,
+            can_edit: false,
+            can_delete: false,
+          },
+          { onConflict: "user_id,permission_key" }
+        );
+
+      if (ownError) {
+        console.error("Error saving clients_own_only:", ownError);
+      }
+    }
+
     return new Response(
       JSON.stringify({ success: true, userId }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
