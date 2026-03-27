@@ -39,7 +39,8 @@ const TABLE_ORDER: string[] = [
   'conversation_participants', 'conversation_messages', 'call_signals',
 ];
 
-const ROWS_PER_FILE = 500;
+const ROWS_PER_FILE = 100;
+const MAX_BYTES_PER_FILE = 512 * 1024; // 512 KB
 
 function sqlValue(val: unknown): string {
   if (val === null || val === undefined) return 'NULL';
@@ -118,10 +119,27 @@ export async function exportSQLPartsZip(
 
     totalRecords += rows.length;
 
-    // Split into chunks
+    // Split into chunks respecting both row count and byte size limits
+    const encoder = new TextEncoder();
     const chunks: Record<string, unknown>[][] = [];
-    for (let i = 0; i < rows.length; i += ROWS_PER_FILE) {
-      chunks.push(rows.slice(i, i + ROWS_PER_FILE));
+    let currentChunk: Record<string, unknown>[] = [];
+    let currentBytes = 0;
+
+    for (const row of rows) {
+      const stmt = generateInserts(tableName, [row]);
+      const stmtBytes = encoder.encode(stmt).length;
+
+      if (currentChunk.length >= ROWS_PER_FILE || (currentBytes + stmtBytes > MAX_BYTES_PER_FILE && currentChunk.length > 0)) {
+        chunks.push(currentChunk);
+        currentChunk = [];
+        currentBytes = 0;
+      }
+
+      currentChunk.push(row);
+      currentBytes += stmtBytes;
+    }
+    if (currentChunk.length > 0) {
+      chunks.push(currentChunk);
     }
 
     for (let ci = 0; ci < chunks.length; ci++) {
