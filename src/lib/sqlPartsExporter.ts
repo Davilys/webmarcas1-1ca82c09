@@ -39,13 +39,23 @@ const TABLE_ORDER: string[] = [
   'conversation_participants', 'conversation_messages', 'call_signals',
 ];
 
-const ROWS_PER_FILE = 100;
+const ROWS_PER_FILE = 500;
 const MAX_BYTES_PER_FILE = 512 * 1024; // 512 KB
 
 function sqlValue(val: unknown): string {
   if (val === null || val === undefined) return 'NULL';
   if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
   if (typeof val === 'number') return String(val);
+  if (Array.isArray(val)) {
+    if (val.length === 0) return "'{}'";
+    // Check if it's a simple array (text[]/int[]) vs complex objects (jsonb)
+    const isSimple = val.every(item => typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean');
+    if (isSimple) {
+      const items = val.map(item => `'${String(item).replace(/'/g, "''")}'`).join(', ');
+      return `ARRAY[${items}]`;
+    }
+    return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
+  }
   if (typeof val === 'object') {
     return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
   }
