@@ -316,10 +316,30 @@ export function BackupSettings() {
             <p className="text-sm text-muted-foreground">
               Gera INSERT statements para todas as tabelas — ideal para migrar dados entre projetos Supabase
             </p>
-            <Button size="sm" onClick={exportSQL} disabled={isExporting}>
-              {exporting === 'sql' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-              <Database className="h-3 w-3 mr-1" /> Exportar SQL ({ALL_BACKUP_TABLES.length} tabelas)
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={exportSQL} disabled={isExporting}>
+                {exporting === 'sql' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                <Database className="h-3 w-3 mr-1" /> SQL Único
+              </Button>
+              <Button size="sm" variant="default" onClick={exportSQLParts} disabled={isExporting}>
+                {exporting === 'sql-parts' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                <Archive className="h-3 w-3 mr-1" /> SQL em Partes (ZIP)
+              </Button>
+            </div>
+            {sqlPartsProgress && (
+              <div className="p-3 rounded-lg border bg-muted/30 space-y-2 mt-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2">
+                    <Database className="h-4 w-4 text-violet-500 animate-pulse" />
+                    <span className="font-medium">{sqlPartsProgress.currentTable}</span>
+                  </span>
+                  <span className="text-muted-foreground">
+                    {sqlPartsProgress.tableIndex} de {sqlPartsProgress.totalTables} tabelas • {sqlPartsProgress.filesGenerated} arquivos
+                  </span>
+                </div>
+                <Progress value={(sqlPartsProgress.tableIndex / sqlPartsProgress.totalTables) * 100} className="h-2" />
+              </div>
+            )}
           </div>
         </div>
         </div>
