@@ -98,6 +98,3 @@ verify_jwt = false
 
 [functions.firecrawl-scrape]
 verify_jwt = false
-
-[functions.restore-backup]
-verify_jwt = false
