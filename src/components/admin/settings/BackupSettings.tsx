@@ -194,6 +194,29 @@ export function BackupSettings() {
     }
   };
 
+  const exportSQLParts = async () => {
+    setExporting('sql-parts');
+    setSqlPartsProgress(null);
+    try {
+      const { blob, totalFiles, totalRecords } = await exportSQLPartsZip(
+        supabase,
+        (p) => setSqlPartsProgress(p)
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `webmarcas_sql_parts_${Date.now()}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`ZIP gerado: ${totalFiles} arquivos com ${totalRecords} registros!`);
+    } catch {
+      toast.error('Erro ao gerar ZIP SQL');
+    } finally {
+      setExporting(null);
+      setSqlPartsProgress(null);
+    }
+  };
+
   const isExporting = exporting !== null;
 
   return (
