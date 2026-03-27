@@ -185,7 +185,14 @@ export async function exportSQLPartsZip(
       const header = headerLines.join('\n');
 
       const body = generateInserts(tableName, chunks[ci]);
-      const footer = '\n\nCOMMIT;\n';
+      
+      // Re-enable triggers on the last part of the table
+      const isLastPart = ci === chunks.length - 1;
+      let footer = '';
+      if (needsDisableTriggers && isLastPart) {
+        footer += `\n\n-- Reabilitar triggers/FK\nALTER TABLE public."${tableName}" ENABLE TRIGGER ALL;`;
+      }
+      footer += '\n\nCOMMIT;\n';
 
       zip.file(fileName, header + body + footer);
     }
