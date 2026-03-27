@@ -129,14 +129,23 @@ export async function exportSQLPartsZip(
       const partSuffix = chunks.length > 1 ? `_part${ci + 1}` : '';
       const fileName = `${String(fileIndex).padStart(3, '0')}_${tableName}${partSuffix}.sql`;
 
-      const header = [
+      const headerLines = [
         `-- Tabela: ${tableName} (${label})`,
         `-- Registros: ${chunks[ci].length} de ${rows.length}`,
         `-- Gerado em: ${new Date().toISOString()}`,
         '',
         'BEGIN;',
         '',
-      ].join('\n');
+      ];
+
+      // Add TRUNCATE only on the first part of each table
+      if (ci === 0) {
+        headerLines.push(`-- Limpar tabela antes de inserir para evitar duplicidade`);
+        headerLines.push(`TRUNCATE TABLE public."${tableName}" CASCADE;`);
+        headerLines.push('');
+      }
+
+      const header = headerLines.join('\n');
 
       const body = generateInserts(tableName, chunks[ci]);
       const footer = '\n\nCOMMIT;\n';
@@ -157,10 +166,12 @@ export async function exportSQLPartsZip(
     '2. Execute cada arquivo na ORDEM NUMÉRICA (001, 002, 003...)',
     '3. Tabelas independentes vêm primeiro, tabelas com FK depois',
     '4. Cada arquivo é autocontido (BEGIN/COMMIT)',
-    '5. É seguro re-executar — usa ON CONFLICT DO UPDATE',
+    '5. A primeira parte de cada tabela faz TRUNCATE CASCADE antes de inserir',
+    '6. É seguro re-executar — limpa e reinsere os dados',
     '',
     'IMPORTANTE:',
     '- NÃO altere a ordem de execução',
+    '- O TRUNCATE CASCADE remove dados dependentes — por isso a ordem importa',
     '- Se um arquivo falhar, corrija e re-execute antes de continuar',
     '- Usuários (auth.users) NÃO são migrados — precisam se recadastrar',
     '- Arquivos do Storage NÃO são migrados',
