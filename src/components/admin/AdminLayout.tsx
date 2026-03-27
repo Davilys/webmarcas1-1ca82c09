@@ -483,13 +483,14 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
   }, [checkAdmin]);
 
   // Centralized permission guard: redirect if user can't access current route
+  // Runs as soon as permissions are loaded (not null) — blocks even during initial load
   useEffect(() => {
-    if (isAdmin && !loadingPermissions && permissions) {
+    if (isAdmin && permissions) {
       if (!canAccessPath(location.pathname)) {
         navigate(getFirstPermittedRoute, { replace: true });
       }
     }
-  }, [isAdmin, loadingPermissions, permissions, location.pathname, canAccessPath, navigate, getFirstPermittedRoute]);
+  }, [isAdmin, permissions, location.pathname, canAccessPath, navigate, getFirstPermittedRoute]);
 
   if (authError) {
     return (

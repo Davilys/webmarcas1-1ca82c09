@@ -184,11 +184,11 @@ export function MobileBottomNav() {
   const { permissions } = useAdminPermissions();
 
   const filteredPrimary = primaryNavItems.filter(
-    item => !permissions || permissions[item.permissionKey]?.can_view !== false,
+    item => permissions && permissions[item.permissionKey]?.can_view === true,
   );
 
   const filteredMore = moreItems.filter(
-    item => !permissions || permissions[item.permissionKey]?.can_view !== false,
+    item => permissions && permissions[item.permissionKey]?.can_view === true,
   );
 
   const isMoreActive = moreItems.some(i => i.href === location.pathname);
