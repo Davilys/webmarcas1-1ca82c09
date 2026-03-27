@@ -22,6 +22,7 @@ import { exportSQLPartsZip, ExportProgress } from '@/lib/sqlPartsExporter';
 export function BackupSettings() {
   const [exporting, setExporting] = useState<string | null>(null);
   const [exportProgress, setExportProgress] = useState({ current: 0, total: 0, tableName: '' });
+  const [sqlPartsProgress, setSqlPartsProgress] = useState<ExportProgress | null>(null);
 
   const { data: importLogs, isLoading } = useQuery({
     queryKey: ['import-logs'],
