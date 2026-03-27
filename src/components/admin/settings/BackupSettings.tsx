@@ -47,7 +47,7 @@ export function BackupSettings() {
         return;
       }
       downloadData(rawData, `webmarcas_${tableName}_${Date.now()}`, fmt);
-      toast.success(`${data.length} registros de ${typeLabel} exportados!`);
+      toast.success(`${rawData.length} registros de ${typeLabel} exportados!`);
     } catch {
       toast.error('Erro ao exportar dados');
     } finally {
