@@ -39,7 +39,8 @@ const TABLE_ORDER: string[] = [
   'conversation_participants', 'conversation_messages', 'call_signals',
 ];
 
-const ROWS_PER_FILE = 500;
+const ROWS_PER_FILE = 100;
+const MAX_BYTES_PER_FILE = 512 * 1024; // 512 KB
 
 function sqlValue(val: unknown): string {
   if (val === null || val === undefined) return 'NULL';
