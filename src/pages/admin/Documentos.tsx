@@ -681,6 +681,65 @@ export default function AdminDocumentos() {
     } catch { toast.error('Erro ao excluir documento'); }
   };
 
+  const handleExportDocuments = () => {
+    const dataToExport = documents.map(d => ({
+      name: d.name,
+      file_url: d.file_url,
+      document_type: d.document_type,
+      mime_type: d.mime_type,
+      file_size: d.file_size,
+      protocol: d.protocol,
+      user_id: d.user_id,
+      process_id: d.process_id,
+      created_at: d.created_at,
+      client_name: (d.profiles as any)?.full_name || null,
+      client_email: (d.profiles as any)?.email || null,
+      brand_name: (d.brand_processes as any)?.brand_name || null,
+    }));
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `documentos_export_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${dataToExport.length} documentos exportados`);
+  };
+
+  const handleImportDocuments = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    try {
+      const text = await file.text();
+      const records = JSON.parse(text);
+      if (!Array.isArray(records)) throw new Error('Formato inválido');
+      let imported = 0, failed = 0;
+      for (let i = 0; i < records.length; i += 50) {
+        const batch = records.slice(i, i + 50).map((r: any) => ({
+          name: r.name,
+          file_url: r.file_url,
+          document_type: r.document_type || 'outro',
+          mime_type: r.mime_type || null,
+          file_size: r.file_size || null,
+          protocol: r.protocol || null,
+          user_id: r.user_id || null,
+          process_id: r.process_id || null,
+        }));
+        const { error } = await (supabase as any).from('documents').insert(batch);
+        if (error) { failed += batch.length; } else { imported += batch.length; }
+      }
+      if (failed === 0) {
+        toast.success(`${imported} documentos importados com sucesso!`);
+      } else {
+        toast.warning(`${imported} importados, ${failed} falharam`);
+      }
+      await fetchDocuments();
+    } catch (err: any) {
+      toast.error(`Erro ao importar: ${err.message}`);
+    }
+  };
+
   // ─── Derived stats ─────────────────────────────
   const stats = useMemo(() => {
     const totalSize = documents.reduce((acc, d) => acc + (d.file_size || 0), 0);
