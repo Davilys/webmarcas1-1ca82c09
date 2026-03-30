@@ -121,7 +121,7 @@ const RegistroBlockchain = () => {
 
               <motion.div {...fadeUp(0.3)} className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-10">
                 <motion.a
-                  href="https://registro.webmarcas.net"
+                  href="https://app.webmarcas.net"
                   target="_blank"
                   rel="noopener noreferrer"
                   whileHover={{ scale: 1.05, y: -2 }}
