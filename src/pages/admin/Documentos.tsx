@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Search, Plus, FileText, Download, Eye, Trash2, MoreVertical,
+  Search, Plus, FileText, Download, Upload, Eye, Trash2, MoreVertical,
   Image, File as FileIcon, User, Filter, X, RefreshCw,
   FolderOpen, Shield, Scale, Receipt, Landmark, Award,
   Newspaper, MessageSquare, Package, HardDrive, Zap, Activity,
@@ -681,6 +681,65 @@ export default function AdminDocumentos() {
     } catch { toast.error('Erro ao excluir documento'); }
   };
 
+  const handleExportDocuments = () => {
+    const dataToExport = documents.map(d => ({
+      name: d.name,
+      file_url: d.file_url,
+      document_type: d.document_type,
+      mime_type: d.mime_type,
+      file_size: d.file_size,
+      protocol: d.protocol,
+      user_id: d.user_id,
+      process_id: d.process_id,
+      created_at: d.created_at,
+      client_name: (d.profiles as any)?.full_name || null,
+      client_email: (d.profiles as any)?.email || null,
+      brand_name: (d.brand_processes as any)?.brand_name || null,
+    }));
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `documentos_export_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${dataToExport.length} documentos exportados`);
+  };
+
+  const handleImportDocuments = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    try {
+      const text = await file.text();
+      const records = JSON.parse(text);
+      if (!Array.isArray(records)) throw new Error('Formato inválido');
+      let imported = 0, failed = 0;
+      for (let i = 0; i < records.length; i += 50) {
+        const batch = records.slice(i, i + 50).map((r: any) => ({
+          name: r.name,
+          file_url: r.file_url,
+          document_type: r.document_type || 'outro',
+          mime_type: r.mime_type || null,
+          file_size: r.file_size || null,
+          protocol: r.protocol || null,
+          user_id: r.user_id || null,
+          process_id: r.process_id || null,
+        }));
+        const { error } = await (supabase as any).from('documents').insert(batch);
+        if (error) { failed += batch.length; } else { imported += batch.length; }
+      }
+      if (failed === 0) {
+        toast.success(`${imported} documentos importados com sucesso!`);
+      } else {
+        toast.warning(`${imported} importados, ${failed} falharam`);
+      }
+      await fetchDocuments();
+    } catch (err: any) {
+      toast.error(`Erro ao importar: ${err.message}`);
+    }
+  };
+
   // ─── Derived stats ─────────────────────────────
   const stats = useMemo(() => {
     const totalSize = documents.reduce((acc, d) => acc + (d.file_size || 0), 0);
@@ -816,9 +875,27 @@ export default function AdminDocumentos() {
                 whileTap={{ scale: 0.95 }}
                 onClick={handleRefresh}
                 className="w-9 h-9 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Atualizar"
               >
                 <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
               </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleExportDocuments}
+                disabled={documents.length === 0}
+                className="w-9 h-9 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+                title="Exportar documentos (JSON)"
+              >
+                <Download className="h-4 w-4" />
+              </motion.button>
+              <label
+                className="w-9 h-9 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                title="Importar documentos (JSON)"
+              >
+                <Upload className="h-4 w-4" />
+                <input type="file" accept=".json" className="hidden" onChange={handleImportDocuments} />
+              </label>
               <UploadDialog processes={processes} onDone={fetchDocuments} />
             </div>
           </div>
