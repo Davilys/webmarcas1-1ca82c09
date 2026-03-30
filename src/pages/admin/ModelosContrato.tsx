@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  FileStack, Plus, RefreshCw, Edit, Trash2, Copy, Eye, Upload,
+  FileStack, Plus, RefreshCw, Edit, Trash2, Copy, Eye, Upload, Download,
   Search, FileText, CheckCircle2, XCircle, Layers, Braces, Sparkles,
   TrendingUp, Clock, Filter
 } from 'lucide-react';
@@ -435,6 +435,35 @@ export default function ModelosContrato() {
             <div className="flex items-center gap-2">
               <Button variant="outline" size="icon" onClick={fetchData} className="h-9 w-9">
                 <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const dataToExport = templates.map(t => ({
+                    name: t.name,
+                    content: t.content,
+                    contract_type: t.contract_type?.name || '',
+                    is_active: t.is_active,
+                    variables: Array.isArray(t.variables) ? (t.variables as string[]).join(', ') : '',
+                    created_at: t.created_at,
+                  }));
+                  const jsonStr = JSON.stringify(dataToExport, null, 2);
+                  const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `modelos_contrato_${new Date().toISOString().slice(0, 10)}.json`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                  toast.success(`${dataToExport.length} modelos exportados com sucesso!`);
+                }}
+                className="h-9 gap-2"
+                disabled={templates.length === 0}
+              >
+                <Download className="h-4 w-4" />
+                Exportar
               </Button>
               <Button
                 variant="outline"
