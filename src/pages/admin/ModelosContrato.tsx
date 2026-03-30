@@ -438,6 +438,35 @@ export default function ModelosContrato() {
               </Button>
               <Button
                 variant="outline"
+                onClick={() => {
+                  const dataToExport = templates.map(t => ({
+                    name: t.name,
+                    content: t.content,
+                    contract_type: t.contract_type?.name || '',
+                    is_active: t.is_active,
+                    variables: Array.isArray(t.variables) ? (t.variables as string[]).join(', ') : '',
+                    created_at: t.created_at,
+                  }));
+                  const jsonStr = JSON.stringify(dataToExport, null, 2);
+                  const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `modelos_contrato_${new Date().toISOString().slice(0, 10)}.json`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                  toast.success(`${dataToExport.length} modelos exportados com sucesso!`);
+                }}
+                className="h-9 gap-2"
+                disabled={templates.length === 0}
+              >
+                <Download className="h-4 w-4" />
+                Exportar
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => setUploadDialogOpen(true)}
                 className="h-9 gap-2"
               >
