@@ -816,9 +816,27 @@ export default function AdminDocumentos() {
                 whileTap={{ scale: 0.95 }}
                 onClick={handleRefresh}
                 className="w-9 h-9 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Atualizar"
               >
                 <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
               </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleExportDocuments}
+                disabled={documents.length === 0}
+                className="w-9 h-9 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+                title="Exportar documentos (JSON)"
+              >
+                <Download className="h-4 w-4" />
+              </motion.button>
+              <label
+                className="w-9 h-9 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                title="Importar documentos (JSON)"
+              >
+                <Upload className="h-4 w-4" />
+                <input type="file" accept=".json" className="hidden" onChange={handleImportDocuments} />
+              </label>
               <UploadDialog processes={processes} onDone={fetchDocuments} />
             </div>
           </div>
