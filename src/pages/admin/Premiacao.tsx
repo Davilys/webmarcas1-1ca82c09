@@ -309,8 +309,8 @@ export default function Premiacao() {
   const totalCobrancaPremium = calcCobrancaPremium(cobrancaEntries, cfg.cobranca);
   const pubMilestone = calcPublicacaoMilestoneBonus(publicacaoEntries, cfg.publicacao);
   const cobMilestone = calcCobrancaMilestoneBonus(cobrancaEntries, cfg.cobranca);
-  const totalMilestoneBonus = pubMilestone.bonus + cobMilestone.bonus;
-  const totalPremium = totalRegistroPremium + totalPublicacaoPremium + totalCobrancaPremium + totalMilestoneBonus;
+  const totalMilestoneBonus = 0;
+  const totalPremium = totalRegistroPremium + totalPublicacaoPremium + totalCobrancaPremium;
   const totalBrands = registroEntries.reduce((s, e) => s + (e.brand_quantity || 1), 0);
   const totalPubs = publicacaoEntries.reduce((s, e) => s + (e.pub_quantity || 1), 0);
 
