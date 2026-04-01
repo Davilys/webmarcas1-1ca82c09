@@ -136,6 +136,7 @@ function TemplateCard({
   onDuplicate,
   onDelete,
   onToggleActive,
+  onPrint,
 }: {
   template: ContractTemplate;
   index: number;
@@ -144,6 +145,7 @@ function TemplateCard({
   onDuplicate: (t: ContractTemplate) => void;
   onDelete: (id: string) => void;
   onToggleActive: (t: ContractTemplate) => void;
+  onPrint: (t: ContractTemplate) => void;
 }) {
   const vars = Array.isArray(template.variables) ? template.variables as string[] : [];
   const docType = getDocumentType(template.name);
