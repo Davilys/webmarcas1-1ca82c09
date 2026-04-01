@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -320,6 +320,8 @@ export default function ModelosContrato() {
   const [editingTemplate, setEditingTemplate] = useState<ContractTemplate | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState({ content: '', name: '' });
+  const [printAfterPreview, setPrintAfterPreview] = useState(false);
+  const contractRendererRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -385,50 +387,68 @@ export default function ModelosContrato() {
 
   const handlePrint = (t: ContractTemplate) => {
     const previewContent = renderPreviewContent(t.content);
-    const docType = getDocumentType(t.name) as 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa';
+    setPreviewData({ content: previewContent, name: t.name });
+    setPrintAfterPreview(true);
+    setPreviewOpen(true);
+  };
+
+  const executePrint = useCallback(() => {
+    if (!printAfterPreview || !contractRendererRef.current) return;
+    setPrintAfterPreview(false);
+    
+    const renderedHTML = contractRendererRef.current.innerHTML;
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error('Popup bloqueado. Permita popups para imprimir.');
       return;
     }
+    
+    // Copy all stylesheets from current page
+    const styles = Array.from(document.styleSheets)
+      .map(sheet => {
+        try {
+          return Array.from(sheet.cssRules).map(rule => rule.cssText).join('\n');
+        } catch { return ''; }
+      })
+      .join('\n');
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>Minuta - ${t.name}</title>
+        <title>Minuta - ${previewData.name}</title>
         <style>
-          body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 40px; color: #1f2937; line-height: 1.6; }
-          .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-          .header-url { color: #0284c7; font-size: 12px; }
-          .divider { height: 3px; background: linear-gradient(90deg, #f97316, #eab308); margin-bottom: 20px; }
-          .title { text-align: center; color: #0284c7; font-size: 18px; font-weight: bold; text-decoration: underline; margin-bottom: 16px; }
-          .subtitle-box { background: #1e3a5f; color: white; text-align: center; padding: 10px 16px; font-size: 11px; font-weight: bold; margin-bottom: 16px; }
-          .highlight-box { background: #FEF9E7; border-left: 3px solid #F59E0B; padding: 12px 16px; font-size: 10px; color: #374151; margin-bottom: 20px; }
+          ${styles}
+          body { margin: 0; padding: 40px; background: white; }
+          .print-container { max-width: 800px; margin: 0 auto; }
           .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 80px; color: rgba(0,0,0,0.04); font-weight: bold; pointer-events: none; z-index: 0; }
-          .content { white-space: pre-wrap; font-size: 11px; }
-          .clause { color: #0284c7; font-weight: bold; margin-top: 16px; }
-          .minuta-badge { text-align: center; margin-bottom: 10px; }
+          .minuta-badge { text-align: center; margin-bottom: 16px; }
           .minuta-badge span { background: #fee2e2; color: #dc2626; padding: 4px 16px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-          @media print { .watermark { position: fixed; } @page { margin: 20mm; } }
+          @media print { 
+            .watermark { position: fixed; } 
+            @page { margin: 15mm; } 
+            body { padding: 0; }
+          }
         </style>
       </head>
       <body>
         <div class="watermark">MINUTA</div>
         <div class="minuta-badge"><span>MINUTA - DOCUMENTO SEM VALOR JURÍDICO</span></div>
-        <div class="header">
-          <strong>WebMarcas Intelligence PI</strong>
-          <span class="header-url">www.webmarcas.net</span>
-        </div>
-        <div class="divider"></div>
-        <div class="title">${docType === 'procuracao' ? 'PROCURAÇÃO' : docType.includes('distrato') ? 'DISTRATO' : 'CONTRATO'}</div>
-        <div class="content">${previewContent.replace(/\n/g, '<br>')}</div>
+        <div class="print-container">${renderedHTML}</div>
       </body>
       </html>
     `);
     printWindow.document.close();
-    setTimeout(() => { printWindow.print(); }, 500);
-  };
+    setTimeout(() => { printWindow.print(); }, 600);
+  }, [printAfterPreview, previewData.name]);
+
+  useEffect(() => {
+    if (printAfterPreview && previewOpen && contractRendererRef.current) {
+      const timer = setTimeout(() => executePrint(), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [printAfterPreview, previewOpen, executePrint]);
 
   const handleEdit = (t: ContractTemplate) => {
     setEditingTemplate(t);
@@ -686,18 +706,34 @@ export default function ModelosContrato() {
       />
 
       {/* ─── PREVIEW DIALOG ─────────────────────────────── */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+      <Dialog open={previewOpen} onOpenChange={(open) => {
+        setPreviewOpen(open);
+        if (!open) setPrintAfterPreview(false);
+      }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
-              {previewData.name}
-            </DialogTitle>
+            <div className="flex items-center justify-between w-full">
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                {previewData.name}
+              </DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 mr-6"
+                onClick={executePrint}
+              >
+                <Printer className="h-4 w-4" />
+                Imprimir Minuta
+              </Button>
+            </div>
           </DialogHeader>
-          <ContractRenderer
-            content={previewData.content}
-            documentType={getDocumentType(previewData.name) as 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa'}
-          />
+          <div ref={contractRendererRef}>
+            <ContractRenderer
+              content={previewData.content}
+              documentType={getDocumentType(previewData.name) as 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa'}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </>
