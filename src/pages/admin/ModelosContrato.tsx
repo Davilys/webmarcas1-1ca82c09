@@ -657,6 +657,7 @@ export default function ModelosContrato() {
                   onDuplicate={handleDuplicate}
                   onDelete={handleDelete}
                   onToggleActive={handleToggleActive}
+                  onPrint={handlePrint}
                 />
               ))}
             </div>
