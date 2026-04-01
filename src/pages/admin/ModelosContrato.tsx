@@ -320,6 +320,8 @@ export default function ModelosContrato() {
   const [editingTemplate, setEditingTemplate] = useState<ContractTemplate | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState({ content: '', name: '' });
+  const [printAfterPreview, setPrintAfterPreview] = useState(false);
+  const contractRendererRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { fetchData(); }, []);
 
