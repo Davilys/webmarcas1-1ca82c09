@@ -443,6 +443,13 @@ export default function ModelosContrato() {
     setTimeout(() => { printWindow.print(); }, 600);
   }, [printAfterPreview, previewData.name]);
 
+  useEffect(() => {
+    if (printAfterPreview && previewOpen && contractRendererRef.current) {
+      const timer = setTimeout(() => executePrint(), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [printAfterPreview, previewOpen, executePrint]);
+
   const handleEdit = (t: ContractTemplate) => {
     setEditingTemplate(t);
     setEditorOpen(true);
