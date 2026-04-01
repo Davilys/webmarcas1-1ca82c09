@@ -255,7 +255,7 @@ function TemplateCard({
         </div>
 
         {/* Actions */}
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-5 gap-1.5">
           <Button
             variant="outline"
             size="sm"
@@ -270,20 +270,28 @@ function TemplateCard({
             size="sm"
             className="h-8 text-xs gap-1"
             onClick={() => onPreview(template)}
+            title="Visualizar"
           >
             <Eye className="h-3.5 w-3.5" />
           </Button>
-          <div className="flex gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 h-8 text-xs"
-              onClick={() => onDuplicate(template)}
-              title="Duplicar"
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => onDuplicate(template)}
+            title="Duplicar"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => onPrint(template)}
+            title="Imprimir Minuta"
+          >
+            <Printer className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <Button
           variant="ghost"
