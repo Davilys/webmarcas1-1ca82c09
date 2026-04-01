@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   FileStack, Plus, RefreshCw, Edit, Trash2, Copy, Eye, Upload, Download,
   Search, FileText, CheckCircle2, XCircle, Layers, Braces, Sparkles,
-  TrendingUp, Clock, Filter
+  TrendingUp, Clock, Filter, Printer
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TemplateUploader } from '@/components/admin/contracts/TemplateUploader';
@@ -136,6 +136,7 @@ function TemplateCard({
   onDuplicate,
   onDelete,
   onToggleActive,
+  onPrint,
 }: {
   template: ContractTemplate;
   index: number;
@@ -144,6 +145,7 @@ function TemplateCard({
   onDuplicate: (t: ContractTemplate) => void;
   onDelete: (id: string) => void;
   onToggleActive: (t: ContractTemplate) => void;
+  onPrint: (t: ContractTemplate) => void;
 }) {
   const vars = Array.isArray(template.variables) ? template.variables as string[] : [];
   const docType = getDocumentType(template.name);
@@ -253,7 +255,7 @@ function TemplateCard({
         </div>
 
         {/* Actions */}
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-5 gap-1.5">
           <Button
             variant="outline"
             size="sm"
@@ -268,20 +270,28 @@ function TemplateCard({
             size="sm"
             className="h-8 text-xs gap-1"
             onClick={() => onPreview(template)}
+            title="Visualizar"
           >
             <Eye className="h-3.5 w-3.5" />
           </Button>
-          <div className="flex gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 h-8 text-xs"
-              onClick={() => onDuplicate(template)}
-              title="Duplicar"
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => onDuplicate(template)}
+            title="Duplicar"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => onPrint(template)}
+            title="Imprimir Minuta"
+          >
+            <Printer className="h-3.5 w-3.5" />
+          </Button>
         </div>
         <Button
           variant="ghost"
@@ -371,6 +381,53 @@ export default function ModelosContrato() {
   const handlePreview = (t: ContractTemplate) => {
     setPreviewData({ content: renderPreviewContent(t.content), name: t.name });
     setPreviewOpen(true);
+  };
+
+  const handlePrint = (t: ContractTemplate) => {
+    const previewContent = renderPreviewContent(t.content);
+    const docType = getDocumentType(t.name) as 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa';
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Popup bloqueado. Permita popups para imprimir.');
+      return;
+    }
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Minuta - ${t.name}</title>
+        <style>
+          body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 40px; color: #1f2937; line-height: 1.6; }
+          .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+          .header-url { color: #0284c7; font-size: 12px; }
+          .divider { height: 3px; background: linear-gradient(90deg, #f97316, #eab308); margin-bottom: 20px; }
+          .title { text-align: center; color: #0284c7; font-size: 18px; font-weight: bold; text-decoration: underline; margin-bottom: 16px; }
+          .subtitle-box { background: #1e3a5f; color: white; text-align: center; padding: 10px 16px; font-size: 11px; font-weight: bold; margin-bottom: 16px; }
+          .highlight-box { background: #FEF9E7; border-left: 3px solid #F59E0B; padding: 12px 16px; font-size: 10px; color: #374151; margin-bottom: 20px; }
+          .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 80px; color: rgba(0,0,0,0.04); font-weight: bold; pointer-events: none; z-index: 0; }
+          .content { white-space: pre-wrap; font-size: 11px; }
+          .clause { color: #0284c7; font-weight: bold; margin-top: 16px; }
+          .minuta-badge { text-align: center; margin-bottom: 10px; }
+          .minuta-badge span { background: #fee2e2; color: #dc2626; padding: 4px 16px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+          @media print { .watermark { position: fixed; } @page { margin: 20mm; } }
+        </style>
+      </head>
+      <body>
+        <div class="watermark">MINUTA</div>
+        <div class="minuta-badge"><span>MINUTA - DOCUMENTO SEM VALOR JURÍDICO</span></div>
+        <div class="header">
+          <strong>WebMarcas Intelligence PI</strong>
+          <span class="header-url">www.webmarcas.net</span>
+        </div>
+        <div class="divider"></div>
+        <div class="title">${docType === 'procuracao' ? 'PROCURAÇÃO' : docType.includes('distrato') ? 'DISTRATO' : 'CONTRATO'}</div>
+        <div class="content">${previewContent.replace(/\n/g, '<br>')}</div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); }, 500);
   };
 
   const handleEdit = (t: ContractTemplate) => {
@@ -600,6 +657,7 @@ export default function ModelosContrato() {
                   onDuplicate={handleDuplicate}
                   onDelete={handleDelete}
                   onToggleActive={handleToggleActive}
+                  onPrint={handlePrint}
                 />
               ))}
             </div>
