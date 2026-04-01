@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   FileStack, Plus, RefreshCw, Edit, Trash2, Copy, Eye, Upload, Download,
   Search, FileText, CheckCircle2, XCircle, Layers, Braces, Sparkles,
-  TrendingUp, Clock, Filter
+  TrendingUp, Clock, Filter, Printer
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TemplateUploader } from '@/components/admin/contracts/TemplateUploader';
