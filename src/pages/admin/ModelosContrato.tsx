@@ -325,6 +325,13 @@ export default function ModelosContrato() {
 
   useEffect(() => { fetchData(); }, []);
 
+  useEffect(() => {
+    if (printAfterPreview && previewOpen && contractRendererRef.current) {
+      const timer = setTimeout(() => executePrint(), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [printAfterPreview, previewOpen, executePrint]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
