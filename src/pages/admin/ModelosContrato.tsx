@@ -384,7 +384,7 @@ export default function ModelosContrato() {
     setPreviewOpen(true);
   };
 
-  const handlePrint = (t: ContractTemplate) => {
+  const handlePrint = async (t: ContractTemplate) => {
     const previewContent = renderPreviewContent(t.content);
     const docType = getDocumentType(t.name) as 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa';
     const printWindow = window.open('', '_blank');
@@ -392,43 +392,40 @@ export default function ModelosContrato() {
       toast.error('Popup bloqueado. Permita popups para imprimir.');
       return;
     }
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Minuta - ${t.name}</title>
-        <style>
-          body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 40px; color: #1f2937; line-height: 1.6; }
-          .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-          .header-url { color: #0284c7; font-size: 12px; }
-          .divider { height: 3px; background: linear-gradient(90deg, #f97316, #eab308); margin-bottom: 20px; }
-          .title { text-align: center; color: #0284c7; font-size: 18px; font-weight: bold; text-decoration: underline; margin-bottom: 16px; }
-          .subtitle-box { background: #1e3a5f; color: white; text-align: center; padding: 10px 16px; font-size: 11px; font-weight: bold; margin-bottom: 16px; }
-          .highlight-box { background: #FEF9E7; border-left: 3px solid #F59E0B; padding: 12px 16px; font-size: 10px; color: #374151; margin-bottom: 20px; }
-          .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 80px; color: rgba(0,0,0,0.04); font-weight: bold; pointer-events: none; z-index: 0; }
-          .content { white-space: pre-wrap; font-size: 11px; }
-          .clause { color: #0284c7; font-weight: bold; margin-top: 16px; }
-          .minuta-badge { text-align: center; margin-bottom: 10px; }
-          .minuta-badge span { background: #fee2e2; color: #dc2626; padding: 4px 16px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-          @media print { .watermark { position: fixed; } @page { margin: 20mm; } }
-        </style>
-      </head>
-      <body>
-        <div class="watermark">MINUTA</div>
-        <div class="minuta-badge"><span>MINUTA - DOCUMENTO SEM VALOR JURÍDICO</span></div>
-        <div class="header">
-          <strong>WebMarcas Intelligence PI</strong>
-          <span class="header-url">www.webmarcas.net</span>
-        </div>
-        <div class="divider"></div>
-        <div class="title">${docType === 'procuracao' ? 'PROCURAÇÃO' : docType.includes('distrato') ? 'DISTRATO' : 'CONTRATO'}</div>
-        <div class="content">${previewContent.replace(/\n/g, '<br>')}</div>
-      </body>
-      </html>
-    `);
+
+    let logoBase64: string | undefined;
+    try {
+      logoBase64 = await getLogoBase64ForPDF();
+    } catch { /* fallback handled inside */ }
+
+    // Generate full formatted HTML using DocumentRenderer
+    let fullHtml = generateDocumentPrintHTML(
+      docType,
+      previewContent,
+      null, // no client signature for minuta
+      undefined, // no blockchain
+      undefined, // no signatory name
+      undefined, // no cpf
+      undefined, // no cnpj
+      undefined, // no davilys signature
+      undefined, // baseUrl
+      logoBase64
+    );
+
+    // Inject MINUTA watermark and badge
+    const minutaStyles = `
+      .minuta-watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 100px; color: rgba(0,0,0,0.06); font-weight: bold; pointer-events: none; z-index: 9999; letter-spacing: 20px; }
+      .minuta-badge { text-align: center; margin-bottom: 16px; }
+      .minuta-badge span { background: #fee2e2; color: #dc2626; padding: 6px 20px; border-radius: 6px; font-size: 12px; font-weight: bold; display: inline-block; }
+      @media print { .minuta-watermark { position: fixed !important; color: rgba(0,0,0,0.06) !important; } }
+    `;
+    fullHtml = fullHtml.replace('</style>', `${minutaStyles}</style>`);
+    fullHtml = fullHtml.replace('<body>', '<body><div class="minuta-watermark">MINUTA</div>');
+    fullHtml = fullHtml.replace('<div class="header">', '<div class="minuta-badge"><span>MINUTA - DOCUMENTO SEM VALOR JURÍDICO</span></div><div class="header">');
+
+    printWindow.document.write(fullHtml);
     printWindow.document.close();
-    setTimeout(() => { printWindow.print(); }, 500);
+    setTimeout(() => { printWindow.print(); }, 800);
   };
 
   const handleEdit = (t: ContractTemplate) => {
