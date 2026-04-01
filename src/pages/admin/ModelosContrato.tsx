@@ -699,18 +699,34 @@ export default function ModelosContrato() {
       />
 
       {/* ─── PREVIEW DIALOG ─────────────────────────────── */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+      <Dialog open={previewOpen} onOpenChange={(open) => {
+        setPreviewOpen(open);
+        if (!open) setPrintAfterPreview(false);
+      }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
-              {previewData.name}
-            </DialogTitle>
+            <div className="flex items-center justify-between w-full">
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                {previewData.name}
+              </DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 mr-6"
+                onClick={executePrint}
+              >
+                <Printer className="h-4 w-4" />
+                Imprimir Minuta
+              </Button>
+            </div>
           </DialogHeader>
-          <ContractRenderer
-            content={previewData.content}
-            documentType={getDocumentType(previewData.name) as 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa'}
-          />
+          <div ref={contractRendererRef}>
+            <ContractRenderer
+              content={previewData.content}
+              documentType={getDocumentType(previewData.name) as 'contract' | 'procuracao' | 'distrato_multa' | 'distrato_sem_multa'}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </>
