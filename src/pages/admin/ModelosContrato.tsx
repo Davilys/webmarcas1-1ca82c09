@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { TemplateUploader } from '@/components/admin/contracts/TemplateUploader';
 import { ContractRenderer } from '@/components/contracts/ContractRenderer';
+import { generateDocumentPrintHTML, getLogoBase64ForPDF } from '@/components/contracts/DocumentRenderer';
 import { ContractTemplateEditor } from '@/components/admin/contracts/ContractTemplateEditor';
 import { cn } from '@/lib/utils';
 
