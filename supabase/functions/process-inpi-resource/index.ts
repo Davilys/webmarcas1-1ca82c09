@@ -1129,14 +1129,21 @@ Responda APENAS com o texto completo da RESPOSTA À NOTIFICAÇÃO (mínimo 4.000
 
     // ─────────────────────────────────────────────────────
     // PASS 1: Generate Sections I to IV
+    // Use dedicated prompts for exigencia_merito
     // ─────────────────────────────────────────────────────
-    const pass1System = buildPass1SystemPrompt(resourceTypeLabel, currentDate, agentName, agentStrategy);
+    const isExigenciaMerito = resourceType === 'exigencia_merito';
+    const pass1System = isExigenciaMerito
+      ? buildExigenciaMeritoPass1(resourceTypeLabel, currentDate, agentName, agentStrategy)
+      : buildPass1SystemPrompt(resourceTypeLabel, currentDate, agentName, agentStrategy);
+    const pass1UserText = isExigenciaMerito
+      ? `Analise o(s) documento(s) do INPI anexado(s) e elabore as SEÇÕES I a IV do CUMPRIMENTO DE EXIGÊNCIA DE MÉRITO. Foque em CUMPRIR a exigência do examinador. CADA seção deve ter a extensão MÍNIMA especificada. O texto total desta parte deve ter NO MÍNIMO 3.800 palavras. NÃO inclua conteúdo sobre oposição ou confusão entre marcas.`
+      : `Analise o(s) documento(s) do INPI anexado(s) e elabore as SEÇÕES I a IV do recurso administrativo. CADA seção deve ter a extensão MÍNIMA especificada. O texto total desta parte deve ter NO MÍNIMO 3.800 palavras. Desenvolva CADA argumento com máxima profundidade, como um escritório de PI de elite faria.`;
     const pass1User = [
-      { type: 'input_text', text: `Analise o(s) documento(s) do INPI anexado(s) e elabore as SEÇÕES I a IV do recurso administrativo. CADA seção deve ter a extensão MÍNIMA especificada. O texto total desta parte deve ter NO MÍNIMO 3.800 palavras. Desenvolva CADA argumento com máxima profundidade, como um escritório de PI de elite faria.` },
+      { type: 'input_text', text: pass1UserText },
       ...fileResponseParts,
     ];
 
-    console.log('PASS 1: Generating Sections I-IV...');
+    console.log('PASS 1: Generating Sections I-IV...', isExigenciaMerito ? '(EXIGÊNCIA DE MÉRITO mode)' : '');
     
     // Run extraction and pass 1 in parallel
     const [extractionResult, pass1Result] = await Promise.all([
@@ -1170,22 +1177,35 @@ Responda APENAS com o texto completo da RESPOSTA À NOTIFICAÇÃO (mínimo 4.000
     }
 
     // ─────────────────────────────────────────────────────
-    // PASS 2: Generate Sections V to VIII + closing
+    // PASS 2: Generate remaining sections + closing
+    // Use dedicated prompts for exigencia_merito
     // ─────────────────────────────────────────────────────
-    const pass2System = buildPass2SystemPrompt(resourceTypeLabel, currentDate, agentName, agentStrategy);
-    const pass2User = [
-      { type: 'input_text', text: `Contexto: Você já gerou as Seções I a IV do recurso. Abaixo está o conteúdo já gerado para referência de dados e continuidade de estilo.
+    const pass2System = isExigenciaMerito
+      ? buildExigenciaMeritoPass2(resourceTypeLabel, currentDate, agentName, agentStrategy)
+      : buildPass2SystemPrompt(resourceTypeLabel, currentDate, agentName, agentStrategy);
+    const pass2UserText = isExigenciaMerito
+      ? `Contexto: Você já gerou as Seções I a IV do cumprimento de exigência de mérito. Abaixo está o conteúdo já gerado para referência.
 
 SEÇÕES I A IV JÁ GERADAS:
 ---
 ${pass1Content.substring(0, 8000)}
 ---
 
-Agora elabore as SEÇÕES V a VIII + encerramento. Mantenha o MESMO tom, estilo e nível de profundidade. O texto total desta parte deve ter NO MÍNIMO 3.400 palavras. Use os dados do caso (marca: ${extractedData.brand_name}, processo: ${extractedData.process_number}, classe: ${extractedData.ncl_class}, titular: ${extractedData.holder}) conforme a Parte 1.` },
+Agora elabore as SEÇÕES V a VII + encerramento. Foque em demonstrar o CUMPRIMENTO INTEGRAL da exigência. NÃO inclua conteúdo sobre oposição ou confusão entre marcas. O texto total desta parte deve ter NO MÍNIMO 2.200 palavras. Use os dados do caso (marca: ${extractedData.brand_name}, processo: ${extractedData.process_number}, classe: ${extractedData.ncl_class}, titular: ${extractedData.holder}).`
+      : `Contexto: Você já gerou as Seções I a IV do recurso. Abaixo está o conteúdo já gerado para referência de dados e continuidade de estilo.
+
+SEÇÕES I A IV JÁ GERADAS:
+---
+${pass1Content.substring(0, 8000)}
+---
+
+Agora elabore as SEÇÕES V a VIII + encerramento. Mantenha o MESMO tom, estilo e nível de profundidade. O texto total desta parte deve ter NO MÍNIMO 3.400 palavras. Use os dados do caso (marca: ${extractedData.brand_name}, processo: ${extractedData.process_number}, classe: ${extractedData.ncl_class}, titular: ${extractedData.holder}) conforme a Parte 1.`;
+    const pass2User = [
+      { type: 'input_text', text: pass2UserText },
       ...fileResponseParts,
     ];
 
-    console.log('PASS 2: Generating Sections V-VIII...');
+    console.log('PASS 2: Generating remaining sections...', isExigenciaMerito ? '(EXIGÊNCIA DE MÉRITO mode)' : '');
     const pass2Result = await callOpenAI(OPENAI_API_KEY, pass2System, pass2User, 16000, 0.25);
 
     if (pass2Result.error) {
