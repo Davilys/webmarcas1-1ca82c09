@@ -429,6 +429,32 @@ export default function RevistaINPI() {
     setEntries(entriesWithDetails);
   };
 
+  const pollUploadStatus = async (uploadId: string, rpiNumber: number) => {
+    const maxAttempts = 60;
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      const { data } = await supabase.from('rpi_uploads').select('*').eq('id', uploadId).single();
+      if (!data) continue;
+      if (data.status === 'completed') {
+        if (data.total_processes_found === 0) {
+          toast.info(data.summary || 'Nenhum processo encontrado.', { duration: 6000 });
+        } else {
+          toast.success(`RPI ${rpiNumber} processada! ${data.total_processes_found} processos encontrados, ${data.total_clients_matched} clientes identificados.`);
+        }
+        await fetchUploads();
+        setSelectedUpload(data);
+        await fetchEntries(uploadId);
+        return;
+      }
+      if (data.status === 'failed') {
+        toast.error(data.summary || 'Erro ao processar RPI.');
+        await fetchUploads();
+        return;
+      }
+    }
+    toast.error('Tempo limite excedido ao processar RPI.');
+  };
+
   const handleRemoteFetch = async (rpiNumber?: number) => {
     setFetchingRemote(true);
     try {
@@ -446,12 +472,12 @@ export default function RevistaINPI() {
         } else { toast.error(result.message || 'Erro ao buscar RPI'); }
         return;
       }
-      if (result.totalProcesses === 0) { toast.info(result.message, { duration: 6000 }); }
-      else { toast.success(`RPI ${result.rpiNumber} processada! ${result.totalProcesses} processos encontrados, ${result.matchedClients} clientes identificados.`); }
+      toast.info(`RPI ${result.rpiNumber} sendo processada em segundo plano...`, { duration: 5000 });
       await fetchUploads();
       if (result.uploadId) {
         const { data: newUpload } = await supabase.from('rpi_uploads').select('*').eq('id', result.uploadId).single();
-        if (newUpload) { setSelectedUpload(newUpload); await fetchEntries(newUpload.id); }
+        if (newUpload) setSelectedUpload(newUpload);
+        await pollUploadStatus(result.uploadId, result.rpiNumber);
       }
     } catch (error) { console.error('Remote fetch error:', error); toast.error('Erro ao buscar RPI do portal INPI'); }
     finally { setFetchingRemote(false); }
