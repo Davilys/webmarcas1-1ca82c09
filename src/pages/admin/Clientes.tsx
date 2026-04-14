@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, LayoutGrid, List, RefreshCw, Users, Filter, X, Upload, Briefcase, Scale, Star, UserCheck, UserPlus, Mail, Settings2 } from 'lucide-react';
+import { Search, LayoutGrid, List, RefreshCw, Users, Filter, X, Upload, Download, Briefcase, Scale, Star, UserCheck, UserPlus, Mail, Settings2 } from 'lucide-react';
 import { useCanViewFinancialValues } from '@/hooks/useCanViewFinancialValues';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -61,6 +61,7 @@ export default function AdminClientes() {
   const [kanbanConfigOpen, setKanbanConfigOpen] = useState(false);
   const [kanbanStages, setKanbanStages] = useState<AdminKanbanStage[]>([]);
   const [stagesVersion, setStagesVersion] = useState(0);
+  const [exportingCRM, setExportingCRM] = useState(false);
   const { canViewFinancialValues } = useCanViewFinancialValues();
 
   // Debounce search input — avoids re-rendering 2300+ cards on every keystroke
@@ -334,6 +335,82 @@ export default function AdminClientes() {
   // Wrapper without args — safe to pass directly to onClick handlers and callbacks
   const refreshClients = () => fetchClients(0);
 
+  const handleExportCRM = async () => {
+    setExportingCRM(true);
+    try {
+      const { exportToCRMCSV } = await import('@/lib/clientExporter');
+
+      // Fetch full profile data + brand_processes in parallel
+      const [profiles, processes] = await Promise.all([
+        fetchAllRows<any>(
+          'profiles',
+          'id, full_name, email, phone, company_name, cpf_cnpj, cpf, cnpj, address, neighborhood, city, state, zip_code, origin, priority, contract_value, client_funnel_type, created_at',
+          (q: any) => q.order('created_at', { ascending: false })
+        ),
+        fetchAllRows<any>(
+          'brand_processes',
+          'user_id, brand_name, pipeline_stage, process_number'
+        ),
+      ]);
+
+      // Build process map: user_id -> processes[]
+      const processMap: Record<string, any[]> = {};
+      for (const p of processes) {
+        if (!p.user_id) continue;
+        if (!processMap[p.user_id]) processMap[p.user_id] = [];
+        processMap[p.user_id].push(p);
+      }
+
+      const rows: any[] = [];
+
+      for (const profile of profiles) {
+        const userProcesses = processMap[profile.id] || [];
+
+        const baseRow = {
+          full_name: profile.full_name || '',
+          email: profile.email || '',
+          phone: profile.phone || '',
+          company_name: profile.company_name || '',
+          cpf_cnpj: profile.cpf_cnpj || '',
+          cpf: profile.cpf || '',
+          cnpj: profile.cnpj || '',
+          address: profile.address || '',
+          neighborhood: profile.neighborhood || '',
+          city: profile.city || '',
+          state: profile.state || '',
+          zip_code: profile.zip_code || '',
+          origin: profile.origin || '',
+          priority: profile.priority || '',
+          contract_value: profile.contract_value ? String(profile.contract_value) : '',
+          client_funnel_type: profile.client_funnel_type || '',
+          created_at: profile.created_at || '',
+        };
+
+        if (userProcesses.length === 0) {
+          rows.push({ ...baseRow, brand_name: '', pipeline_stage: '', process_number: '' });
+        } else {
+          for (const proc of userProcesses) {
+            rows.push({
+              ...baseRow,
+              brand_name: proc.brand_name || '',
+              pipeline_stage: proc.pipeline_stage || '',
+              process_number: proc.process_number || '',
+            });
+          }
+        }
+      }
+
+      const date = new Date().toISOString().slice(0, 10);
+      exportToCRMCSV(rows, `clientes_crm_${date}`);
+      toast.success(`${rows.length} registros exportados com sucesso!`);
+    } catch (error) {
+      console.error('Export CRM error:', error);
+      toast.error('Erro ao exportar clientes');
+    } finally {
+      setExportingCRM(false);
+    }
+  };
+
   const handleClientClick = (client: ClientWithProcess) => {
     setSelectedClient(client);
     setDetailOpen(true);
@@ -459,6 +536,9 @@ export default function AdminClientes() {
               />
               <Button variant="outline" size="sm" className="h-9 gap-1.5 border-border/60" onClick={() => setImportExportOpen(true)}>
                 <Upload className="h-3.5 w-3.5" /> Importar
+              </Button>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 border-border/60" onClick={handleExportCRM} disabled={exportingCRM}>
+                <Download className="h-3.5 w-3.5" /> {exportingCRM ? 'Exportando...' : 'Exportar CRM'}
               </Button>
               <CreateClientDialog onClientCreated={refreshClients} />
             </div>

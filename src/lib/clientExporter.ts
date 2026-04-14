@@ -245,6 +245,54 @@ export function exportClients(options: ExportOptions): void {
   }
 }
 
+/**
+ * Export all clients for CRM import compatibility.
+ * Uses snake_case headers matching the import auto-mapper (clientParser.ts).
+ * Comma-separated, UTF-8 with BOM.
+ */
+export interface CRMExportRow {
+  full_name: string;
+  email: string;
+  phone: string;
+  company_name: string;
+  cpf_cnpj: string;
+  cpf: string;
+  cnpj: string;
+  address: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  origin: string;
+  priority: string;
+  contract_value: string;
+  brand_name: string;
+  pipeline_stage: string;
+  client_funnel_type: string;
+  process_number: string;
+  created_at: string;
+}
+
+const CRM_HEADERS: (keyof CRMExportRow)[] = [
+  'full_name', 'email', 'phone', 'company_name',
+  'cpf_cnpj', 'cpf', 'cnpj',
+  'address', 'neighborhood', 'city', 'state', 'zip_code',
+  'origin', 'priority', 'contract_value',
+  'brand_name', 'pipeline_stage', 'client_funnel_type',
+  'process_number', 'created_at',
+];
+
+export function exportToCRMCSV(rows: CRMExportRow[], filename: string = 'clientes_crm'): void {
+  const csv = Papa.unparse(rows, {
+    columns: CRM_HEADERS,
+    quotes: true,
+    delimiter: ',',
+  });
+
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  downloadBlob(blob, `${filename}.csv`);
+}
+
 // Utility functions
 function escapeXML(str: string): string {
   return str
