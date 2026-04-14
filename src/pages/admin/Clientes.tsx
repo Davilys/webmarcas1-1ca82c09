@@ -338,7 +338,7 @@ export default function AdminClientes() {
   const handleExportCRM = async () => {
     setExportingCRM(true);
     try {
-      const { exportToCRMCSV, type CRMExportRow } = await import('@/lib/clientExporter');
+      const { exportToCRMCSV } = await import('@/lib/clientExporter');
 
       // Fetch full profile data + brand_processes in parallel
       const [profiles, processes] = await Promise.all([
