@@ -61,6 +61,7 @@ export default function AdminClientes() {
   const [kanbanConfigOpen, setKanbanConfigOpen] = useState(false);
   const [kanbanStages, setKanbanStages] = useState<AdminKanbanStage[]>([]);
   const [stagesVersion, setStagesVersion] = useState(0);
+  const [exportingCRM, setExportingCRM] = useState(false);
   const { canViewFinancialValues } = useCanViewFinancialValues();
 
   // Debounce search input — avoids re-rendering 2300+ cards on every keystroke
