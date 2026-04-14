@@ -361,7 +361,7 @@ export default function AdminClientes() {
         processMap[p.user_id].push(p);
       }
 
-      const rows: CRMExportRow[] = [];
+      const rows: any[] = [];
 
       for (const profile of profiles) {
         const userProcesses = processMap[profile.id] || [];
