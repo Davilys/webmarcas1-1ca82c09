@@ -1,40 +1,50 @@
 
 
-## Plano: Exportar SQL em Partes (Arquivos Separados por Tabela)
+## Plano: Exportar Clientes para CRM Compatível (CSV separado por vírgula)
 
 ### Problema
-O SQL Editor do Supabase tem limite de tamanho de query. Um dump com 31k+ registros gera um arquivo SQL enorme que não pode ser executado de uma vez.
+O sistema atual de exportação usa headers em português traduzido (ex: "Nome Completo", "E-mail") e não inclui dados cruciais como `brand_name`, `pipeline_stage`, `client_funnel_type`, `neighborhood`, `cpf`, `cnpj`. O objetivo é gerar um arquivo que funcione perfeitamente ao ser importado em uma instância idêntica do sistema.
 
 ### Solução
-Alterar a exportação SQL para gerar **um arquivo ZIP contendo um arquivo `.sql` por tabela**, numerados na ordem correta de dependência. Cada arquivo terá no máximo ~500 INSERTs, e tabelas grandes serão divididas em partes (ex: `03_chat_messages_part1.sql`, `03_chat_messages_part2.sql`).
+Criar um novo botão **"Exportar para CRM"** na página de Clientes que gera um CSV com:
+- Headers usando os nomes exatos que o `clientParser.ts` reconhece como aliases (ex: `full_name`, `email`, `phone`, `brand_name`)
+- Todos os dados possíveis: perfil completo + marca + fase do pipeline + tipo de funil
+- Separador vírgula (padrão CSV universal, compatível com o parser existente)
+- Clientes de **ambos os funis** (comercial e jurídico) em um único arquivo
+- Deduplicação por perfil (um registro por marca/processo)
 
-Além disso, incluir um arquivo `00_README.txt` com instruções de execução na ordem correta.
+### Dados exportados por registro
+| Campo | Origem |
+|-------|--------|
+| `full_name`, `email`, `phone`, `company_name` | profiles |
+| `cpf_cnpj`, `address`, `city`, `state`, `zip_code` | profiles |
+| `neighborhood` | profiles |
+| `origin`, `priority`, `contract_value` | profiles |
+| `brand_name` | brand_processes |
+| `pipeline_stage` | brand_processes |
+| `client_funnel_type` | profiles |
+| `created_at` | profiles |
 
-### Como o usuário vai usar
-1. Clica em "Exportar SQL (em partes)"
-2. Recebe um ZIP com arquivos numerados
-3. No SQL Editor do destino, executa cada arquivo na ordem (01, 02, 03...)
-4. Tabelas independentes primeiro, tabelas com FK depois
+### Alterações
 
-### Detalhes técnicos
+**1. `src/lib/clientExporter.ts`** — Nova função `exportToCRMCSV`
+- Aceita `ClientWithProcess[]` (dados já carregados na página)
+- Gera CSV com vírgula, headers em snake_case compatíveis com o auto-mapper
+- Busca dados adicionais (`neighborhood`, `cpf`, `cnpj`, `address`) diretamente do banco para completar os campos que não estão no fetch principal
 
-**Arquivo modificado:** `src/components/admin/settings/BackupSettings.tsx`
+**2. `src/pages/admin/Clientes.tsx`** — Novo botão "Exportar CRM"
+- Botão com ícone `Download` ao lado do botão "Importar"
+- Ao clicar, busca dados completos dos perfis (todos os campos) + brand_processes
+- Gera o CSV de ambos os funis (comercial + jurídico) com todos os clientes do sistema
+- Sem necessidade de dialog — exportação direta
 
-- Nova função `exportSQLParts` que:
-  - Itera por cada tabela
-  - Gera INSERTs em lotes de no máximo **500 registros por arquivo** (bem abaixo do limite do SQL Editor)
-  - Usa a lib `JSZip` para empacotar tudo em um `.zip`
-  - Numera os arquivos na ordem de dependência (tabelas sem FK primeiro)
-  - Cada arquivo tem `BEGIN;` / `COMMIT;` próprio
-  - Inclui `ON CONFLICT (id) DO UPDATE` para permitir re-execução segura
+### Compatibilidade com importação
+O `clientParser.ts` já mapeia automaticamente estes aliases:
+- `full_name` → Nome Completo ✓
+- `email` → E-mail ✓  
+- `phone` → Telefone ✓
+- `brand_name` / `marca` → Marca ✓
+- `cpf_cnpj` → CPF/CNPJ ✓
 
-- Novo botão na UI: "Exportar SQL em Partes (ZIP)" ao lado do botão SQL existente
-
-**Nova dependência:** `jszip` (para gerar o ZIP no navegador)
-
-### Ordem de execução sugerida nos arquivos
-1. `system_settings`, `user_roles`, `admin_permissions`, `ai_providers`
-2. `profiles`, `leads`
-3. `contracts`, `brand_processes`, `invoices`, `documents`
-4. Tabelas dependentes (notas, atividades, mensagens, logs)
+O `import-clients` edge function aceita exatamente esses campos e faz upsert inteligente (busca por email → CPF → CNPJ → nome).
 
