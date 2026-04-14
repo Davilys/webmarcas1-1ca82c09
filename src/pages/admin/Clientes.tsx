@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, LayoutGrid, List, RefreshCw, Users, Filter, X, Upload, Briefcase, Scale, Star, UserCheck, UserPlus, Mail, Settings2 } from 'lucide-react';
+import { Search, LayoutGrid, List, RefreshCw, Users, Filter, X, Upload, Download, Briefcase, Scale, Star, UserCheck, UserPlus, Mail, Settings2 } from 'lucide-react';
 import { useCanViewFinancialValues } from '@/hooks/useCanViewFinancialValues';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -459,6 +459,9 @@ export default function AdminClientes() {
               />
               <Button variant="outline" size="sm" className="h-9 gap-1.5 border-border/60" onClick={() => setImportExportOpen(true)}>
                 <Upload className="h-3.5 w-3.5" /> Importar
+              </Button>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 border-border/60" onClick={handleExportCRM} disabled={exportingCRM}>
+                <Download className="h-3.5 w-3.5" /> {exportingCRM ? 'Exportando...' : 'Exportar CRM'}
               </Button>
               <CreateClientDialog onClientCreated={refreshClients} />
             </div>
