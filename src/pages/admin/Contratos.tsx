@@ -154,6 +154,49 @@ export default function AdminContratos() {
   const [zipImporting, setZipImporting] = useState(false);
   const [zipProgress, setZipProgress] = useState<ZipProgress | null>(null);
 
+  const handleExportContractsZip = async () => {
+    setZipExporting(true);
+    setZipProgress(null);
+    try {
+      const { blob, totalContracts } = await exportContractsZip((p) => setZipProgress(p));
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contratos_export_${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`${totalContracts} contratos exportados com arquivos!`);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao exportar ZIP');
+    } finally {
+      setZipExporting(false);
+      setZipProgress(null);
+    }
+  };
+
+  const handleImportContractsZip = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setZipImporting(true);
+    setZipProgress(null);
+    try {
+      const result = await importContractsZip(file, (p) => setZipProgress(p));
+      if (result.failed === 0) {
+        toast.success(`${result.imported} contratos importados com sucesso!`);
+      } else {
+        toast.warning(`${result.imported} importados, ${result.failed} falharam`);
+        if (result.errors.length > 0) console.warn('Erros:', result.errors);
+      }
+      refreshContracts();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao importar ZIP');
+    } finally {
+      setZipImporting(false);
+      setZipProgress(null);
+    }
+  };
+
   const handleExpirePromotions = async () => {
     if (!confirm(
       'Deseja atualizar contratos promocionais não assinados?\n\n' +
