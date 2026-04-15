@@ -878,24 +878,47 @@ export default function AdminDocumentos() {
               <motion.button
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={handleExportDocuments}
-                disabled={documents.length === 0}
+                onClick={handleExportDocumentsZip}
+                disabled={documents.length === 0 || zipExporting}
                 className="w-9 h-9 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
-                title="Exportar documentos (JSON)"
+                title="Exportar documentos (ZIP com arquivos)"
               >
-                <Download className="h-4 w-4" />
+                {zipExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
               </motion.button>
               <label
-                className="w-9 h-9 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                title="Importar documentos (JSON)"
+                className={cn(
+                  "w-9 h-9 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer",
+                  zipImporting && "opacity-40 pointer-events-none"
+                )}
+                title="Importar documentos (ZIP)"
               >
-                <Upload className="h-4 w-4" />
-                <input type="file" accept=".json" className="hidden" onChange={handleImportDocuments} />
+                {zipImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                <input type="file" accept=".zip" className="hidden" onChange={handleImportDocumentsZip} disabled={zipImporting} />
               </label>
               <UploadDialog processes={processes} onDone={fetchDocuments} />
             </div>
           </div>
         </motion.div>
+
+        {/* ZIP Progress Bar */}
+        {zipProgress && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative z-10 p-3 rounded-xl border border-border/50 bg-card/60 backdrop-blur-xl space-y-2"
+          >
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2">
+                <Archive className="h-4 w-4 text-primary animate-pulse" />
+                <span className="font-medium truncate max-w-[200px]">{zipProgress.label}</span>
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {zipProgress.current} / {zipProgress.total}
+              </span>
+            </div>
+            <Progress value={zipProgress.total > 0 ? (zipProgress.current / zipProgress.total) * 100 : 0} className="h-2" />
+          </motion.div>
+        )}
 
         {/* ── KPI Cards ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 relative z-10">
