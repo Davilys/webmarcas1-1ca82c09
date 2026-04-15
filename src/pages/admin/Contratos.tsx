@@ -640,6 +640,23 @@ export default function AdminContratos() {
               <Button variant="outline" size="icon" onClick={refreshContracts} className="rounded-xl hover:bg-muted/80">
                 <RefreshCw className="h-4 w-4" />
               </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleExportContractsZip}
+                disabled={zipExporting || contracts.length === 0}
+                className="rounded-xl hover:bg-muted/80"
+                title="Exportar Contratos (ZIP)"
+              >
+                {zipExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+              </Button>
+              <label
+                className="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-border hover:bg-muted/80 cursor-pointer transition-colors"
+                title="Importar Contratos (ZIP)"
+              >
+                {zipImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                <input type="file" accept=".zip" className="hidden" onChange={handleImportContractsZip} disabled={zipImporting} />
+              </label>
               <Button 
                 variant="outline" 
                 onClick={handleExpirePromotions}
