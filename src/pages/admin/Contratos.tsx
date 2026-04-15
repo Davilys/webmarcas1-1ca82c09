@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { 
   Search, Plus, RefreshCw, FileSignature, MoreHorizontal, 
   Eye, Trash2, Download, Send, Filter, CheckCircle, XCircle, Loader2, Timer, Edit,
-  TrendingUp, DollarSign, FileText, PenTool, RotateCcw
+  TrendingUp, DollarSign, FileText, PenTool, RotateCcw, Archive, Upload
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
@@ -23,6 +23,8 @@ import { DatePeriodFilter, type DateFilterType } from '@/components/admin/client
 import { motion } from 'framer-motion';
 import { useCanViewFinancialValues } from '@/hooks/useCanViewFinancialValues';
 import { EyeOff } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { exportContractsZip, importContractsZip, type ZipProgress } from '@/lib/zipDocumentExporter';
 
 interface Contract {
   id: string;
@@ -148,6 +150,52 @@ export default function AdminContratos() {
   const [activeTab, setActiveTab] = useState('all');
   const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [zipExporting, setZipExporting] = useState(false);
+  const [zipImporting, setZipImporting] = useState(false);
+  const [zipProgress, setZipProgress] = useState<ZipProgress | null>(null);
+
+  const handleExportContractsZip = async () => {
+    setZipExporting(true);
+    setZipProgress(null);
+    try {
+      const { blob, totalContracts } = await exportContractsZip((p) => setZipProgress(p));
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contratos_export_${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`${totalContracts} contratos exportados com arquivos!`);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao exportar ZIP');
+    } finally {
+      setZipExporting(false);
+      setZipProgress(null);
+    }
+  };
+
+  const handleImportContractsZip = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setZipImporting(true);
+    setZipProgress(null);
+    try {
+      const result = await importContractsZip(file, (p) => setZipProgress(p));
+      if (result.failed === 0) {
+        toast.success(`${result.imported} contratos importados com sucesso!`);
+      } else {
+        toast.warning(`${result.imported} importados, ${result.failed} falharam`);
+        if (result.errors.length > 0) console.warn('Erros:', result.errors);
+      }
+      refreshContracts();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao importar ZIP');
+    } finally {
+      setZipImporting(false);
+      setZipProgress(null);
+    }
+  };
 
   const handleExpirePromotions = async () => {
     if (!confirm(
@@ -592,6 +640,23 @@ export default function AdminContratos() {
               <Button variant="outline" size="icon" onClick={refreshContracts} className="rounded-xl hover:bg-muted/80">
                 <RefreshCw className="h-4 w-4" />
               </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleExportContractsZip}
+                disabled={zipExporting || contracts.length === 0}
+                className="rounded-xl hover:bg-muted/80"
+                title="Exportar Contratos (ZIP)"
+              >
+                {zipExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+              </Button>
+              <label
+                className="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-border hover:bg-muted/80 cursor-pointer transition-colors"
+                title="Importar Contratos (ZIP)"
+              >
+                {zipImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                <input type="file" accept=".zip" className="hidden" onChange={handleImportContractsZip} disabled={zipImporting} />
+              </label>
               <Button 
                 variant="outline" 
                 onClick={handleExpirePromotions}
@@ -612,6 +677,26 @@ export default function AdminContratos() {
             </motion.div>
           </div>
         </motion.div>
+
+        {/* ZIP Progress Bar */}
+        {zipProgress && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-3 rounded-xl border border-border/50 bg-card/60 backdrop-blur-xl space-y-2"
+          >
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2">
+                <Archive className="h-4 w-4 text-primary animate-pulse" />
+                <span className="font-medium truncate max-w-[200px]">{zipProgress.label}</span>
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {zipProgress.current} / {zipProgress.total}
+              </span>
+            </div>
+            <Progress value={zipProgress.total > 0 ? (zipProgress.current / zipProgress.total) * 100 : 0} className="h-2" />
+          </motion.div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
