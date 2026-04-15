@@ -1,50 +1,55 @@
 
 
-## Plano: Exportar Clientes para CRM Compatível (CSV separado por vírgula)
+## Plano: Importar/Exportar Documentos e Contratos com Arquivos (ZIP)
 
 ### Problema
-O sistema atual de exportação usa headers em português traduzido (ex: "Nome Completo", "E-mail") e não inclui dados cruciais como `brand_name`, `pipeline_stage`, `client_funnel_type`, `neighborhood`, `cpf`, `cnpj`. O objetivo é gerar um arquivo que funcione perfeitamente ao ser importado em uma instância idêntica do sistema.
+O objetivo é transferir documentos e contratos entre duas instâncias CRM idênticas, mantendo arquivos, metadados e ordem. A exportação atual de Documentos é apenas JSON (metadados + URLs), sem os arquivos reais. Contratos não têm import/export.
 
-### Solução
-Criar um novo botão **"Exportar para CRM"** na página de Clientes que gera um CSV com:
-- Headers usando os nomes exatos que o `clientParser.ts` reconhece como aliases (ex: `full_name`, `email`, `phone`, `brand_name`)
-- Todos os dados possíveis: perfil completo + marca + fase do pipeline + tipo de funil
-- Separador vírgula (padrão CSV universal, compatível com o parser existente)
-- Clientes de **ambos os funis** (comercial e jurídico) em um único arquivo
-- Deduplicação por perfil (um registro por marca/processo)
+### Viabilidade e Limitações
 
-### Dados exportados por registro
-| Campo | Origem |
-|-------|--------|
-| `full_name`, `email`, `phone`, `company_name` | profiles |
-| `cpf_cnpj`, `address`, `city`, `state`, `zip_code` | profiles |
-| `neighborhood` | profiles |
-| `origin`, `priority`, `contract_value` | profiles |
-| `brand_name` | brand_processes |
-| `pipeline_stage` | brand_processes |
-| `client_funnel_type` | profiles |
-| `created_at` | profiles |
+**Realidade técnica**: Os arquivos estão no Supabase Storage com URLs públicas. Baixar centenas de arquivos e compactá-los no browser tem limitações de memória. A abordagem viável é:
+
+- **Exportar**: Gera um ZIP contendo um `manifest.json` (todos os metadados) + os arquivos reais baixados via `fetch` das URLs públicas. Usa a biblioteca `JSZip` no browser.
+- **Importar**: Lê o ZIP, faz upload de cada arquivo para o Storage do novo projeto e cria os registros no banco com os novos URLs.
+- **Limite prático**: ~500MB total (limite do browser). Para volumes maiores, exportar em lotes.
 
 ### Alterações
 
-**1. `src/lib/clientExporter.ts`** — Nova função `exportToCRMCSV`
-- Aceita `ClientWithProcess[]` (dados já carregados na página)
-- Gera CSV com vírgula, headers em snake_case compatíveis com o auto-mapper
-- Busca dados adicionais (`neighborhood`, `cpf`, `cnpj`, `address`) diretamente do banco para completar os campos que não estão no fetch principal
+**1. Instalar dependência**
+- `jszip` (já disponível ou instalar via npm)
 
-**2. `src/pages/admin/Clientes.tsx`** — Novo botão "Exportar CRM"
-- Botão com ícone `Download` ao lado do botão "Importar"
-- Ao clicar, busca dados completos dos perfis (todos os campos) + brand_processes
-- Gera o CSV de ambos os funis (comercial + jurídico) com todos os clientes do sistema
-- Sem necessidade de dialog — exportação direta
+**2. `src/pages/admin/Documentos.tsx`** — Substituir export/import atual
+- **Exportar**: Botão "Exportar ZIP" que:
+  1. Busca todos os documentos
+  2. Baixa cada `file_url` via fetch
+  3. Adiciona ao ZIP com nome `{protocol}_{name}` ou fallback
+  4. Inclui `manifest.json` com metadados (name, document_type, mime_type, file_size, protocol, user_id, process_id, created_at, client_email, brand_name)
+  5. Gera download do ZIP
+- **Importar**: Botão "Importar ZIP" que:
+  1. Lê o ZIP
+  2. Para cada entrada no manifest: faz upload do arquivo para Storage, cria registro na tabela `documents` com o novo URL
+  3. Associa `user_id` via email do cliente (busca profiles por email)
+  4. Associa `process_id` via brand_name (busca brand_processes)
+- Barra de progresso durante export/import
 
-### Compatibilidade com importação
-O `clientParser.ts` já mapeia automaticamente estes aliases:
-- `full_name` → Nome Completo ✓
-- `email` → E-mail ✓  
-- `phone` → Telefone ✓
-- `brand_name` / `marca` → Marca ✓
-- `cpf_cnpj` → CPF/CNPJ ✓
+**3. `src/pages/admin/Contratos.tsx`** — Adicionar export/import
+- **Exportar**: Botão "Exportar Contratos" que:
+  1. Busca todos os contratos com `contract_html`, dados de perfil, tipo
+  2. Gera `contracts_manifest.json` com todos os campos
+  3. Para contratos com documentos PDF associados (tabela `documents` onde `contract_id`), inclui os PDFs no ZIP
+  4. Download do ZIP
+- **Importar**: Botão "Importar Contratos" que:
+  1. Lê o manifest
+  2. Associa `user_id` via email do cliente
+  3. Cria contratos na tabela `contracts`
+  4. Faz upload dos PDFs associados e cria registros em `documents`
 
-O `import-clients` edge function aceita exatamente esses campos e faz upsert inteligente (busca por email → CPF → CNPJ → nome).
+### Fluxo do Usuário
+1. No projeto A: clica "Exportar ZIP" → aguarda download
+2. No projeto B: clica "Importar ZIP" → seleciona arquivo → aguarda processamento
+3. Documentos aparecem na mesma ordem com os mesmos tipos e associações
+
+### Segurança
+- Import usa service role via edge function para bypass de RLS ao criar registros com user_ids de outros usuários
+- Edge function `import-documents-zip` processa o manifest e faz upsert
 
