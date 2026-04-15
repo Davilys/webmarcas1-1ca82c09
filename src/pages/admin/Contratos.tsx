@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { 
   Search, Plus, RefreshCw, FileSignature, MoreHorizontal, 
   Eye, Trash2, Download, Send, Filter, CheckCircle, XCircle, Loader2, Timer, Edit,
-  TrendingUp, DollarSign, FileText, PenTool, RotateCcw
+  TrendingUp, DollarSign, FileText, PenTool, RotateCcw, Archive, Upload
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
@@ -23,6 +23,8 @@ import { DatePeriodFilter, type DateFilterType } from '@/components/admin/client
 import { motion } from 'framer-motion';
 import { useCanViewFinancialValues } from '@/hooks/useCanViewFinancialValues';
 import { EyeOff } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { exportContractsZip, importContractsZip, type ZipProgress } from '@/lib/zipDocumentExporter';
 
 interface Contract {
   id: string;
