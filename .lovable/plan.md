@@ -1,55 +1,75 @@
 
 
-## Plano: Importar/Exportar Documentos e Contratos com Arquivos (ZIP)
+## Auditoria da Implementação ZIP — Resultado
 
-### Problema
-O objetivo é transferir documentos e contratos entre duas instâncias CRM idênticas, mantendo arquivos, metadados e ordem. A exportação atual de Documentos é apenas JSON (metadados + URLs), sem os arquivos reais. Contratos não têm import/export.
+### ❌ Falhas críticas encontradas
 
-### Viabilidade e Limitações
+**1. Contratos perdem TODA a prova de assinatura digital na exportação**
+O manifest exporta apenas 18 campos básicos. Os campos abaixo (presentes em 270 contratos do banco) **NÃO** são incluídos:
+- `blockchain_hash`, `blockchain_timestamp`, `blockchain_tx_id`, `blockchain_network`, `blockchain_proof` — prova OpenTimestamps/Bitcoin
+- `ots_file_url` — arquivo .ots de validação blockchain
+- `client_signature_image`, `contractor_signature_image` — imagens das assinaturas
+- `signature_ip`, `signature_user_agent`, `ip_address`, `user_agent`, `device_info` — metadados forenses (Lei 14.063/2020)
+- `signature_token`, `signature_expires_at`, `asaas_payment_id`, `lead_id`, `process_id`, `custom_due_date`, `suggested_classes`, `created_by`
 
-**Realidade técnica**: Os arquivos estão no Supabase Storage com URLs públicas. Baixar centenas de arquivos e compactá-los no browser tem limitações de memória. A abordagem viável é:
+**Impacto:** ao importar no projeto B, o contrato chega como "assinado" mas sem nenhum hash, sem assinatura visual, sem prova blockchain — tornando juridicamente inválido e quebrando a página `/verificar-contrato?hash=...`.
 
-- **Exportar**: Gera um ZIP contendo um `manifest.json` (todos os metadados) + os arquivos reais baixados via `fetch` das URLs públicas. Usa a biblioteca `JSZip` no browser.
-- **Importar**: Lê o ZIP, faz upload de cada arquivo para o Storage do novo projeto e cria os registros no banco com os novos URLs.
-- **Limite prático**: ~500MB total (limite do browser). Para volumes maiores, exportar em lotes.
+**2. Conflito de chave única `contract_number` na importação**
+O insert preserva `contract_number` original. Se o projeto B já tiver contratos com a mesma numeração (cenário comum em CRMs idênticos), o insert falha sem fallback.
 
-### Alterações
+**3. PDFs assinados são duplicados, não vinculados**
+O PDF assinado original (no bucket `documents/signed-contracts/`) é re-enviado para `documents/imported/`, criando registro novo em `documents` em vez de manter o vínculo correto. Funciona, mas perde a estrutura de pastas original.
 
-**1. Instalar dependência**
-- `jszip` (já disponível ou instalar via npm)
+**4. Documentos: arquivo `.ots` (prova blockchain) vai como documento solto**
+Os arquivos `.ots` em `documents/ots-proofs/` aparecem na exportação de Documentos sem nenhuma marcação especial — não são reconectados ao contrato correto na importação.
 
-**2. `src/pages/admin/Documentos.tsx`** — Substituir export/import atual
-- **Exportar**: Botão "Exportar ZIP" que:
-  1. Busca todos os documentos
-  2. Baixa cada `file_url` via fetch
-  3. Adiciona ao ZIP com nome `{protocol}_{name}` ou fallback
-  4. Inclui `manifest.json` com metadados (name, document_type, mime_type, file_size, protocol, user_id, process_id, created_at, client_email, brand_name)
-  5. Gera download do ZIP
-- **Importar**: Botão "Importar ZIP" que:
-  1. Lê o ZIP
-  2. Para cada entrada no manifest: faz upload do arquivo para Storage, cria registro na tabela `documents` com o novo URL
-  3. Associa `user_id` via email do cliente (busca profiles por email)
-  4. Associa `process_id` via brand_name (busca brand_processes)
-- Barra de progresso durante export/import
+**5. Sem validação de tamanho/quota antes do export**
+Com 270+ contratos e seus PDFs, o ZIP pode passar de 500MB e travar o navegador silenciosamente. Sem aviso prévio nem export em lotes.
 
-**3. `src/pages/admin/Contratos.tsx`** — Adicionar export/import
-- **Exportar**: Botão "Exportar Contratos" que:
-  1. Busca todos os contratos com `contract_html`, dados de perfil, tipo
-  2. Gera `contracts_manifest.json` com todos os campos
-  3. Para contratos com documentos PDF associados (tabela `documents` onde `contract_id`), inclui os PDFs no ZIP
-  4. Download do ZIP
-- **Importar**: Botão "Importar Contratos" que:
-  1. Lê o manifest
-  2. Associa `user_id` via email do cliente
-  3. Cria contratos na tabela `contracts`
-  4. Faz upload dos PDFs associados e cria registros em `documents`
+**6. Documentos importados com `uploaded_by: 'import_zip'` (string)**
+A coluna `uploaded_by` é `uuid` no banco. Isso causa erro de insert silencioso em todo documento importado.
 
-### Fluxo do Usuário
-1. No projeto A: clica "Exportar ZIP" → aguarda download
-2. No projeto B: clica "Importar ZIP" → seleciona arquivo → aguarda processamento
-3. Documentos aparecem na mesma ordem com os mesmos tipos e associações
+---
 
-### Segurança
-- Import usa service role via edge function para bypass de RLS ao criar registros com user_ids de outros usuários
-- Edge function `import-documents-zip` processa o manifest e faz upsert
+### ✅ O que funciona corretamente
+- Estrutura ZIP com `manifest.json` é válida
+- Mapeamento por email (cliente) e nome (marca/template/tipo) está correto
+- Download dos arquivos do Storage via `fetch` funciona para buckets públicos
+- Re-upload para Storage do projeto destino funciona
+- Progress callback e UI de progresso funcionam
+
+---
+
+### Plano de correção
+
+**1. `src/lib/zipDocumentExporter.ts` — Export de Contratos COMPLETO**
+Adicionar ao `ContractManifestEntry` e ao manifest:
+- Todos os campos blockchain (`blockchain_hash`, `blockchain_timestamp`, `blockchain_tx_id`, `blockchain_network`, `blockchain_proof`, `ots_file_url`)
+- Imagens de assinatura (`client_signature_image`, `contractor_signature_image`)
+- Metadados forenses (`signature_ip`, `signature_user_agent`, `ip_address`, `user_agent`, `device_info`)
+- Demais campos (`signature_token`, `signature_expires_at`, `asaas_payment_id`, `process_id` via brand_name lookup, `custom_due_date`, `suggested_classes`)
+- Baixar também o arquivo `.ots` (de `ots_file_url`) e incluir no ZIP em `ots_proofs/`
+
+**2. Import de Contratos — Preservar prova jurídica**
+- Inserir todos os novos campos
+- Re-upload do `.ots` para o novo Storage e atualizar `ots_file_url` com nova URL
+- Tratar conflito de `contract_number`: se existir, gerar sufixo `_imp_<timestamp>` e logar aviso
+- Mapear `process_id` via `brand_name` (igual documents)
+
+**3. Import de Documentos — Corrigir bug `uploaded_by`**
+- Remover string `'import_zip'` (coluna é uuid). Usar `null` ou o uuid do admin atual via `auth.getUser()`
+- Preservar pasta original (`signed-contracts/`, `ots-proofs/`) no novo Storage para manter URLs previsíveis
+
+**4. Validação de tamanho pré-export**
+- Antes de baixar arquivos, somar `file_size` dos documents + estimar contratos
+- Se > 400MB, alertar usuário e oferecer "exportar apenas últimos N" ou continuar sob risco
+
+**5. Verificação pós-import**
+- Após importar contratos, recalcular `blockchain_hash` opcionalmente NÃO — manter o original (a prova OTS é vinculada ao hash original do projeto A, e a página `/verificar-contrato` valida pelo hash, não pelo conteúdo recriado)
+- Garantir que `signature_status='signed'` + `blockchain_hash` + `ots_file_url` cheguem juntos no projeto B → `VerificarContrato.tsx` funcionará identicamente
+
+### Resultado esperado após correção
+- Exportar projeto A → importar projeto B → abrir `/verificar-contrato?hash=<hash>` no projeto B → mostra contrato 100% válido, com assinaturas visuais, prova blockchain Bitcoin verificável, IP/dispositivo de assinatura preservados
+- PDFs abrem corretamente (re-uploaded para Storage público do projeto B)
+- Sem duplicatas nem perda de vínculos cliente↔marca↔contrato↔documento
 
