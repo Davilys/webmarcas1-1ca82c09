@@ -205,9 +205,22 @@ export async function importDocumentsZip(
     throw new Error('Manifest vazio ou inválido');
   }
 
-  // Get current admin user UUID for `uploaded_by`
+  // Integrity check: warn if manifest references files not present in the ZIP
+  const integrityWarnings: string[] = [];
+  let missingFiles = 0;
+  for (const m of manifest) {
+    if (m.zip_filename && !zip.file(m.zip_filename)) missingFiles++;
+  }
+  if (missingFiles > 0) {
+    integrityWarnings.push(
+      `Aviso de integridade: ${missingFiles}/${manifest.length} arquivos referenciados no manifest não foram encontrados no ZIP (apenas metadados serão importados para esses).`
+    );
+  }
+
+  // `documents.uploaded_by` is `text` (default 'system'). We store the admin's UUID as a string
+  // for traceability; falls back to 'import_zip' if no auth session is available.
   const { data: authData } = await supabase.auth.getUser();
-  const adminUserId = authData?.user?.id || null;
+  const adminUserId = authData?.user?.id || 'import_zip';
 
   // Build lookups
   const emails = [...new Set(manifest.map((m) => m.client_email).filter(Boolean))] as string[];
@@ -287,7 +300,7 @@ export async function importDocumentsZip(
         user_id: userId,
         process_id: processId,
         contract_id: contractId,
-        uploaded_by: adminUserId, // FIX: was string 'import_zip', column is uuid
+        uploaded_by: adminUserId, // text column; stores admin UUID or 'import_zip'
       });
 
       if (insertError) {
@@ -302,7 +315,7 @@ export async function importDocumentsZip(
     }
   }
 
-  return { imported, failed, errors };
+  return { imported, failed, errors: [...integrityWarnings, ...errors] };
 }
 
 // ── EXPORT CONTRACTS ZIP ──
