@@ -686,5 +686,5 @@ export async function importContractsZip(
     }
   }
 
-  return { imported, failed, errors, renumbered };
+  return { imported, failed, errors: [...integrityWarnings, ...errors], renumbered };
 }
