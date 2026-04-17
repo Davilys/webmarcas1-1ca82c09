@@ -182,11 +182,17 @@ export default function AdminContratos() {
     setZipProgress(null);
     try {
       const result = await importContractsZip(file, (p) => setZipProgress(p));
-      if (result.failed === 0) {
+      const hasIssues = result.failed > 0 || result.errors.length > 0;
+      if (!hasIssues) {
         toast.success(`${result.imported} contratos importados com sucesso!`);
       } else {
-        toast.warning(`${result.imported} importados, ${result.failed} falharam`);
-        if (result.errors.length > 0) console.warn('Erros:', result.errors);
+        toast.warning(
+          `${result.imported} importados, ${result.failed} falharam` +
+          (result.renumbered ? `, ${result.renumbered} renumerados` : '') +
+          (result.errors.length ? `.\n\nDetalhes:\n• ${result.errors.slice(0, 8).join('\n• ')}${result.errors.length > 8 ? `\n…e mais ${result.errors.length - 8}` : ''}` : ''),
+          { duration: 14000 }
+        );
+        console.warn('Erros/Avisos:', result.errors);
       }
       refreshContracts();
     } catch (err: any) {

@@ -205,9 +205,22 @@ export async function importDocumentsZip(
     throw new Error('Manifest vazio ou inválido');
   }
 
-  // Get current admin user UUID for `uploaded_by`
+  // Integrity check: warn if manifest references files not present in the ZIP
+  const integrityWarnings: string[] = [];
+  let missingFiles = 0;
+  for (const m of manifest) {
+    if (m.zip_filename && !zip.file(m.zip_filename)) missingFiles++;
+  }
+  if (missingFiles > 0) {
+    integrityWarnings.push(
+      `Aviso de integridade: ${missingFiles}/${manifest.length} arquivos referenciados no manifest não foram encontrados no ZIP (apenas metadados serão importados para esses).`
+    );
+  }
+
+  // `documents.uploaded_by` is `text` (default 'system'). We store the admin's UUID as a string
+  // for traceability; falls back to 'import_zip' if no auth session is available.
   const { data: authData } = await supabase.auth.getUser();
-  const adminUserId = authData?.user?.id || null;
+  const adminUserId = authData?.user?.id || 'import_zip';
 
   // Build lookups
   const emails = [...new Set(manifest.map((m) => m.client_email).filter(Boolean))] as string[];
@@ -287,7 +300,7 @@ export async function importDocumentsZip(
         user_id: userId,
         process_id: processId,
         contract_id: contractId,
-        uploaded_by: adminUserId, // FIX: was string 'import_zip', column is uuid
+        uploaded_by: adminUserId, // text column; stores admin UUID or 'import_zip'
       });
 
       if (insertError) {
@@ -302,7 +315,7 @@ export async function importDocumentsZip(
     }
   }
 
-  return { imported, failed, errors };
+  return { imported, failed, errors: [...integrityWarnings, ...errors] };
 }
 
 // ── EXPORT CONTRACTS ZIP ──
@@ -460,6 +473,26 @@ export async function importContractsZip(
     throw new Error('Manifest vazio ou inválido');
   }
 
+  // Integrity check
+  const integrityWarnings: string[] = [];
+  let missingAssets = 0;
+  let totalAssets = 0;
+  for (const m of manifest) {
+    if (m.ots_zip_filename) {
+      totalAssets++;
+      if (!zip.file(m.ots_zip_filename)) missingAssets++;
+    }
+    for (const p of m.attached_pdfs || []) {
+      totalAssets++;
+      if (!zip.file(p.zip_filename)) missingAssets++;
+    }
+  }
+  if (missingAssets > 0) {
+    integrityWarnings.push(
+      `Aviso de integridade: ${missingAssets}/${totalAssets} arquivos (.ots/PDFs) referenciados não foram encontrados no ZIP.`
+    );
+  }
+
   const { data: authData } = await supabase.auth.getUser();
   const adminUserId = authData?.user?.id || null;
 
@@ -523,8 +556,8 @@ export async function importContractsZip(
       }
       if (contractNumber) existingNumbers.add(contractNumber);
 
-      // Re-upload .ots proof if present
-      let otsFileUrl: string | null = entry.ots_file_url;
+      // Re-upload .ots proof if present. If upload fails, NULL the URL to avoid orphan link to project A.
+      let otsFileUrl: string | null = null;
       if (entry.ots_zip_filename) {
         const otsFile = zip.file(entry.ots_zip_filename);
         if (otsFile) {
@@ -535,8 +568,15 @@ export async function importContractsZip(
             .upload(otsPath, otsBlob, { contentType: 'application/octet-stream', upsert: false });
           if (!otsErr && otsUpload) {
             otsFileUrl = supabase.storage.from('documents').getPublicUrl(otsUpload.path).data.publicUrl;
+          } else {
+            errors.push(`Aviso: falha ao re-enviar prova .ots de ${entry.contract_number || i} (${otsErr?.message || 'desconhecido'}) — link removido para evitar URL órfã.`);
           }
+        } else {
+          errors.push(`Aviso: prova .ots ausente no ZIP para ${entry.contract_number || i}.`);
         }
+      } else if (entry.ots_file_url) {
+        // Original had ots_file_url but no bundled file — keep null to avoid pointing to project A
+        errors.push(`Aviso: ${entry.contract_number || i} tinha ots_file_url no manifest mas o arquivo não foi incluído no ZIP.`);
       }
 
       const { data: newContract, error: insertError } = await (supabase as any)
@@ -596,29 +636,45 @@ export async function importContractsZip(
 
       // Upload attached PDFs preserving original folder
       if (entry.attached_pdfs.length > 0 && newContract?.id) {
-        for (const pdf of entry.attached_pdfs) {
+        for (let p = 0; p < entry.attached_pdfs.length; p++) {
+          const pdf = entry.attached_pdfs[p];
+          onProgress({
+            current: i + 1,
+            total,
+            label: `${entry.contract_number || `Contrato ${i + 1}`} — PDF ${p + 1}/${entry.attached_pdfs.length}`,
+            phase: 'uploading',
+          });
           const pdfFile = zip.file(pdf.zip_filename);
-          if (!pdfFile) continue;
+          if (!pdfFile) {
+            errors.push(`Aviso: PDF ${pdf.name} ausente no ZIP (contrato ${entry.contract_number || i}).`);
+            continue;
+          }
           const blob = await pdfFile.async('blob');
           const ext = pdf.zip_filename.split('.').pop() || 'pdf';
           const subfolder = pdf.storage_path?.split('/').slice(0, -1).join('/') || 'signed-contracts';
-          const storagePath = `${subfolder}/${Date.now()}_contract_${i}.${ext}`;
+          const storagePath = `${subfolder}/${Date.now()}_${p}_contract_${i}.${ext}`;
 
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('documents')
             .upload(storagePath, blob, { contentType: 'application/pdf', upsert: false });
 
-          if (!uploadError && uploadData) {
-            const url = supabase.storage.from('documents').getPublicUrl(uploadData.path).data.publicUrl;
-            await (supabase as any).from('documents').insert({
-              name: pdf.name || pdf.zip_filename.split('/').pop() || 'documento.pdf',
-              file_url: url,
-              document_type: 'contrato',
-              mime_type: 'application/pdf',
-              user_id: userId,
-              contract_id: newContract.id,
-              uploaded_by: adminUserId,
-            });
+          if (uploadError || !uploadData) {
+            errors.push(`Falha ao enviar PDF ${pdf.name} (contrato ${entry.contract_number || i}): ${uploadError?.message || 'desconhecido'}`);
+            continue;
+          }
+
+          const url = supabase.storage.from('documents').getPublicUrl(uploadData.path).data.publicUrl;
+          const { error: docInsertErr } = await (supabase as any).from('documents').insert({
+            name: pdf.name || pdf.zip_filename.split('/').pop() || 'documento.pdf',
+            file_url: url,
+            document_type: 'contrato',
+            mime_type: 'application/pdf',
+            user_id: userId,
+            contract_id: newContract.id,
+            uploaded_by: adminUserId || 'import_zip',
+          });
+          if (docInsertErr) {
+            errors.push(`PDF enviado mas registro falhou (${pdf.name}): ${docInsertErr.message}`);
           }
         }
       }
@@ -630,5 +686,5 @@ export async function importContractsZip(
     }
   }
 
-  return { imported, failed, errors, renumbered };
+  return { imported, failed, errors: [...integrityWarnings, ...errors], renumbered };
 }
