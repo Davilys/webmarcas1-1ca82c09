@@ -556,8 +556,8 @@ export async function importContractsZip(
       }
       if (contractNumber) existingNumbers.add(contractNumber);
 
-      // Re-upload .ots proof if present
-      let otsFileUrl: string | null = entry.ots_file_url;
+      // Re-upload .ots proof if present. If upload fails, NULL the URL to avoid orphan link to project A.
+      let otsFileUrl: string | null = null;
       if (entry.ots_zip_filename) {
         const otsFile = zip.file(entry.ots_zip_filename);
         if (otsFile) {
@@ -568,8 +568,15 @@ export async function importContractsZip(
             .upload(otsPath, otsBlob, { contentType: 'application/octet-stream', upsert: false });
           if (!otsErr && otsUpload) {
             otsFileUrl = supabase.storage.from('documents').getPublicUrl(otsUpload.path).data.publicUrl;
+          } else {
+            errors.push(`Aviso: falha ao re-enviar prova .ots de ${entry.contract_number || i} (${otsErr?.message || 'desconhecido'}) — link removido para evitar URL órfã.`);
           }
+        } else {
+          errors.push(`Aviso: prova .ots ausente no ZIP para ${entry.contract_number || i}.`);
         }
+      } else if (entry.ots_file_url) {
+        // Original had ots_file_url but no bundled file — keep null to avoid pointing to project A
+        errors.push(`Aviso: ${entry.contract_number || i} tinha ots_file_url no manifest mas o arquivo não foi incluído no ZIP.`);
       }
 
       const { data: newContract, error: insertError } = await (supabase as any)
@@ -629,29 +636,45 @@ export async function importContractsZip(
 
       // Upload attached PDFs preserving original folder
       if (entry.attached_pdfs.length > 0 && newContract?.id) {
-        for (const pdf of entry.attached_pdfs) {
+        for (let p = 0; p < entry.attached_pdfs.length; p++) {
+          const pdf = entry.attached_pdfs[p];
+          onProgress({
+            current: i + 1,
+            total,
+            label: `${entry.contract_number || `Contrato ${i + 1}`} — PDF ${p + 1}/${entry.attached_pdfs.length}`,
+            phase: 'uploading',
+          });
           const pdfFile = zip.file(pdf.zip_filename);
-          if (!pdfFile) continue;
+          if (!pdfFile) {
+            errors.push(`Aviso: PDF ${pdf.name} ausente no ZIP (contrato ${entry.contract_number || i}).`);
+            continue;
+          }
           const blob = await pdfFile.async('blob');
           const ext = pdf.zip_filename.split('.').pop() || 'pdf';
           const subfolder = pdf.storage_path?.split('/').slice(0, -1).join('/') || 'signed-contracts';
-          const storagePath = `${subfolder}/${Date.now()}_contract_${i}.${ext}`;
+          const storagePath = `${subfolder}/${Date.now()}_${p}_contract_${i}.${ext}`;
 
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('documents')
             .upload(storagePath, blob, { contentType: 'application/pdf', upsert: false });
 
-          if (!uploadError && uploadData) {
-            const url = supabase.storage.from('documents').getPublicUrl(uploadData.path).data.publicUrl;
-            await (supabase as any).from('documents').insert({
-              name: pdf.name || pdf.zip_filename.split('/').pop() || 'documento.pdf',
-              file_url: url,
-              document_type: 'contrato',
-              mime_type: 'application/pdf',
-              user_id: userId,
-              contract_id: newContract.id,
-              uploaded_by: adminUserId,
-            });
+          if (uploadError || !uploadData) {
+            errors.push(`Falha ao enviar PDF ${pdf.name} (contrato ${entry.contract_number || i}): ${uploadError?.message || 'desconhecido'}`);
+            continue;
+          }
+
+          const url = supabase.storage.from('documents').getPublicUrl(uploadData.path).data.publicUrl;
+          const { error: docInsertErr } = await (supabase as any).from('documents').insert({
+            name: pdf.name || pdf.zip_filename.split('/').pop() || 'documento.pdf',
+            file_url: url,
+            document_type: 'contrato',
+            mime_type: 'application/pdf',
+            user_id: userId,
+            contract_id: newContract.id,
+            uploaded_by: adminUserId || 'import_zip',
+          });
+          if (docInsertErr) {
+            errors.push(`PDF enviado mas registro falhou (${pdf.name}): ${docInsertErr.message}`);
           }
         }
       }
