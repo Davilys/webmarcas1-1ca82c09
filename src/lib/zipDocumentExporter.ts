@@ -473,6 +473,26 @@ export async function importContractsZip(
     throw new Error('Manifest vazio ou inválido');
   }
 
+  // Integrity check
+  const integrityWarnings: string[] = [];
+  let missingAssets = 0;
+  let totalAssets = 0;
+  for (const m of manifest) {
+    if (m.ots_zip_filename) {
+      totalAssets++;
+      if (!zip.file(m.ots_zip_filename)) missingAssets++;
+    }
+    for (const p of m.attached_pdfs || []) {
+      totalAssets++;
+      if (!zip.file(p.zip_filename)) missingAssets++;
+    }
+  }
+  if (missingAssets > 0) {
+    integrityWarnings.push(
+      `Aviso de integridade: ${missingAssets}/${totalAssets} arquivos (.ots/PDFs) referenciados não foram encontrados no ZIP.`
+    );
+  }
+
   const { data: authData } = await supabase.auth.getUser();
   const adminUserId = authData?.user?.id || null;
 
