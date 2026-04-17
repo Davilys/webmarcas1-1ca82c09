@@ -1,75 +1,72 @@
 
 
-## Auditoria da Implementação ZIP — Resultado
+## Auditoria Completa — Resultados
 
-### ❌ Falhas críticas encontradas
+### 🔴 CRÍTICO — quebra a importação
 
-**1. Contratos perdem TODA a prova de assinatura digital na exportação**
-O manifest exporta apenas 18 campos básicos. Os campos abaixo (presentes em 270 contratos do banco) **NÃO** são incluídos:
-- `blockchain_hash`, `blockchain_timestamp`, `blockchain_tx_id`, `blockchain_network`, `blockchain_proof` — prova OpenTimestamps/Bitcoin
-- `ots_file_url` — arquivo .ots de validação blockchain
-- `client_signature_image`, `contractor_signature_image` — imagens das assinaturas
-- `signature_ip`, `signature_user_agent`, `ip_address`, `user_agent`, `device_info` — metadados forenses (Lei 14.063/2020)
-- `signature_token`, `signature_expires_at`, `asaas_payment_id`, `lead_id`, `process_id`, `custom_due_date`, `suggested_classes`, `created_by`
+**1. `documents.uploaded_by` é `text`, NÃO `uuid`**
+Schema real: `uploaded_by | text | Default: 'system'::text`. O código atual envia `adminUserId` (uuid) → vai funcionar (uuid é string), mas o comentário "FIX: column is uuid" está errado e perdemos a semântica `'import_zip'` para auditoria.
 
-**Impacto:** ao importar no projeto B, o contrato chega como "assinado" mas sem nenhum hash, sem assinatura visual, sem prova blockchain — tornando juridicamente inválido e quebrando a página `/verificar-contrato?hash=...`.
+**2. RLS bloqueia inserção em `documents` para outros usuários**
+Política `Users can upload documents`: `auth.uid() = user_id`. A política admin `Admins can insert documents` permite — mas só se `has_role(admin)`. Isso funciona se o usuário logado for admin. ✅ OK para uso pretendido.
 
-**2. Conflito de chave única `contract_number` na importação**
-O insert preserva `contract_number` original. Se o projeto B já tiver contratos com a mesma numeração (cenário comum em CRMs idênticos), o insert falha sem fallback.
+**3. RLS bloqueia inserção em `contracts` com `user_id` de outro usuário**
+Política `Users can insert own contracts`: `(auth.uid() = user_id) OR has_role(admin)`. Como admin existe via `Admins can insert contracts`, ✅ funciona.
 
-**3. PDFs assinados são duplicados, não vinculados**
-O PDF assinado original (no bucket `documents/signed-contracts/`) é re-enviado para `documents/imported/`, criando registro novo em `documents` em vez de manter o vínculo correto. Funciona, mas perde a estrutura de pastas original.
+**4. Storage upload pode falhar silenciosamente em PDFs de contrato**
+Se `pdf.storage_path` vier `null` (manifest antigo/dado faltante), usa `'signed-contracts'`. Mas se existir conflito de path (`upsert: false`), o erro é IGNORADO — o registro em `documents` nem é criado e nada é logado. Sem feedback ao usuário.
 
-**4. Documentos: arquivo `.ots` (prova blockchain) vai como documento solto**
-Os arquivos `.ots` em `documents/ots-proofs/` aparecem na exportação de Documentos sem nenhuma marcação especial — não são reconectados ao contrato correto na importação.
+**5. Re-upload do `.ots` perde o vínculo se falhar**
+Se o upload do `.ots` falhar, mantém `entry.ots_file_url` (URL do projeto A) — que NÃO existe no projeto B. Resultado: hash blockchain válido, mas link `.ots` quebrado, e `/verificar-contrato` mostra erro ao baixar prova.
 
-**5. Sem validação de tamanho/quota antes do export**
-Com 270+ contratos e seus PDFs, o ZIP pode passar de 500MB e travar o navegador silenciosamente. Sem aviso prévio nem export em lotes.
+### 🟡 MÉDIO — funciona mas não ideal
 
-**6. Documentos importados com `uploaded_by: 'import_zip'` (string)**
-A coluna `uploaded_by` é `uuid` no banco. Isso causa erro de insert silencioso em todo documento importado.
+**6. Sem callback `phase: 'uploading'` para PDFs anexos durante import**
+O usuário vê só "creating contract X" mas o upload de N PDFs por contrato pode levar minutos sem feedback.
+
+**7. Documentos com `contract_id` são exportados DUAS vezes**
+- Uma vez no export de Documentos (em `files/`)
+- Outra vez no export de Contratos (em `contract_pdfs/`)
+
+Se o usuário importar AMBOS os ZIPs no projeto B, cria duplicatas. Não é bug do código, mas falta aviso.
+
+**8. Sem validação de integridade do ZIP**
+Se o manifest referenciar `zip_filename` que não está no ZIP (corrompido/truncado), o código pula silenciosamente sem reportar.
+
+### ✅ O que está correto
+- Manifest de contratos COMPLETO (todos os campos blockchain/assinatura)
+- Hash blockchain preservado → `/verificar-contrato` funciona no destino
+- Lookup por email/brand_name (não depende de UUIDs do projeto A)
+- Tratamento de colisão de `contract_number` com sufixo `_imp_<timestamp>`
+- Limite de 400MB com aviso `SIZE_WARNING`
+- Compressão DEFLATE nível 6 (bom equilíbrio)
 
 ---
 
-### ✅ O que funciona corretamente
-- Estrutura ZIP com `manifest.json` é válida
-- Mapeamento por email (cliente) e nome (marca/template/tipo) está correto
-- Download dos arquivos do Storage via `fetch` funciona para buckets públicos
-- Re-upload para Storage do projeto destino funciona
-- Progress callback e UI de progresso funcionam
+## Plano de Correção
 
----
+**`src/lib/zipDocumentExporter.ts`:**
 
-### Plano de correção
+1. **Logar falhas de upload de PDFs anexados a contratos** (problema #4): adicionar ao array `errors[]` quando `uploadError` ocorre, assim o usuário vê no toast.
 
-**1. `src/lib/zipDocumentExporter.ts` — Export de Contratos COMPLETO**
-Adicionar ao `ContractManifestEntry` e ao manifest:
-- Todos os campos blockchain (`blockchain_hash`, `blockchain_timestamp`, `blockchain_tx_id`, `blockchain_network`, `blockchain_proof`, `ots_file_url`)
-- Imagens de assinatura (`client_signature_image`, `contractor_signature_image`)
-- Metadados forenses (`signature_ip`, `signature_user_agent`, `ip_address`, `user_agent`, `device_info`)
-- Demais campos (`signature_token`, `signature_expires_at`, `asaas_payment_id`, `process_id` via brand_name lookup, `custom_due_date`, `suggested_classes`)
-- Baixar também o arquivo `.ots` (de `ots_file_url`) e incluir no ZIP em `ots_proofs/`
+2. **Tratar falha de re-upload do `.ots`** (problema #5): se falhar, definir `otsFileUrl = null` em vez de manter URL órfã do projeto A. Adicionar warning aos `errors[]`.
 
-**2. Import de Contratos — Preservar prova jurídica**
-- Inserir todos os novos campos
-- Re-upload do `.ots` para o novo Storage e atualizar `ots_file_url` com nova URL
-- Tratar conflito de `contract_number`: se existir, gerar sufixo `_imp_<timestamp>` e logar aviso
-- Mapear `process_id` via `brand_name` (igual documents)
+3. **Adicionar callback `phase: 'uploading'` para cada PDF anexado** (problema #6) durante o loop de attached_pdfs.
 
-**3. Import de Documentos — Corrigir bug `uploaded_by`**
-- Remover string `'import_zip'` (coluna é uuid). Usar `null` ou o uuid do admin atual via `auth.getUser()`
-- Preservar pasta original (`signed-contracts/`, `ots-proofs/`) no novo Storage para manter URLs previsíveis
+4. **Validar integridade do manifest** (problema #8): contar arquivos esperados vs encontrados no início do import e reportar discrepância.
 
-**4. Validação de tamanho pré-export**
-- Antes de baixar arquivos, somar `file_size` dos documents + estimar contratos
-- Se > 400MB, alertar usuário e oferecer "exportar apenas últimos N" ou continuar sob risco
+5. **Corrigir comentário enganoso** (problema #1): trocar `// FIX: was string 'import_zip', column is uuid` por nota correta sobre o tipo `text`.
 
-**5. Verificação pós-import**
-- Após importar contratos, recalcular `blockchain_hash` opcionalmente NÃO — manter o original (a prova OTS é vinculada ao hash original do projeto A, e a página `/verificar-contrato` valida pelo hash, não pelo conteúdo recriado)
-- Garantir que `signature_status='signed'` + `blockchain_hash` + `ots_file_url` cheguem juntos no projeto B → `VerificarContrato.tsx` funcionará identicamente
+**`src/pages/admin/Documentos.tsx` + `Contratos.tsx`:**
 
-### Resultado esperado após correção
-- Exportar projeto A → importar projeto B → abrir `/verificar-contrato?hash=<hash>` no projeto B → mostra contrato 100% válido, com assinaturas visuais, prova blockchain Bitcoin verificável, IP/dispositivo de assinatura preservados
-- PDFs abrem corretamente (re-uploaded para Storage público do projeto B)
-- Sem duplicatas nem perda de vínculos cliente↔marca↔contrato↔documento
+6. **Aviso ao usuário sobre duplicação** (problema #7): adicionar texto no botão "Importar ZIP" alertando que se importar AMBOS (Documentos + Contratos), os PDFs anexos a contratos virão em duplicata. Sugestão: importar SÓ Contratos (que já inclui os PDFs anexos), e depois SÓ os documentos sem `contract_id` via filtro no manifest.
+
+7. **Mostrar `errors[]` em modal/toast detalhado** após import: hoje só aparece no `console.warn`, mas o usuário precisa ver as falhas para tomar ação.
+
+### Resultado pós-correção
+- Erros de upload de PDFs/`.ots` ficam visíveis ao usuário
+- Sem URLs órfãs apontando para projeto A
+- Feedback completo durante todo o processo
+- Usuário ciente sobre risco de duplicação ao usar ambos os exports
+- Prova blockchain 100% íntegra entre projetos
 
