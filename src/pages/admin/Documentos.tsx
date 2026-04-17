@@ -715,17 +715,24 @@ export default function AdminDocumentos() {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
+    const ok = window.confirm(
+      'Atenção: se você também for importar o ZIP de Contratos, os PDFs anexados a contratos virão em duplicata.\n\n' +
+      'Recomendado: importar APENAS o ZIP de Contratos (que já inclui os PDFs assinados).\n\nDeseja continuar mesmo assim?'
+    );
+    if (!ok) return;
     setZipImporting(true);
     setZipProgress(null);
     try {
       const result = await importDocumentsZip(file, (p) => setZipProgress(p));
-      if (result.failed === 0) {
+      if (result.failed === 0 && result.errors.length === 0) {
         toast.success(`${result.imported} documentos importados com sucesso!`);
       } else {
-        toast.warning(`${result.imported} importados, ${result.failed} falharam`);
-        if (result.errors.length > 0) {
-          console.warn('Erros de importação:', result.errors);
-        }
+        toast.warning(
+          `${result.imported} importados, ${result.failed} falharam.` +
+          (result.errors.length ? `\n\nDetalhes:\n• ${result.errors.slice(0, 8).join('\n• ')}${result.errors.length > 8 ? `\n…e mais ${result.errors.length - 8}` : ''}` : ''),
+          { duration: 12000 }
+        );
+        console.warn('Erros/Avisos de importação:', result.errors);
       }
       await fetchDocuments();
     } catch (err: any) {
