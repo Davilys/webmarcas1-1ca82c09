@@ -252,6 +252,24 @@ export function SecuritySettings() {
                         )}
                         {!isMasterAdminUser && (
                           <>
+                            {isMasterAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (confirm(`Resetar a senha de ${admin.profile?.full_name || admin.profile?.email} para a senha padrão (123Mudar@)?\n\nO administrador deverá alterá-la no próximo login.`)) {
+                                    resetPasswordMutation.mutate({
+                                      userId: admin.user_id,
+                                      email: admin.profile?.email,
+                                    });
+                                  }
+                                }}
+                                disabled={resetPasswordMutation.isPending}
+                                title="Resetar Senha (Master Admin)"
+                              >
+                                <KeyRound className="h-4 w-4 text-amber-600" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
