@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Shield, UserPlus, Trash2, Loader2, Clock, User, Monitor, Settings2, RefreshCw, Eye, EyeOff, Mail, Phone, Key, Copy } from 'lucide-react';
+import { Shield, UserPlus, Trash2, Loader2, Clock, User, Monitor, Settings2, RefreshCw, Eye, EyeOff, Mail, Phone, Key, Copy, KeyRound } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -146,6 +146,26 @@ export function SecuritySettings() {
     },
   });
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userId, email }: { userId: string; email?: string }) => {
+      if (email === MASTER_ADMIN_EMAIL) {
+        throw new Error('A senha do administrador master não pode ser resetada por aqui.');
+      }
+      const { data, error } = await supabase.functions.invoke('reset-admin-password', {
+        body: { userId },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Senha resetada para 123Mudar@. Informe ao administrador.');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Erro ao resetar senha');
+    },
+  });
+
   const refetchAdmins = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-users'] });
   };
@@ -232,6 +252,24 @@ export function SecuritySettings() {
                         )}
                         {!isMasterAdminUser && (
                           <>
+                            {isMasterAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (confirm(`Resetar a senha de ${admin.profile?.full_name || admin.profile?.email} para a senha padrão (123Mudar@)?\n\nO administrador deverá alterá-la no próximo login.`)) {
+                                    resetPasswordMutation.mutate({
+                                      userId: admin.user_id,
+                                      email: admin.profile?.email,
+                                    });
+                                  }
+                                }}
+                                disabled={resetPasswordMutation.isPending}
+                                title="Resetar Senha (Master Admin)"
+                              >
+                                <KeyRound className="h-4 w-4 text-amber-600" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
