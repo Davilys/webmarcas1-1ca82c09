@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Shield, UserPlus, Trash2, Loader2, Clock, User, Monitor, Settings2, RefreshCw, Eye, EyeOff, Mail, Phone, Key, Copy } from 'lucide-react';
+import { Shield, UserPlus, Trash2, Loader2, Clock, User, Monitor, Settings2, RefreshCw, Eye, EyeOff, Mail, Phone, Key, Copy, KeyRound } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
