@@ -146,6 +146,26 @@ export function SecuritySettings() {
     },
   });
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userId, email }: { userId: string; email?: string }) => {
+      if (email === MASTER_ADMIN_EMAIL) {
+        throw new Error('A senha do administrador master não pode ser resetada por aqui.');
+      }
+      const { data, error } = await supabase.functions.invoke('reset-admin-password', {
+        body: { userId },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Senha resetada para 123Mudar@. Informe ao administrador.');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Erro ao resetar senha');
+    },
+  });
+
   const refetchAdmins = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-users'] });
   };
