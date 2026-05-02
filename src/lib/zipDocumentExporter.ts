@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { supabase } from '@/integrations/supabase/client';
+import { renderContractPDF } from '@/lib/contractPdfRenderer';
 
 // ── Types ──
 export interface DocManifestEntry {
@@ -74,6 +75,9 @@ export interface ContractManifestEntry {
   ots_zip_filename: string | null; // path in zip if downloaded
   // Attached PDFs (zip filenames)
   attached_pdfs: { zip_filename: string; original_url: string; name: string; storage_path: string | null }[];
+  // Rendered PDF (with signature image + blockchain certification page)
+  rendered_pdf_filename?: string | null;
+  render_error?: string | null;
 }
 
 export interface ZipProgress {
@@ -362,11 +366,39 @@ export async function exportContractsZip(
     onProgress({
       current: i + 1,
       total,
-      label: c.contract_number || c.subject || `Contrato ${i + 1}`,
+      label: `Renderizando PDF: ${c.contract_number || c.subject || `Contrato ${i + 1}`}`,
       phase: 'downloading',
     });
 
     const safeKey = sanitizeFilename(c.contract_number || c.id);
+
+    // Render PDF with signature + blockchain certification
+    let renderedPdfFilename: string | null = null;
+    let renderError: string | null = null;
+    if (c.contract_html) {
+      try {
+        const pdfBlob = await renderContractPDF({
+          id: c.id,
+          contract_number: c.contract_number,
+          document_type: c.document_type,
+          contract_html: c.contract_html,
+          client_signature_image: c.client_signature_image,
+          blockchain_hash: c.blockchain_hash,
+          blockchain_timestamp: c.blockchain_timestamp,
+          blockchain_tx_id: c.blockchain_tx_id,
+          blockchain_network: c.blockchain_network,
+          signature_ip: c.signature_ip,
+          signatory_name: c.signatory_name,
+          signatory_cpf: c.signatory_cpf,
+          signatory_cnpj: c.signatory_cnpj,
+        });
+        renderedPdfFilename = `contracts_rendered/${safeKey}.pdf`;
+        zip.file(renderedPdfFilename, pdfBlob);
+      } catch (e: any) {
+        renderError = e?.message || String(e);
+        console.warn(`Falha ao renderizar PDF do contrato ${c.contract_number}:`, renderError);
+      }
+    }
 
     // Download attached PDFs
     const attachedPdfs: ContractManifestEntry['attached_pdfs'] = [];
@@ -442,6 +474,8 @@ export async function exportContractsZip(
       ots_file_url: c.ots_file_url,
       ots_zip_filename: otsZipFilename,
       attached_pdfs: attachedPdfs,
+      rendered_pdf_filename: renderedPdfFilename,
+      render_error: renderError,
     });
   }
 
