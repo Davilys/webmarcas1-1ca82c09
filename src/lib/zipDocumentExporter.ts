@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { supabase } from '@/integrations/supabase/client';
+import { renderContractPDF } from '@/lib/contractPdfRenderer';
 
 // ── Types ──
 export interface DocManifestEntry {
@@ -74,6 +75,9 @@ export interface ContractManifestEntry {
   ots_zip_filename: string | null; // path in zip if downloaded
   // Attached PDFs (zip filenames)
   attached_pdfs: { zip_filename: string; original_url: string; name: string; storage_path: string | null }[];
+  // Rendered PDF (with signature image + blockchain certification page)
+  rendered_pdf_filename?: string | null;
+  render_error?: string | null;
 }
 
 export interface ZipProgress {
