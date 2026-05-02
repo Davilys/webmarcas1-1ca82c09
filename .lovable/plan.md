@@ -1,85 +1,59 @@
-## Importação Perfex CRM → Webmarcas (somente acréscimo, zero alteração)
+## Diagnóstico (auditoria concluída)
 
-### Diagnóstico do dump (`u973561543_perfexcrm.sql`, 70 MB)
+Auditei toda a cadeia de exportação de contratos. O download individual (botão "Baixar PDF" em `Contratos.tsx` e `ContractDetailSheet.tsx`) já chama `generateDocumentPrintHTML(...)` passando `client_signature_image` e o objeto `blockchainSignature` corretamente — esses PDFs saem com assinatura e certificado.
 
-| Tabela origem | Registros | Destino |
-|---|---|---|
-| `tblwebmarcas_customers` | **168** (CPF/CNPJ, marca, ramo, endereço completo) | `profiles` + `brand_processes` |
-| `tblcontacts` + `tblclients` | **16/18** | mescla com profiles (por email/CPF/CNPJ) |
-| `tblcontracts` (assinados) | **~? de 1.683** (filtro `signed=1`) | `contracts` |
-| `tblwebmarcas_contracts` | **186** (templates customizados) | `contracts` (vinculados aos profiles) |
-| `tblfiles` (metadados) | **30** (binários em `crm.webmarcas.net/uploads/`) | `documents` + storage `documents` |
+**O bug está na exportação em massa (botão "Exportar ZIP")** em `src/lib/zipDocumentExporter.ts` → função `exportContractsZip`:
 
-### Estratégia (4 fases — script Node executado pela edge function)
+| O que o ZIP contém hoje | O que falta |
+|---|---|
+| `contracts_manifest.json` (metadados, inclui hash/imagem em base64 cru) | — |
+| `contract_pdfs/...` (apenas PDFs anexados manualmente como `documents`) | — |
+| `ots_proofs/*.ots` (prova OpenTimestamps) | — |
+| ❌ **Nenhum PDF renderizado por contrato** | **PDF gerado com a assinatura desenhada + página de certificação blockchain** |
 
-#### Fase 1 — Parse e normalização (offline, 1 vez)
-Script `scripts/perfex-import.ts` lê `/tmp/perfex.sql` localmente, extrai apenas as 5 tabelas relevantes via regex, gera 4 NDJSON em `/tmp/`:
-- `customers.ndjson` (168 + 16 mesclados)
-- `contracts.ndjson` (somente `signed=1`)
-- `files.ndjson` (30 metadados)
-- `mapping.json` (perfex_id → email para resolver vínculos)
+Como a maioria dos contratos não tem PDF anexado em `documents`, o usuário abre o ZIP e não encontra nada visualmente assinado — os dados estão lá no JSON, mas não há um documento legível com assinatura + certificado.
 
-Faz upload do NDJSON para o storage `documents/_imports/perfex-2026-05-02/`.
+Confirmei via DB que os contratos assinados têm `blockchain_hash` e `client_signature_image` populados — a renderização funciona, só não está sendo chamada no export ZIP.
 
-#### Fase 2 — Edge function `import-perfex-customers`
-- Validação JWT + role `admin` (apenas Master pode disparar)
-- Lê o NDJSON do storage
-- Para cada cliente: dedup em cascata **email → CPF → CNPJ → nome**
-  - **Existe** → SKIP completamente (preserva edições atuais — conforme escolha "Pular o duplicado")
-  - **Novo** → cria auth user (senha `123Mudar@`) + profile (origin=`'import_perfex'`, `client_funnel_type='juridico'`, `created_by`=master) + role `user` + `brand_process` em `protocolado`
-- Lote de 5, retorna `{ imported, skipped, errors[] }`
+## Plano de correção
 
-#### Fase 3 — Edge function `import-perfex-contracts`
-- Lê `contracts.ndjson` (filtra `signed=1`)
-- Resolve `user_id` via `mapping.json` (perfex client → email → profile.id)
-- Se cliente não existir no Webmarcas → registra em `errors[]` e pula
-- INSERT em `contracts` com:
-  - `subject`, `contract_html` ← `content` (HTML do Perfex)
-  - `contract_value`, `start_date`, `end_date`
-  - `signature_status`='signed', `signed_at`=`acceptance_date`
-  - `signature_ip`=`acceptance_ip`, `signatory_name`=`acceptance_firstname+lastname`
-  - `created_by`=master, `contract_type`='registro_marca'
-  - **NÃO** preenche `blockchain_hash` (legado, não tem prova)
-- Idempotência: hash do `(perfex_id, client_email)` em descrição → segundo run não duplica
+### 1. Criar gerador de PDF puro (sem `window.open`)
+Novo arquivo `src/lib/contractPdfRenderer.ts` que:
+- Recebe os dados do contrato (mesmos campos já usados em `generateDocumentPrintHTML`)
+- Renderiza o HTML em um iframe oculto (offscreen)
+- Usa `html2canvas` + `jspdf` para gerar um `Blob` PDF multi-página (A4)
+- Inclui: assinatura do cliente (img), assinatura "✓ Digitalmente" da WebMarcas, e a página/seção de **certificação blockchain** (hash, timestamp, txId, rede, IP, QR de verificação)
 
-#### Fase 4 — Edge function `import-perfex-files`
-- Para cada um dos 30 arquivos em `tblfiles`:
-  - Constrói URL: `https://crm.webmarcas.net/uploads/{rel_type}/{rel_id}/{file_name}`
-  - `fetch()` com timeout 30s
-  - Se OK → upload para `storage/documents/imported/perfex/{rel_type}/{rel_id}/{file_name}`
-  - INSERT em `documents` vinculando ao `user_id` (e `contract_id` se `rel_type='contract'`)
-  - `uploaded_by`='import_perfex'
-  - Se 404/erro → registra em `errors[]` (não falha o lote)
+### 2. Adaptar `exportContractsZip`
+Em `src/lib/zipDocumentExporter.ts` → para cada contrato no loop:
+- Chamar `renderContractPDF(contract)` → obter `Blob`
+- Adicionar ao ZIP em `contracts_pdfs_renderizados/{numero_ou_id}.pdf`
+- Atualizar a manifest entry com o campo `rendered_pdf_filename`
+- Tratar erro silenciosamente (registra em `errors[]` no manifest, não trava o lote)
+- Atualizar a label do progresso para "Renderizando PDF..."
 
-#### UI — botão único em Configurações → Backup/Restauração
-Adiciona card "Importar Perfex CRM (legado)" com:
-- Botão "1. Importar Clientes" → chama `import-perfex-customers` → mostra `{imported, skipped, errors}`
-- Botão "2. Importar Contratos Assinados" (habilitado após fase 1)
-- Botão "3. Baixar Arquivos do Servidor Antigo" (habilitado após fase 1)
-- Cada fase mostra progresso e modal com lista detalhada de erros
-- Visível **apenas para Master Admin** (`davillys@gmail.com`)
+### 3. Procedimento de teste (antes de entregar)
+Antes de marcar como pronto, vou:
+1. Buscar via `read_query` 3 contratos reais variados:
+   - Um com `client_signature_image` + `blockchain_hash`
+   - Um só com `blockchain_hash` (sem imagem)
+   - Um sem nenhum dos dois (não assinado)
+2. Rodar o script de renderização localmente em `/tmp` simulando os dados
+3. Converter o PDF para imagens e inspecionar visualmente cada um:
+   - Assinatura aparece no quadro do "Contratante"
+   - Página/bloco "CERTIFICAÇÃO DIGITAL E VALIDADE JURÍDICA" presente com hash, data, txId, rede e QR
+   - Layout sem cortes, sem caixas pretas, sem texto sobreposto
+4. Só depois de confirmar visualmente os 3 cenários, aplico a correção no `exportContractsZip` e faço deploy
 
-### Garantias de segurança ("não alterar nada")
+### Arquivos a alterar
+- ✏️ Criar `src/lib/contractPdfRenderer.ts`
+- ✏️ Editar `src/lib/zipDocumentExporter.ts` (adicionar render no loop de `exportContractsZip`)
 
-1. **Schema**: zero migration. Usa apenas tabelas/colunas existentes.
-2. **Funis**: novos clientes entram em `protocolado` (mesma regra do bulk import atual).
-3. **Conflitos**: SKIP total — registros existentes ficam intactos.
-4. **Auth**: senha `123Mudar@` (já é o padrão do projeto).
-5. **RLS**: respeitado — service role só usado para criar auth users.
-6. **Rastreabilidade**: `origin='import_perfex'` em todos os profiles + `import_logs` registra cada run.
-7. **Idempotência**: rodar 2x não duplica nada.
-8. **Arquivos**: se servidor antigo cair, importação continua (apenas registra erro).
-
-### Arquivos a criar
-- `scripts/perfex-import.ts` (parser local, roda 1 vez no build)
-- `supabase/functions/import-perfex-customers/index.ts`
-- `supabase/functions/import-perfex-contracts/index.ts`
-- `supabase/functions/import-perfex-files/index.ts`
-- Edição: `src/components/admin/settings/BackupRestoreSettings.tsx` (adiciona o card)
+### Garantias de segurança
+- **Zero alteração de schema** — só leitura
+- **Não toca em** `generateDocumentPrintHTML`, no fluxo de assinatura, no download individual, ou no import
+- Falhas de renderização não interrompem o ZIP (graceful)
+- Manifest mantém compatibilidade total com `importContractsZip`
 
 ### Resultado esperado
-- ~150-160 novos clientes no CRM (descontando duplicatas)
-- ~100-300 contratos assinados históricos vinculados
-- ~25 arquivos no storage permanente
-- Logs detalhados de tudo que falhou
-- Zero impacto em clientes/contratos/funis existentes
+ZIP exportado passa a conter, para cada contrato assinado, um PDF visualmente idêntico ao que o cliente assinou — com a imagem da assinatura no campo do Contratante e a página de Certificação Blockchain (hash SHA-256, timestamp, txId, rede, IP, QR de verificação).
