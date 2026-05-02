@@ -232,6 +232,55 @@ export function PerfexImportSection() {
         description="Migra clientes, contratos assinados e arquivos do CRM antigo (crm.webmarcas.net). Apenas Master Admin."
       >
         <div className="space-y-4">
+          <div className="border-2 border-dashed rounded-lg p-4 space-y-3 bg-muted/30">
+            <div className="flex items-center gap-2">
+              <FileArchive className="h-5 w-5 text-primary" />
+              <span className="font-semibold text-sm">Upload do Dump SQL (opcional)</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Envie um arquivo <code className="bg-muted px-1 rounded">.zip</code>, <code className="bg-muted px-1 rounded">.sql</code> ou <code className="bg-muted px-1 rounded">.sql.gz</code> do dump do Perfex CRM. Será processado e usado nas 3 fases abaixo.
+              Se não enviar, será usado o dump padrão já embutido no sistema.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                id="perfex-dump-upload"
+                accept=".zip,.sql,.gz"
+                className="hidden"
+                disabled={uploading || parsing}
+                onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={uploading || parsing}
+                onClick={() => document.getElementById('perfex-dump-upload')?.click()}
+              >
+                {uploading ? (
+                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Enviando {uploadProgress}%</>
+                ) : parsing ? (
+                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Processando...</>
+                ) : (
+                  <><Upload className="h-4 w-4 mr-1" />Selecionar Arquivo</>
+                )}
+              </Button>
+              {uploadedFile && !uploading && !parsing && (
+                <span className="text-xs text-muted-foreground truncate">{uploadedFile.split('/').pop()}</span>
+              )}
+            </div>
+            {(uploading || parsing) && uploadProgress > 0 && uploadProgress < 100 && (
+              <Progress value={uploadProgress} className="h-1.5" />
+            )}
+            {parseStats && (
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Badge variant="default" className="bg-green-600">✓ Dump pronto</Badge>
+                <Badge variant="secondary">{parseStats.customers} clientes</Badge>
+                <Badge variant="secondary">{parseStats.contracts} contratos</Badge>
+                <Badge variant="secondary">{parseStats.files} arquivos</Badge>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md text-sm">
             <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
             <div className="space-y-1">
