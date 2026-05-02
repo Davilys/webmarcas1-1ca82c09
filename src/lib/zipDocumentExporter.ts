@@ -474,6 +474,8 @@ export async function exportContractsZip(
       ots_file_url: c.ots_file_url,
       ots_zip_filename: otsZipFilename,
       attached_pdfs: attachedPdfs,
+      rendered_pdf_filename: renderedPdfFilename,
+      render_error: renderError,
     });
   }
 
