@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
     const offset = parseInt(url.searchParams.get('offset') || '0');
     const limit = parseInt(url.searchParams.get('limit') || '50');
 
-    const lines = await fetchNdjsonGz(`${APP_URL}/perfex-data/customers.ndjson.gz`);
+    const lines = await loadNdjson(supabase, 'customers.ndjson.gz', `${APP_URL}/perfex-data/customers.ndjson.gz`);
     const total = lines.length;
     const slice = lines.slice(offset, offset + limit);
 
