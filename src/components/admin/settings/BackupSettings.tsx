@@ -16,6 +16,7 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BackupImportSection } from './BackupImportSection';
+import { PerfexImportSection } from './PerfexImportSection';
 import { ALL_BACKUP_TABLES, fetchAllFromTable } from '@/lib/backupTables';
 import { exportSQLPartsZip, ExportProgress } from '@/lib/sqlPartsExporter';
 
@@ -346,6 +347,7 @@ export function BackupSettings() {
 
       {/* Import / Restore */}
       <BackupImportSection />
+      <PerfexImportSection />
 
       {/* Import History */}
       <SettingsCard
