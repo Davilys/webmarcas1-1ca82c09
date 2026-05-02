@@ -44,6 +44,58 @@ export function PerfexImportSection() {
     files: { ...initialState },
   });
   const [errorModal, setErrorModal] = useState<{ phase: Phase; details: string[] } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [parseStats, setParseStats] = useState<{ customers: number; contracts: number; files: number } | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+
+  const handleUpload = async (file: File) => {
+    if (!file) return;
+    const okExt = /\.(zip|sql|sql\.gz|gz)$/i.test(file.name);
+    if (!okExt) { toast.error('Use .zip, .sql ou .sql.gz'); return; }
+
+    setUploading(true);
+    setUploadProgress(0);
+    setParseStats(null);
+    try {
+      const path = `uploads/${Date.now()}-${file.name}`;
+      // Manual XHR for progress tracking
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+        };
+        xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error(`Upload ${xhr.status}: ${xhr.responseText}`));
+        xhr.onerror = () => reject(new Error('Network error'));
+        xhr.open('POST', `https://afuqrzecokubogopgfgt.supabase.co/storage/v1/object/perfex-import/${path}`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        xhr.setRequestHeader('x-upsert', 'true');
+        xhr.send(file);
+      });
+
+      setUploadedFile(path);
+      toast.success('Upload concluído. Processando dump...');
+
+      setUploading(false);
+      setParsing(true);
+      const res = await supabase.functions.invoke('parse-perfex-dump', {
+        body: { storagePath: path },
+      });
+      if (res.error) throw new Error(res.error.message);
+      setParseStats(res.data.stats);
+      toast.success(`Dump processado: ${res.data.stats.customers} clientes, ${res.data.stats.contracts} contratos, ${res.data.stats.files} arquivos`);
+    } catch (e) {
+      toast.error(`Falha: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setUploading(false);
+      setParsing(false);
+    }
+  };
+
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
