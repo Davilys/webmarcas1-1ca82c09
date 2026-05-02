@@ -63,14 +63,6 @@ export function PerfexImportSection() {
 
     try {
       while (true) {
-        const { data, error } = await supabase.functions.invoke(cfg.fn, {
-          method: 'POST',
-          // @ts-expect-error supabase-js doesn't type query in invoke
-          body: null,
-          headers: { 'Content-Type': 'application/json' },
-        });
-
-        // Use direct fetch to pass query params
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
         const url = `https://afuqrzecokubogopgfgt.supabase.co/functions/v1/${cfg.fn}?offset=${offset}&limit=${cfg.limit}`;
