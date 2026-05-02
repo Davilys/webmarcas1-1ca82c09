@@ -20,7 +20,7 @@ interface FileRecord {
 }
 
 async function fetchNdjsonGz(url: string): Promise<string[]> {
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
   const ds = new DecompressionStream('gzip');
   const decompressed = res.body!.pipeThrough(ds);
@@ -29,14 +29,19 @@ async function fetchNdjsonGz(url: string): Promise<string[]> {
 }
 
 async function loadNdjson(supabase: ReturnType<typeof createClient>, fileName: string, fallbackUrl: string): Promise<string[]> {
-  const { data } = await supabase.storage.from('perfex-import').download(`generated/${fileName}`);
-  if (data) {
-    const buf = new Uint8Array(await data.arrayBuffer());
-    const ds = new DecompressionStream('gzip');
-    const decompressed = new Response(new Blob([buf]).stream().pipeThrough(ds));
-    const text = await decompressed.text();
-    return text.split('\n').filter(l => l.trim());
+  const storagePath = `generated/${fileName}`;
+  const { data: signed, error: signedError } = await supabase.storage
+    .from('perfex-import')
+    .createSignedUrl(storagePath, 60);
+
+  if (signed?.signedUrl) {
+    return fetchNdjsonGz(signed.signedUrl);
   }
+
+  if (signedError) {
+    console.warn(`Storage signed URL failed for ${storagePath}: ${signedError.message}`);
+  }
+
   return fetchNdjsonGz(fallbackUrl);
 }
 
