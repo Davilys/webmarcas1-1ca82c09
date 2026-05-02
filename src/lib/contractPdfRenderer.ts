@@ -3,7 +3,15 @@
 
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { generateDocumentPrintHTML, getLogoBase64ForPDF, type BlockchainSignature } from '@/components/contracts/DocumentRenderer';
+import { generateDocumentPrintHTML, getLogoBase64ForPDF } from '@/components/contracts/DocumentRenderer';
+
+interface BlockchainSignature {
+  hash: string;
+  timestamp: string;
+  txId: string;
+  network: string;
+  ipAddress: string;
+}
 
 export interface RenderableContract {
   id: string;
