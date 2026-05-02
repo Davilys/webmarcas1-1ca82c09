@@ -175,6 +175,7 @@ export function PerfexImportSection() {
   return (
     <>
       <SettingsCard
+        icon={DatabaseBackup}
         title="Importação Legado Perfex CRM"
         description="Migra clientes, contratos assinados e arquivos do CRM antigo (crm.webmarcas.net). Apenas Master Admin."
       >
