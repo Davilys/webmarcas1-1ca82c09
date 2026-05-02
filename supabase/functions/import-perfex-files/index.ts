@@ -28,6 +28,18 @@ async function fetchNdjsonGz(url: string): Promise<string[]> {
   return text.split('\n').filter(l => l.trim());
 }
 
+async function loadNdjson(supabase: ReturnType<typeof createClient>, fileName: string, fallbackUrl: string): Promise<string[]> {
+  const { data } = await supabase.storage.from('perfex-import').download(`generated/${fileName}`);
+  if (data) {
+    const buf = new Uint8Array(await data.arrayBuffer());
+    const ds = new DecompressionStream('gzip');
+    const decompressed = new Response(new Blob([buf]).stream().pipeThrough(ds));
+    const text = await decompressed.text();
+    return text.split('\n').filter(l => l.trim());
+  }
+  return fetchNdjsonGz(fallbackUrl);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -54,7 +66,7 @@ Deno.serve(async (req) => {
     const offset = parseInt(url.searchParams.get('offset') || '0');
     const limit = parseInt(url.searchParams.get('limit') || '20');
 
-    const lines = await fetchNdjsonGz(`${APP_URL}/perfex-data/files.ndjson.gz`);
+    const lines = await loadNdjson(supabase, 'files.ndjson.gz', `${APP_URL}/perfex-data/files.ndjson.gz`);
     const total = lines.length;
     const slice = lines.slice(offset, offset + limit);
 
