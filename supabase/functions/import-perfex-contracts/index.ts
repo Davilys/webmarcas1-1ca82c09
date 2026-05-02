@@ -36,6 +36,18 @@ async function fetchNdjsonGz(url: string): Promise<string[]> {
   return text.split('\n').filter(l => l.trim());
 }
 
+async function loadNdjson(supabase: ReturnType<typeof createClient>, fileName: string, fallbackUrl: string): Promise<string[]> {
+  const { data } = await supabase.storage.from('perfex-import').download(`generated/${fileName}`);
+  if (data) {
+    const buf = new Uint8Array(await data.arrayBuffer());
+    const ds = new DecompressionStream('gzip');
+    const decompressed = new Response(new Blob([buf]).stream().pipeThrough(ds));
+    const text = await decompressed.text();
+    return text.split('\n').filter(l => l.trim());
+  }
+  return fetchNdjsonGz(fallbackUrl);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
