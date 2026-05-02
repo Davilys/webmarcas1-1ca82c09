@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SettingsCard } from './SettingsCard';
 import { toast } from 'sonner';
-import { Loader2, Users, FileText, FolderArchive, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Loader2, Users, FileText, FolderArchive, AlertTriangle, ShieldCheck, DatabaseBackup } from 'lucide-react';
 
 type Phase = 'customers' | 'contracts' | 'files';
 
