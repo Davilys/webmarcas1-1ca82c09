@@ -38,6 +38,7 @@ const TermosUso = lazy(() => import("./pages/TermosUso"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Blog = lazy(() => import("./pages/Blog"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
+const Lp = lazy(() => import("./pages/Lp"));
 
 // Cliente pages
 const ClienteLogin = lazy(() => import("./pages/cliente/Login"));
@@ -118,6 +119,10 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/registro" element={<Registro />} />
               <Route path="/registrar" element={<Registrar />} />
+              {/* Landing page dedicada para anúncios Meta Ads */}
+              <Route path="/lp" element={<Lp />} />
+              <Route path="/oferta" element={<Navigate to="/lp" replace />} />
+              <Route path="/inicio" element={<Navigate to="/lp" replace />} />
               {/* Common typo / variant redirects → /registrar (preserve Meta Ads URLs) */}
               <Route path="/registar" element={<Navigate to="/registrar" replace />} />
               <Route path="/cadastro" element={<Navigate to="/registrar" replace />} />

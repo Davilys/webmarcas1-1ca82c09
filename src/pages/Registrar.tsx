@@ -96,6 +96,45 @@ export default function Registrar() {
     };
     fetchUserData();
 
+    // Check for pre-filled lead from /lp landing page
+    const lpLeadRaw = sessionStorage.getItem('lpLead');
+    if (lpLeadRaw) {
+      try {
+        const lp = JSON.parse(lpLeadRaw);
+        if (lp.fullName || lp.email || lp.phone) {
+          setPersonalData((prev) => ({
+            fullName: lp.fullName || prev?.fullName || '',
+            email: lp.email || prev?.email || '',
+            phone: lp.phone || prev?.phone || '',
+            cpf: prev?.cpf || '',
+            cep: prev?.cep || '',
+            address: prev?.address || '',
+            addressNumber: prev?.addressNumber || '',
+            city: prev?.city || '',
+            state: prev?.state || '',
+            neighborhood: prev?.neighborhood || '',
+          }));
+        }
+        if (lp.brandName) {
+          setViabilityData({
+            brandName: lp.brandName,
+            businessArea: '',
+            result: {
+              success: true,
+              level: 'medium',
+              title: 'Análise pendente',
+              description: 'Continue para realizar a consulta de viabilidade.',
+              classes: [],
+              classDescriptions: [],
+            },
+          });
+        }
+        sessionStorage.removeItem('lpLead');
+      } catch (e) {
+        console.error('Error parsing lpLead:', e);
+      }
+    }
+
     // Check for pre-filled viability data from ViabilitySearchSection (Index page)
     const storedData = sessionStorage.getItem('viabilityData');
     if (storedData) {
