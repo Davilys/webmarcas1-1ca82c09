@@ -75,7 +75,7 @@ serve(async (req) => {
     const recipientName = overrideContact?.name || contract.signatory_name || profile?.full_name || 'Cliente';
     
     // Production domain — always use this to avoid broken links from preview environments
-    const PRODUCTION_DOMAIN = 'https://webmarcas.net';
+    const PRODUCTION_DOMAIN = 'https://webmarcas1.lovable.app';
 
     const isPreviewUrl = (url: string) =>
       url.includes('lovableproject.com') ||

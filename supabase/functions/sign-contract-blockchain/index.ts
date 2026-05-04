@@ -248,7 +248,7 @@ serve(async (req) => {
     }
 
     // Build verification URL — use production domain, same pattern as generate-signature-link
-    const PRODUCTION_DOMAIN = 'https://webmarcas.net';
+    const PRODUCTION_DOMAIN = 'https://webmarcas1.lovable.app';
     const isPreviewUrl = (url: string) =>
       !url || url.includes('lovable.app') || url.includes('lovableproject.com') || url.includes('localhost');
     const rawSiteUrl = Deno.env.get('SITE_URL') || '';
@@ -481,7 +481,7 @@ serve(async (req) => {
               email: recipientEmail,
               senha: tempPassword,
               login_url: loginUrl,
-              base_url: 'https://webmarcas.net',
+              base_url: 'https://webmarcas1.lovable.app',
             }
           })
         });
@@ -522,7 +522,7 @@ serve(async (req) => {
               verification_url: verificationUrl,
               link_area_cliente: `${verificationBaseUrl}/cliente/documentos`,
               ots_file_url: otsFileUrl,
-              base_url: 'https://webmarcas.net',
+              base_url: 'https://webmarcas1.lovable.app',
             }
           })
         });

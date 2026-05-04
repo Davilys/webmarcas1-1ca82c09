@@ -259,7 +259,7 @@ serve(async (req) => {
         console.error('Error fetching blockchain_hash:', hashErr);
       }
 
-      const PRODUCTION_DOMAIN = 'https://webmarcas.net';
+      const PRODUCTION_DOMAIN = 'https://webmarcas1.lovable.app';
 
       // Trigger contract_signed email automation
       try {

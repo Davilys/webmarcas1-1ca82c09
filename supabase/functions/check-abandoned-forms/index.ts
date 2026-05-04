@@ -85,7 +85,7 @@ const handler = async (req: Request): Promise<Response> => {
               nome: lead.full_name,
               email: lead.email,
               marca: lead.company_name || 'Sua Marca',
-              base_url: 'https://webmarcas.net',
+              base_url: 'https://webmarcas1.lovable.app',
             },
           }),
         });
