@@ -20,6 +20,9 @@ import type { ViabilityResult } from "@/lib/api/viability";
 import type { PlanType } from "@/hooks/useContractTemplate";
 import logo from "@/assets/webmarcas-logo.png";
 import WhatsAppButton from "@/components/layout/WhatsAppButton";
+import { TrustStrip } from "@/components/registrar/TrustStrip";
+import { StickyMobileCTA } from "@/components/registrar/StickyMobileCTA";
+import { PageMeta } from "@/components/seo/PageMeta";
 
 // Dynamic text options for typing effect
 const dynamicTexts = [
@@ -241,14 +244,19 @@ export default function Registrar() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
+      <PageMeta
+        title="Registrar Marca no INPI Online | Protocolo em 48h - WebMarcas"
+        description="Registre sua marca no INPI 100% online. Consulta de viabilidade gratuita, protocolo em 48h e certificação Blockchain. Comece agora."
+        canonical="https://webmarcas.net/registrar"
+      />
       {/* Background decorative elements */}
       <div className="absolute inset-0 bg-hero-gradient" />
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/5 rounded-full blur-3xl" />
       <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-primary/3 rounded-full blur-2xl" />
 
-      {/* Social Proof Notifications */}
-      <SocialProofNotification />
+      {/* Social Proof Notifications — hidden on step 1 to keep first focus on the form */}
+      {step > 1 && <SocialProofNotification />}
 
       {/* Header with logo and theme toggle */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border">
@@ -278,18 +286,18 @@ export default function Registrar() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 w-full max-w-2xl mx-auto px-4 pt-24 pb-8">
+      <main className="relative z-10 w-full max-w-2xl mx-auto px-4 pt-20 pb-24 md:pb-8 md:pt-24">
         {/* Badge */}
-        <div className="flex justify-center mb-6 animate-fade-in">
+        <div className="flex justify-center mb-4 md:mb-6 animate-fade-in">
           <div className="inline-flex items-center gap-2 badge-premium">
             <Award className="w-4 h-4" />
             <span>{t("hero.badge")}</span>
           </div>
         </div>
 
-        {/* Dynamic Title */}
-        <div className="text-center mb-8">
-          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold leading-tight mb-4">
+        {/* Dynamic Title — compacted on mobile to keep form above the fold */}
+        <div className="text-center mb-5 md:mb-8">
+          <h1 className="font-display text-2xl sm:text-3xl md:text-5xl font-bold leading-tight mb-2 md:mb-4 tracking-tight">
             {t("hero.title")}{" "}
             <span className="inline-block overflow-hidden h-[1.2em] align-bottom relative">
               <AnimatePresence mode="wait">
@@ -306,7 +314,7 @@ export default function Registrar() {
               </AnimatePresence>
             </span>
           </h1>
-          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+          <p className="text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
             {t("hero.subtitle")}
           </p>
         </div>
@@ -315,7 +323,7 @@ export default function Registrar() {
         <CheckoutProgress currentStep={step} />
 
         {/* Form card */}
-        <Card className="shadow-xl border border-border bg-card/95 backdrop-blur-sm">
+        <Card data-registrar-form className="shadow-xl border border-border bg-card/95 backdrop-blur-sm">
           <CardContent className="p-6 md:p-8">
             {step === 1 && (
               <ViabilityStep onNext={handleViabilityNext} />
@@ -401,14 +409,20 @@ export default function Registrar() {
           </CardContent>
         </Card>
 
+        {/* Trust strip — only on the first step to reinforce credibility */}
+        {step === 1 && <TrustStrip />}
+
         {/* Footer text */}
         <p className="text-center text-xs text-muted-foreground mt-6">
           Ao continuar, você concorda com nossos{" "}
-          <a href="/termos" className="underline hover:text-primary transition-colors">Termos de Uso</a>
+          <a href="/termos-de-uso" className="underline hover:text-primary transition-colors">Termos de Uso</a>
           {" "}e{" "}
-          <a href="/privacidade" className="underline hover:text-primary transition-colors">Política de Privacidade</a>.
+          <a href="/politica-de-privacidade" className="underline hover:text-primary transition-colors">Política de Privacidade</a>.
         </p>
       </main>
+
+      {/* Sticky mobile CTA — appears from step 2 onward when form is scrolled out */}
+      <StickyMobileCTA currentStep={step} />
 
       {/* WhatsApp Floating Button */}
       <WhatsAppButton />

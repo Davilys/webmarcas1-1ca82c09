@@ -118,6 +118,10 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/registro" element={<Registro />} />
               <Route path="/registrar" element={<Registrar />} />
+              {/* Common typo / variant redirects → /registrar (preserve Meta Ads URLs) */}
+              <Route path="/registar" element={<Navigate to="/registrar" replace />} />
+              <Route path="/cadastro" element={<Navigate to="/registrar" replace />} />
+              <Route path="/cadastrar" element={<Navigate to="/registrar" replace />} />
               <Route path="/status-pedido" element={<StatusPedido />} />
               <Route path="/obrigado" element={<Obrigado />} />
               <Route path="/verificar-contrato" element={<VerificarContrato />} />
@@ -132,6 +136,9 @@ const App = () => (
               <Route path="/beneficios" element={<SectionRedirect section="beneficios" />} />
               <Route path="/como-funciona" element={<SectionRedirect section="como-funciona" />} />
               <Route path="/precos" element={<SectionRedirect section="precos" />} />
+              <Route path="/preco" element={<SectionRedirect section="precos" />} />
+              <Route path="/planos" element={<SectionRedirect section="precos" />} />
+              <Route path="/plano" element={<SectionRedirect section="precos" />} />
               <Route path="/faq" element={<SectionRedirect section="faq" />} />
               <Route path="/consultar" element={<SectionRedirect section="consultar" />} />
               <Route path="/home" element={<SectionRedirect section="home" />} />

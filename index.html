@@ -24,6 +24,37 @@
     
     <!-- Canonical -->
     <link rel="canonical" href="https://webmarcas.net/" />
+
+    <!-- JSON-LD Organization + Service -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://webmarcas.net/#organization",
+          "name": "WebMarcas Intelligence PI",
+          "url": "https://webmarcas.net/",
+          "logo": "https://webmarcas.net/favicon.png",
+          "taxID": "39.528.012/0001-29",
+          "sameAs": ["https://webmarcas.net/"]
+        },
+        {
+          "@type": "Service",
+          "name": "Registro de Marca no INPI",
+          "provider": { "@id": "https://webmarcas.net/#organization" },
+          "areaServed": "BR",
+          "description": "Registro de marca no INPI 100% online com protocolo em 48h, consulta de viabilidade gratuita e certificação Blockchain.",
+          "offers": {
+            "@type": "Offer",
+            "priceCurrency": "BRL",
+            "price": "699.00",
+            "url": "https://webmarcas.net/registrar"
+          }
+        }
+      ]
+    }
+    </script>
     
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/favicon.png">

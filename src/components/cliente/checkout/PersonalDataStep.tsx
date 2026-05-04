@@ -159,6 +159,8 @@ export function PersonalDataStep({ initialData, onNext, onBack }: PersonalDataSt
           <Field label="E-mail" icon={Mail} error={errors.email} required>
             <Input
               type="email"
+              inputMode="email"
+              autoComplete="email"
               value={data.email}
               onChange={(e) => setData({ ...data, email: e.target.value })}
               placeholder="seu@email.com"
@@ -169,6 +171,9 @@ export function PersonalDataStep({ initialData, onNext, onBack }: PersonalDataSt
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Telefone" icon={Phone} error={errors.phone} required>
               <Input
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
                 value={data.phone}
                 onChange={(e) => setData({ ...data, phone: formatPhone(e.target.value) })}
                 placeholder="(00) 00000-0000"
@@ -178,6 +183,8 @@ export function PersonalDataStep({ initialData, onNext, onBack }: PersonalDataSt
             </Field>
             <Field label="CPF" icon={CreditCard} error={errors.cpf} required>
               <Input
+                inputMode="numeric"
+                autoComplete="off"
                 value={data.cpf}
                 onChange={(e) => setData({ ...data, cpf: formatCPF(e.target.value) })}
                 placeholder="000.000.000-00"
@@ -199,6 +206,8 @@ export function PersonalDataStep({ initialData, onNext, onBack }: PersonalDataSt
           <Field label="CEP" icon={MapPin} error={errors.cep} required>
             <div className="relative">
               <Input
+                inputMode="numeric"
+                autoComplete="postal-code"
                 value={data.cep}
                 onChange={(e) => handleCEPChange(e.target.value)}
                 placeholder="00000-000"
