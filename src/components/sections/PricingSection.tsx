@@ -111,7 +111,7 @@ const PricingSection = () => {
                   <span className="text-lg text-muted-foreground line-through">R$1.194</span>
                   <span className="bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded-full">-43%</span>
                 </div>
-                <div className="text-4xl md:text-5xl font-display font-bold bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent mb-1">
+                <div className="text-4xl md:text-5xl font-display font-bold text-primary mb-1 tracking-tight">
                   R$699
                 </div>
                 <span className="text-muted-foreground text-sm">à vista no PIX</span>
@@ -163,34 +163,34 @@ const PricingSection = () => {
 
           {/* Premium */}
           <motion.div
-            className="bg-card rounded-3xl shadow-2xl border-2 border-[#c8af37] overflow-hidden relative flex flex-col ring-1 ring-[#c8af37]/30"
+            className="bg-card rounded-3xl shadow-premium border-2 border-accent/70 overflow-hidden relative flex flex-col md:-mt-4 md:mb-4"
             variants={cardVariants}
             whileHover={{ y: -5, transition: { duration: 0.2 } }}
           >
-            {/* Badge */}
-            <div className="absolute top-0 right-0">
-              <div className="bg-gradient-to-r from-primary to-blue-500 text-primary-foreground text-xs font-bold px-4 py-2 rounded-bl-2xl flex items-center gap-1.5 shadow-lg">
+            {/* Floating top badge — centered, gold */}
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+              <div className="bg-accent text-accent-foreground text-[11px] font-extrabold tracking-wider px-4 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg uppercase">
                 <Crown className="w-3.5 h-3.5 fill-current" />
-                Recomendado
+                Mais Escolhido
               </div>
             </div>
 
-            <div className="p-6 md:p-8 flex flex-col flex-1">
+            <div className="p-6 md:p-8 pt-8 md:pt-10 flex flex-col flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <Crown className="w-5 h-5 text-primary" />
+                <Crown className="w-5 h-5 text-accent" />
                 <h3 className="font-display text-xl font-bold text-foreground">Plano Premium</h3>
               </div>
               <p className="text-muted-foreground text-sm mb-6">Proteção total até o certificado</p>
 
               <div className="text-center mb-6">
-                <div className="text-4xl md:text-5xl font-display font-bold bg-gradient-to-r from-primary via-blue-500 to-primary bg-clip-text text-transparent mb-1">
-                  R$398<span className="text-lg">/mês</span>
+                <div className="text-4xl md:text-5xl font-display font-bold text-primary mb-1 tracking-tight">
+                  R$398<span className="text-lg text-muted-foreground font-semibold">/mês</span>
                 </div>
                 <span className="text-muted-foreground text-sm">assinatura mensal · tudo incluso</span>
               </div>
 
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-6 text-center">
-                <span className="text-xs font-semibold text-primary">✨ Recursos + Oposições + Exigências = INCLUSO</span>
+              <div className="bg-accent/10 border border-accent/30 rounded-xl p-3 mb-6 text-center">
+                <span className="text-xs font-bold text-foreground">✨ Recursos + Oposições + Exigências = INCLUSO</span>
               </div>
 
               <ul className="space-y-3 mb-6 flex-1">
