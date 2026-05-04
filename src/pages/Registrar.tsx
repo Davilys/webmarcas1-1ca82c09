@@ -20,6 +20,8 @@ import type { ViabilityResult } from "@/lib/api/viability";
 import type { PlanType } from "@/hooks/useContractTemplate";
 import logo from "@/assets/webmarcas-logo.png";
 import WhatsAppButton from "@/components/layout/WhatsAppButton";
+import { TrustStrip } from "@/components/registrar/TrustStrip";
+import { StickyMobileCTA } from "@/components/registrar/StickyMobileCTA";
 
 // Dynamic text options for typing effect
 const dynamicTexts = [
@@ -247,8 +249,8 @@ export default function Registrar() {
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/5 rounded-full blur-3xl" />
       <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-primary/3 rounded-full blur-2xl" />
 
-      {/* Social Proof Notifications */}
-      <SocialProofNotification />
+      {/* Social Proof Notifications — hidden on step 1 to keep first focus on the form */}
+      {step > 1 && <SocialProofNotification />}
 
       {/* Header with logo and theme toggle */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border">
@@ -278,18 +280,18 @@ export default function Registrar() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 w-full max-w-2xl mx-auto px-4 pt-24 pb-8">
+      <main className="relative z-10 w-full max-w-2xl mx-auto px-4 pt-20 pb-24 md:pb-8 md:pt-24">
         {/* Badge */}
-        <div className="flex justify-center mb-6 animate-fade-in">
+        <div className="flex justify-center mb-4 md:mb-6 animate-fade-in">
           <div className="inline-flex items-center gap-2 badge-premium">
             <Award className="w-4 h-4" />
             <span>{t("hero.badge")}</span>
           </div>
         </div>
 
-        {/* Dynamic Title */}
-        <div className="text-center mb-8">
-          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold leading-tight mb-4">
+        {/* Dynamic Title — compacted on mobile to keep form above the fold */}
+        <div className="text-center mb-5 md:mb-8">
+          <h1 className="font-display text-2xl sm:text-3xl md:text-5xl font-bold leading-tight mb-2 md:mb-4 tracking-tight">
             {t("hero.title")}{" "}
             <span className="inline-block overflow-hidden h-[1.2em] align-bottom relative">
               <AnimatePresence mode="wait">
@@ -306,7 +308,7 @@ export default function Registrar() {
               </AnimatePresence>
             </span>
           </h1>
-          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+          <p className="text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
             {t("hero.subtitle")}
           </p>
         </div>
@@ -315,7 +317,7 @@ export default function Registrar() {
         <CheckoutProgress currentStep={step} />
 
         {/* Form card */}
-        <Card className="shadow-xl border border-border bg-card/95 backdrop-blur-sm">
+        <Card data-registrar-form className="shadow-xl border border-border bg-card/95 backdrop-blur-sm">
           <CardContent className="p-6 md:p-8">
             {step === 1 && (
               <ViabilityStep onNext={handleViabilityNext} />
