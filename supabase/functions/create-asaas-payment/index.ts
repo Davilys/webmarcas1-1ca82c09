@@ -1059,7 +1059,7 @@ serve(async (req) => {
                 timestamp: new Date().toISOString(),
               },
               leadId: leadId || null,
-              baseUrl: 'https://webmarcas.lovable.app',
+              baseUrl: 'https://webmarcas1.lovable.app',
             }),
           });
 
@@ -1123,7 +1123,7 @@ serve(async (req) => {
             nome: personalData.fullName,
             email: personalData.email,
             marca: brandData.brandName,
-            base_url: 'https://webmarcas.net',
+            base_url: 'https://webmarcas1.lovable.app',
           },
         }),
       });
@@ -1146,7 +1146,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             contractId: contractData.id,
-            baseUrl: 'https://webmarcas.net',
+            baseUrl: 'https://webmarcas1.lovable.app',
           }),
         });
         const linkData = await linkRes.json();
@@ -1163,7 +1163,7 @@ serve(async (req) => {
             body: JSON.stringify({
               contractId: contractData.id,
               channels: ['email'],
-              baseUrl: 'https://webmarcas.net',
+              baseUrl: 'https://webmarcas1.lovable.app',
               overrideContact: {
                 email: personalData.email,
                 phone: personalData.phone || '',

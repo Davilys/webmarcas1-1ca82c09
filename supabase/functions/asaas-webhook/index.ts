@@ -134,7 +134,7 @@ serve(async (req) => {
                   valor: String(invoice.amount || ''),
                   descricao: invoice.description,
                   data_pagamento: paymentDate,
-                  base_url: 'https://webmarcas.net',
+                  base_url: 'https://webmarcas1.lovable.app',
                 }
               })
             }).catch(e => console.error('[webhook] email error:', e));
@@ -366,7 +366,7 @@ serve(async (req) => {
                     nome: profile.full_name || 'Cliente',
                     email: profile.email,
                     valor: String(invoice.amount || ''),
-                    base_url: 'https://webmarcas.net',
+                    base_url: 'https://webmarcas1.lovable.app',
                   }
                 })
               }).catch(e => console.error('[webhook] overdue email error:', e));

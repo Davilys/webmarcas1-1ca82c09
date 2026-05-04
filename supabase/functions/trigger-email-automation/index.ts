@@ -56,7 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Determine app_url — always falls back to production domain (never returns 500)
-    const PRODUCTION_DOMAIN = 'https://webmarcas.net';
+    const PRODUCTION_DOMAIN = 'https://webmarcas1.lovable.app';
     const rawSiteUrl = Deno.env.get('SITE_URL') || '';
     const isPreviewUrl = (url: string) =>
       !url || url.includes('lovable.app') || url.includes('localhost') || url.includes('127.0.0.1');

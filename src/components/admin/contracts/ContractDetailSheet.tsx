@@ -659,7 +659,7 @@ export function ContractDetailSheet({ contract, open, onOpenChange, onUpdate }: 
   const getProductionBaseUrl = () => {
     const origin = window.location.origin;
     const isPreview = origin.includes('lovableproject.com') || origin.includes('lovable.app') || origin.includes('localhost');
-    return isPreview ? 'https://webmarcas.net' : origin;
+    return isPreview ? 'https://webmarcas1.lovable.app' : origin;
   };
 
   const copySignatureLink = () => {
