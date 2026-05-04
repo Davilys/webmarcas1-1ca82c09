@@ -148,7 +148,7 @@ const PricingSection = () => {
               <Button
                 variant="outline"
                 size="lg"
-                className="w-full rounded-2xl"
+                className="w-full rounded-2xl min-h-[56px] text-base font-semibold"
                 onClick={scrollToForm}
               >
                 Registrar por R$699
@@ -163,7 +163,7 @@ const PricingSection = () => {
 
           {/* Premium */}
           <motion.div
-            className="bg-card rounded-3xl shadow-2xl border-2 border-primary/30 overflow-hidden relative flex flex-col"
+            className="bg-card rounded-3xl shadow-2xl border-2 border-[#c8af37] overflow-hidden relative flex flex-col ring-1 ring-[#c8af37]/30"
             variants={cardVariants}
             whileHover={{ y: -5, transition: { duration: 0.2 } }}
           >
@@ -207,7 +207,7 @@ const PricingSection = () => {
               <Button
                 variant="hero"
                 size="lg"
-                className="w-full rounded-2xl shadow-xl shadow-primary/25 hover:shadow-primary/40"
+                className="w-full rounded-2xl shadow-xl shadow-primary/25 hover:shadow-primary/40 min-h-[56px] text-base font-semibold"
                 onClick={scrollToForm}
               >
                 Começar Plano Premium
@@ -269,7 +269,7 @@ const PricingSection = () => {
               <Button
                 variant="default"
                 size="lg"
-                className="w-full rounded-2xl"
+                className="w-full rounded-2xl min-h-[56px] text-base font-semibold"
                 onClick={scrollToForm}
               >
                 Começar Plano Corporativo
