@@ -22,6 +22,7 @@ import logo from "@/assets/webmarcas-logo.png";
 import WhatsAppButton from "@/components/layout/WhatsAppButton";
 import { TrustStrip } from "@/components/registrar/TrustStrip";
 import { StickyMobileCTA } from "@/components/registrar/StickyMobileCTA";
+import { PageMeta } from "@/components/seo/PageMeta";
 
 // Dynamic text options for typing effect
 const dynamicTexts = [
@@ -243,6 +244,11 @@ export default function Registrar() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
+      <PageMeta
+        title="Registrar Marca no INPI Online | Protocolo em 48h - WebMarcas"
+        description="Registre sua marca no INPI 100% online. Consulta de viabilidade gratuita, protocolo em 48h e certificação Blockchain. Comece agora."
+        canonical="https://webmarcas.net/registrar"
+      />
       {/* Background decorative elements */}
       <div className="absolute inset-0 bg-hero-gradient" />
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
