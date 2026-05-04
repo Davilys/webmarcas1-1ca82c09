@@ -23,25 +23,13 @@ import { TrustStrip } from "@/components/registrar/TrustStrip";
 import { StickyMobileCTA } from "@/components/registrar/StickyMobileCTA";
 import { PageMeta } from "@/components/seo/PageMeta";
 
-// Dynamic text options for typing effect
-const dynamicTexts = [
-  "seja exclusivo",
-  "proteja seu negócio", 
-  "garanta seu futuro",
-  "destaque-se",
-  "cresça com segurança",
-];
-
 export default function Registrar() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { t } = useLanguage();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Phrase animation state
-  const [phraseIndex, setPhraseIndex] = useState(0);
-  
+
   const [viabilityData, setViabilityData] = useState<{
     brandName: string;
     businessArea: string;
@@ -58,14 +46,6 @@ export default function Registrar() {
   const [suggestedClasses, setSuggestedClasses] = useState<number[]>([]);
   const [suggestedClassDescriptions, setSuggestedClassDescriptions] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
-
-  // Phrase rotation effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPhraseIndex((prev) => (prev + 1) % dynamicTexts.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Pre-fill personal data if user is logged in and check for viability data
   useEffect(() => {
