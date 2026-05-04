@@ -403,14 +403,20 @@ export default function Registrar() {
           </CardContent>
         </Card>
 
+        {/* Trust strip — only on the first step to reinforce credibility */}
+        {step === 1 && <TrustStrip />}
+
         {/* Footer text */}
         <p className="text-center text-xs text-muted-foreground mt-6">
           Ao continuar, você concorda com nossos{" "}
-          <a href="/termos" className="underline hover:text-primary transition-colors">Termos de Uso</a>
+          <a href="/termos-de-uso" className="underline hover:text-primary transition-colors">Termos de Uso</a>
           {" "}e{" "}
-          <a href="/privacidade" className="underline hover:text-primary transition-colors">Política de Privacidade</a>.
+          <a href="/politica-de-privacidade" className="underline hover:text-primary transition-colors">Política de Privacidade</a>.
         </p>
       </main>
+
+      {/* Sticky mobile CTA — appears from step 2 onward when form is scrolled out */}
+      <StickyMobileCTA currentStep={step} />
 
       {/* WhatsApp Floating Button */}
       <WhatsAppButton />
