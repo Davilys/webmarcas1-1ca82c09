@@ -326,40 +326,44 @@ export default function Registrar() {
 
       {/* Main content */}
       <main className="relative z-10 w-full max-w-2xl mx-auto px-4 pt-20 pb-24 md:pb-8 md:pt-24">
-        {/* Badge */}
-        <div className="flex justify-center mb-4 md:mb-6 animate-fade-in">
-          <div className="inline-flex items-center gap-2 badge-premium">
-            <Award className="w-4 h-4" />
-            <span>{t("hero.badge")}</span>
-          </div>
-        </div>
+        {step === 1 ? (
+          <>
+            {/* Landing-style Hero (step 1) */}
+            <div className="flex justify-center mb-3 md:mb-5 animate-fade-in">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent-foreground text-[11px] sm:text-xs font-bold tracking-wide">
+                <Award className="w-3.5 h-3.5 text-accent" />
+                <span className="text-foreground/90">PROTOCOLO INPI EM ATÉ 48H</span>
+              </div>
+            </div>
 
-        {/* Dynamic Title — compacted on mobile to keep form above the fold */}
-        <div className="text-center mb-5 md:mb-8">
-          <h1 className="font-display text-2xl sm:text-3xl md:text-5xl font-bold leading-tight mb-2 md:mb-4 tracking-tight">
-            {t("hero.title")}{" "}
-            <span className="inline-block overflow-hidden h-[1.2em] align-bottom relative">
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={phraseIndex}
-                  initial={{ y: '100%', opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: '-100%', opacity: 0 }}
-                  transition={{ duration: 0.5, ease: "easeInOut" }}
-                  className="inline-block gradient-text"
-                >
-                  {dynamicTexts[phraseIndex]}
-                </motion.span>
-              </AnimatePresence>
-            </span>
-          </h1>
-          <p className="text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
-            {t("hero.subtitle")}
-          </p>
-        </div>
+            <div className="text-center mb-5 md:mb-8">
+              <h1 className="font-display text-[26px] leading-[1.15] sm:text-4xl md:text-5xl font-bold mb-3 md:mb-4 tracking-tight">
+                Proteja sua marca antes que{" "}
+                <span className="gradient-text">alguém registre primeiro</span>
+              </h1>
+              <p className="text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
+                Consulta de viabilidade gratuita no INPI + análise técnica em minutos. Processo 100% online conduzido por especialistas.
+              </p>
+            </div>
 
-        {/* Progress bar */}
-        <CheckoutProgress currentStep={step} />
+            {/* Lightweight progress hint instead of full stepper above the form */}
+            <div className="flex items-center justify-center gap-2 mb-4 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground font-bold text-[10px]">1</span>
+              <span>Passo 1 de 6 · leva ~2 min</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-center mb-4 md:mb-6 animate-fade-in">
+              <div className="inline-flex items-center gap-2 badge-premium">
+                <Award className="w-4 h-4" />
+                <span>{t("hero.badge")}</span>
+              </div>
+            </div>
+
+            <CheckoutProgress currentStep={step} />
+          </>
+        )}
 
         {/* Form card */}
         <Card data-registrar-form className="shadow-xl border border-border bg-card/95 backdrop-blur-sm">

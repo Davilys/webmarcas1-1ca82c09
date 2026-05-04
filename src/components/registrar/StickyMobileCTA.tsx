@@ -39,11 +39,11 @@ export function StickyMobileCTA({ minStep = 2, currentStep }: StickyMobileCTAPro
   };
 
   return (
-    <div className="md:hidden fixed bottom-0 inset-x-0 z-40 px-4 pb-4 pt-3 bg-gradient-to-t from-background via-background/95 to-background/0 pointer-events-none">
+    <div className="md:hidden fixed bottom-0 inset-x-0 z-40 px-4 pb-4 pt-3 bg-gradient-to-t from-background via-background/95 to-background/0 pointer-events-none border-t border-accent/20">
       <button
         type="button"
         onClick={handleClick}
-        className="pointer-events-auto w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-[var(--shadow-button,0_8px_24px_-8px_hsl(var(--primary)/0.5))] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+        className="pointer-events-auto w-full min-h-[56px] rounded-xl bg-primary text-primary-foreground text-base font-bold shadow-[var(--shadow-button)] flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
       >
         <ArrowDown className="w-4 h-4" />
         Continuar registro
